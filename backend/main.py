@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware #Cross-Origin Resource Sharing.
 import pandas as pd
 
 app = FastAPI()
