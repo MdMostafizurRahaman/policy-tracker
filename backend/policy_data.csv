@@ -2,7 +2,7 @@ Country,AI Safety,CyberSafety,Digital Education,Digital Inclusion,Digital Leisur
 Algeria,1,0,0,0,0,0,0,0,0,0
 Argentina,0,1,0,0,0,0,0,0,0,0
 Australia,1,1,1,1,0,0,0,0,0,0
-Bangladesh,0,0,0,0,0,0,0,0,0,0
+Bangladesh,1,1,1,1,1,1,1,1,1,1
 Brazil,1,0,0,0,0,0,0,0,0,0
 Bulgaria,1,0,0,0,0,0,0,0,0,0
 Canada,0,0,0,0,0,0,0,0,0,0
@@ -34,4 +34,4 @@ Turkey,0,0,0,0,0,0,0,0,0,0
 United Arab Emirates,1,1,0,0,0,0,0,0,0,0
 United Kingdom,0,0,0,0,0,0,0,0,0,0
 United States of America,0,0,1,0,0,0,0,0,0,0
-Viet Nam,0,0,1,0,0,0,0,0,0,0
+Viet Nam,0,0,1,1,1,1,1,1,1,1
