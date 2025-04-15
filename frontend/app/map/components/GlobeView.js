@@ -1,6 +1,7 @@
 'use client'
 import Globe from "react-globe.gl"
 import { useRef, useState, useEffect } from "react"
+import Tooltip from "./Tooltip"
 
 export default function GlobeView({ countries, geoFeatures }) {
   const globeRef = useRef()
@@ -76,19 +77,7 @@ export default function GlobeView({ countries, geoFeatures }) {
       />
 
       {tooltipContent && (
-        <div style={{
-          position: "absolute",
-          top: "10px",
-          left: "10px",
-          background: "rgba(0, 0, 0, 0.7)",
-          color: "#FFF",
-          padding: "5px 10px",
-          borderRadius: "4px",
-          pointerEvents: "none"
-        }}>
-          <strong>{tooltipContent.name}</strong>
-          <div>Total Policies: {tooltipContent.total}</div>
-        </div>
+        <Tooltip content={tooltipContent} /> 
       )}
     </div>
   )
