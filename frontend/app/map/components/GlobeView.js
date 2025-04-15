@@ -6,12 +6,13 @@ import Tooltip from "./Tooltip"
 export default function GlobeView({ countries, geoFeatures }) {
   const globeRef = useRef()
   const [tooltipContent, setTooltipContent] = useState(null)
+  const [hoveredCountry, setHoveredCountry] = useState(null)
 
-  // Enable auto-rotation on mount
+  // Enable auto-rotation
   useEffect(() => {
     if (globeRef.current) {
       globeRef.current.controls().autoRotate = true
-      globeRef.current.controls().autoRotateSpeed = 1.5 // Adjust rotation speed
+      globeRef.current.controls().autoRotateSpeed = 1.5
     }
   }, [])
 
@@ -19,15 +20,15 @@ export default function GlobeView({ countries, geoFeatures }) {
     if (feat) {
       const countryName = feat.properties.name
       const countryData = countries?.[countryName]
+      setHoveredCountry(countryName)
       setTooltipContent({
         name: countryName,
         total: countryData?.total_policies || 0
       })
-      // Stop rotation on hover
       globeRef.current.controls().autoRotate = false
     } else {
+      setHoveredCountry(null)
       setTooltipContent(null)
-      // Resume rotation when not hovering
       globeRef.current.controls().autoRotate = true
     }
   }
@@ -35,14 +36,13 @@ export default function GlobeView({ countries, geoFeatures }) {
   const handlePolygonClick = (feat) => {
     const countryName = feat.properties.name
     alert(`You clicked on ${countryName}`)
-    // Stop rotation on click
     globeRef.current.controls().autoRotate = false
   }
 
   const getColor = (totalPolicies) => {
-    if (totalPolicies <= 3) return "#FF0000" // 0-3 Policies
-    if (totalPolicies <= 7) return "#FFD700" // 4-7 Policies
-    return "#00AA00" // 8-10 Policies
+    if (totalPolicies <= 3) return "#FF0000"
+    if (totalPolicies <= 7) return "#FFD700"
+    return "#00AA00"
   }
 
   return (
@@ -50,7 +50,7 @@ export default function GlobeView({ countries, geoFeatures }) {
       display: "flex",
       justifyContent: "center",
       alignItems: "center",
-      height: "100vh", // Full viewport height
+      height: "100vh",
       width: "100%",
       position: "relative"
     }}>
@@ -61,9 +61,9 @@ export default function GlobeView({ countries, geoFeatures }) {
         polygonsData={geoFeatures}
         polygonCapColor={(feat) => {
           const name = feat.properties.name
+          if (hoveredCountry === name) return "#FFD700" // Highlight color on hover
           const countryData = countries?.[name]
-          if (!countryData) return "rgba(200, 200, 200, 0.6)"
-          return getColor(countryData.total_policies)
+          return countryData ? getColor(countryData.total_policies) : "rgba(200, 200, 200, 0.6)"
         }}
         polygonSideColor={() => "rgba(100, 100, 100, 0.2)"}
         polygonStrokeColor={() => "#111"}
@@ -77,7 +77,7 @@ export default function GlobeView({ countries, geoFeatures }) {
       />
 
       {tooltipContent && (
-        <Tooltip content={tooltipContent} /> 
+        <Tooltip content={tooltipContent} />
       )}
     </div>
   )

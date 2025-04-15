@@ -3,26 +3,27 @@ import { useState, useEffect } from "react"
 import { ComposableMap, Geographies, Geography } from "react-simple-maps"
 import dynamic from "next/dynamic"
 
-// Dynamically import the GlobeView component
-const GlobeView = dynamic(() => import("./GlobeView"), { ssr: false, loading: () => <p>Loading Globe...</p> })
+const GlobeView = dynamic(() => import("./GlobeView"), {
+  ssr: false,
+  loading: () => <p>Loading Globe...</p>,
+})
 
 const geoUrl = "/countries-110m.json"
 
 export default function Worldmap() {
-  const [viewMode, setViewMode] = useState("map") // State to toggle between map and globe view
+  const [viewMode, setViewMode] = useState("map")
   const [countries, setCountries] = useState(null)
   const [geoFeatures, setGeoFeatures] = useState([])
   const [tooltipContent, setTooltipContent] = useState(null)
   const [highlightedCountry, setHighlightedCountry] = useState(null)
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
 
-  // Fetch policy data for countries
   useEffect(() => {
     fetch("http://localhost:8000/api/countries")
       .then(res => res.json())
       .then(setCountries)
   }, [])
 
-  // Fetch geo data for the countries
   useEffect(() => {
     fetch(geoUrl)
       .then(res => res.json())
@@ -35,18 +36,25 @@ export default function Worldmap() {
   }, [])
 
   const getColor = (totalPolicies) => {
-    if (totalPolicies <= 3) return "#FF0000" // 0-3 Policies
-    if (totalPolicies <= 7) return "#FFD700" // 4-7 Policies
-    return "#00AA00" // 8-10 Policies
+    if (totalPolicies <= 3) return "#FF0000"
+    if (totalPolicies <= 7) return "#FFD700"
+    return "#00AA00"
   }
 
-  const handleMouseEnter = (geo) => {
+  const handleMouseEnter = (geo, event) => {
     const countryName = geo.properties.name
     const countryData = countries?.[countryName]
+
     setTooltipContent({
       name: countryName,
       total: countryData?.total_policies || 0
     })
+
+    setMousePosition({
+      x: event.clientX,
+      y: event.clientY
+    })
+
     setHighlightedCountry(countryName)
   }
 
@@ -90,7 +98,7 @@ export default function Worldmap() {
                       fill={isHighlighted ? "#FFD700" : fillColor}
                       stroke="#FFF"
                       strokeWidth={0.5}
-                      onMouseEnter={() => handleMouseEnter(geo)}
+                      onMouseEnter={(event) => handleMouseEnter(geo, event)}
                       onMouseLeave={handleMouseLeave}
                       onClick={() => handleClick(geo)}
                       style={{
@@ -105,6 +113,7 @@ export default function Worldmap() {
             </Geographies>
           </ComposableMap>
 
+          {/* Fixed Top-Left Tooltip */}
           {tooltipContent && (
             <div style={{
               position: "absolute",
@@ -118,6 +127,26 @@ export default function Worldmap() {
             }}>
               <strong>{tooltipContent.name}</strong>
               <div>Total Policies: {tooltipContent.total}</div>
+            </div>
+          )}
+
+          {/* Floating Tooltip Near Mouse */}
+          {tooltipContent && (
+            <div style={{
+              position: "fixed",
+              top: mousePosition.y + 12,
+              left: mousePosition.x + 12,
+              background: "#222",
+              color: "#FFF",
+              padding: "6px 10px",
+              borderRadius: "5px",
+              pointerEvents: "none",
+              zIndex: 9999,
+              fontSize: "13px",
+              boxShadow: "0 0 5px rgba(0,0,0,0.3)"
+            }}>
+              <strong>{tooltipContent.name}</strong><br />
+              Policies: {tooltipContent.total}
             </div>
           )}
         </div>
