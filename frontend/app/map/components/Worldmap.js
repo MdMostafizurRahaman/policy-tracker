@@ -68,8 +68,6 @@ export default function Worldmap() {
 
   return (
     <div style={{ padding: "20px" }}>
-      <h1>Global Policy Implementation Tracker</h1>
-
       <button onClick={handleViewToggle} style={{ marginBottom: "20px", padding: "10px", cursor: "pointer" }}>
         Switch to {viewMode === "map" ? "Globe" : "Map"} View
       </button>
