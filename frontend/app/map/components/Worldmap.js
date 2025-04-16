@@ -35,12 +35,6 @@ export default function Worldmap() {
       })
   }, [])
 
-  const getColor = (totalPolicies) => {
-    if (totalPolicies <= 3) return "#FF0000"
-    if (totalPolicies <= 7) return "#FFD700"
-    return "#00AA00"
-  }
-
   const handleMouseEnter = (geo, event) => {
     const countryName = geo.properties.name
     const countryData = countries?.[countryName]
@@ -89,7 +83,7 @@ export default function Worldmap() {
                   const countryName = geo.properties.name
                   const countryData = countries?.[countryName]
                   const isHighlighted = highlightedCountry === countryName
-                  const fillColor = countryData ? getColor(countryData.total_policies) : "#EEE"
+                  const fillColor = countryData ? countryData.color : "#EEE"
 
                   return (
                     <Geography
