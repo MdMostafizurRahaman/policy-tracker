@@ -39,12 +39,6 @@ export default function GlobeView({ countries, geoFeatures }) {
     globeRef.current.controls().autoRotate = false
   }
 
-  const getColor = (totalPolicies) => {
-    if (totalPolicies <= 3) return "#FF0000"
-    if (totalPolicies <= 7) return "#FFD700"
-    return "#00AA00"
-  }
-
   return (
     <div style={{
       display: "flex",
@@ -63,7 +57,7 @@ export default function GlobeView({ countries, geoFeatures }) {
           const name = feat.properties.name
           if (hoveredCountry === name) return "#FFD700" // Highlight color on hover
           const countryData = countries?.[name]
-          return countryData ? getColor(countryData.total_policies) : "rgba(200, 200, 200, 0.6)"
+          return countryData ? countryData.color : "rgba(200, 200, 200, 0.6)"
         }}
         polygonSideColor={() => "rgba(100, 100, 100, 0.2)"}
         polygonStrokeColor={() => "#111"}
