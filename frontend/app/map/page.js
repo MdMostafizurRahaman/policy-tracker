@@ -3,7 +3,7 @@ import WorldMap from "./components/Worldmap.js"
 export default function MapPage() {
   return (
     <main style={{ maxWidth: "1000px", margin: "0 auto", padding: "20px" }}>
-      <h1>Global Policy Implementation Tracker</h1>
+      <h1>Global Policy Tracker</h1>
       <div style={{ 
         marginTop: "20px",
         border: "1px solid #DDD",
