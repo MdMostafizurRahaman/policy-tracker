@@ -53,9 +53,9 @@ export default function PolicySubmissionForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: "600px", margin: "0 auto", padding: "20px", border: "1px solid #ccc", borderRadius: "8px", background: "#f9f9f9" }}>
+    <form onSubmit={handleSubmit} style={{ maxWidth: "600px", margin: "0 auto", padding: "20px", border: "1px solid #ccc", borderRadius: "8px", background: "#f9f9f9", color: "#333" }}>
       <h2 style={{ textAlign: "center", marginBottom: "20px", color: "#333" }}>Upload Policy for a Country</h2>
-      <div style={{ marginBottom: "10px" }}>
+      <div style={{ marginBottom: "10px", color: "#333" }}>
         <label style={{ fontWeight: "bold" }}>Country Name:</label>
         <input
           type="text"
