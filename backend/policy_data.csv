@@ -1,2 +1,6 @@
 Country,AI Safety,CyberSafety,Digital Education,Digital Inclusion,Digital Leisure,(Dis)Information,Digital Work,Mental Health,Physical Health,Social Media/Gaming Regulation
-Canada,1,1,1,1,1,1,1,1,1,1
+Canada,1,0,0,0,0,0,0,0,0,0
+Bangladesh,0,0,0,0,0,0,0,0,0,0
+India,1,1,0,0,0,0,0,0,0,0
+America,1,0,0,1,0,0,0,0,0,1
+Japan,1,1,1,0,0,1,1,1,1,0
