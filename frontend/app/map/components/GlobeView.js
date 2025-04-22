@@ -3,6 +3,7 @@ import Globe from "react-globe.gl"
 import { useRef, useState, useEffect } from "react"
 import Tooltip from "./Tooltip"
 
+
 export default function GlobeView({ countries, geoFeatures }) {
   const globeRef = useRef()
   const [tooltipContent, setTooltipContent] = useState(null)
