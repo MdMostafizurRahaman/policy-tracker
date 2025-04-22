@@ -1,22 +1,49 @@
 'use client';
 import dynamic from "next/dynamic";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-
+import { useState, useRef } from "react";
+import Tooltip from './Tooltip'
 // Dynamically import react-globe.gl to avoid SSR issues
 const Globe = dynamic(() => import("react-globe.gl"), { ssr: false });
 
 export default function MapView({ type, geoFeatures, countries, tooltipContent, hoveredCountry, handleHover, handleClick, globeRef }) {
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
+  const [containerPosition, setContainerPosition] = useState({ left: 0, top: 0 });
+
+  const handleMouseEnter = (geo, event) => {
+    handleHover(geo);
+    setMousePosition({
+      x: event.clientX,
+      y: event.clientY
+    });
+    
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setContainerPosition({
+        left: rect.left,
+        top: rect.top
+      });
+    }
+  };
+
+  const getColor = (totalPolicies) => {
+    if (totalPolicies <= 3) return "#FF0000";
+    if (totalPolicies <= 7) return "#FFD700";
+    return "#00AA00";
+  };
+
   if (type === "globe") {
     return (
       <div style={{ position: "relative", height: "100vh", width: "100%" }}>
         <Globe
-          ref={globeRef} // Attach the ref to the Globe component
+          ref={globeRef}
           globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
           polygonsData={geoFeatures}
           polygonCapColor={(feat) => {
             const name = feat.properties.name;
-            if (hoveredCountry === name) return "#FFD700"; // Highlight color on hover
+            if (hoveredCountry === name) return "#FFD700";
             const countryData = countries?.[name];
             return countryData ? countryData.color : "rgba(200, 200, 200, 0.6)";
           }}
@@ -30,36 +57,22 @@ export default function MapView({ type, geoFeatures, countries, tooltipContent, 
           onPolygonClick={handleClick}
           polygonsTransitionDuration={300}
         />
-        {tooltipContent && (
-          <div style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            background: "rgba(0, 0, 0, 0.7)",
-            color: "#FFF",
-            padding: "5px 10px",
-            borderRadius: "4px",
-            pointerEvents: "none",
-          }}>
-            <strong>{tooltipContent.name}</strong>
-            <div>Total Policies: {tooltipContent.total}</div>
-          </div>
-        )}
+        {tooltipContent && <Tooltip content={tooltipContent} />}
       </div>
     );
   }
 
   // Render flat map
   return (
-    <div style={{ position: "relative" }}>
-      <ComposableMap projection="geoMercator" style={{ width: "100%", height: "500px" }}>
-        <Geographies geography="/countries-110m.json">
+    <div ref={containerRef} style={{ position: "relative", height: "100%", width: "100%" }}>
+      <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
+        <Geographies geography={geoFeatures}>
           {({ geographies }) =>
             geographies.map((geo) => {
               const countryName = geo.properties.name;
               const countryData = countries?.[countryName];
               const isHighlighted = hoveredCountry === countryName;
-              const fillColor = countryData ? countryData.color : "#EEE";
+              const fillColor = countryData ? getColor(countryData.total_policies) : "#EEE";
 
               return (
                 <Geography
@@ -68,7 +81,7 @@ export default function MapView({ type, geoFeatures, countries, tooltipContent, 
                   fill={isHighlighted ? "#FFD700" : fillColor}
                   stroke="#FFF"
                   strokeWidth={0.5}
-                  onMouseEnter={() => handleHover(geo)}
+                  onMouseEnter={(event) => handleMouseEnter(geo, event)}
                   onMouseLeave={() => handleHover(null)}
                   onClick={() => handleClick(geo)}
                   style={{
@@ -82,19 +95,26 @@ export default function MapView({ type, geoFeatures, countries, tooltipContent, 
           }
         </Geographies>
       </ComposableMap>
+
+      {tooltipContent && <Tooltip content={tooltipContent} />}
+
+      {/* Floating Tooltip Near Mouse */}
       {tooltipContent && (
         <div style={{
-          position: "absolute",
-          top: "10px",
-          left: "10px",
-          background: "rgba(0, 0, 0, 0.7)",
+          position: "fixed",
+          top: mousePosition.y + 12,
+          left: mousePosition.x + 12,
+          background: "#222",
           color: "#FFF",
-          padding: "5px 10px",
-          borderRadius: "4px",
+          padding: "6px 10px",
+          borderRadius: "5px",
           pointerEvents: "none",
+          zIndex: 9999,
+          fontSize: "13px",
+          boxShadow: "0 0 5px rgba(0,0,0,0.3)"
         }}>
-          <strong>{tooltipContent.name}</strong>
-          <div>Total Policies: {tooltipContent.total}</div>
+          <strong>{tooltipContent.name}</strong><br />
+          Policies: {tooltipContent.total}
         </div>
       )}
     </div>
