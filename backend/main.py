@@ -301,19 +301,36 @@ def generate_policy_data_csv():
 
 @app.get("/api/country-policies/{country_name}")
 def get_country_policies(country_name: str):
-    # Check approved policies first
-    policy = approved_collection.find_one({"country": country_name})
+    # Fetch the country's policies from approved collection
+    country_data = approved_collection.find_one({"country": country_name})
     
-    if not policy:
-        # If not found in approved, check pending
-        policy = pending_collection.find_one({"country": country_name})
+    # If not found, check the pending collection as fallback
+    if not country_data:
+        country_data = pending_collection.find_one({"country": country_name})
         
-    if not policy:
-        # If still not found, return empty
-        raise HTTPException(status_code=404, detail="Country policies not found")
+    # If still not found, return 404
+    if not country_data:
+        raise HTTPException(status_code=404, detail=f"No policy data found for {country_name}")
     
-    # Convert ObjectId to string to make it JSON serializable
-    if "_id" in policy:
-        policy["_id"] = str(policy["_id"])
+    # Format the response by removing MongoDB _id field
+    if "_id" in country_data:
+        country_data.pop("_id")
+        
+    # Add policy types if not present
+    policy_types = [
+        "AI Safety", "CyberSafety", "Digital Education", "Digital Inclusion",
+        "Digital Leisure", "(Dis)Information", "Digital Work", "Mental Health",
+        "Physical Health", "Social Media/Gaming Regulation"
+    ]
     
-    return policy
+    # Ensure each policy has proper metadata
+    for i, policy in enumerate(country_data["policies"]):
+        if i < len(policy_types) and "type" not in policy:
+            policy["type"] = policy_types[i]
+            
+        # Ensure we have default fields even if they're empty
+        policy.setdefault("year", "N/A")
+        policy.setdefault("description", "")
+        policy.setdefault("metrics", [])
+    
+    return country_data
