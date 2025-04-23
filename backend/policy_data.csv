@@ -1,10 +1,4 @@
 Country,AI Safety,CyberSafety,Digital Education,Digital Inclusion,Digital Leisure,(Dis)Information,Digital Work,Mental Health,Physical Health,Social Media/Gaming Regulation
-Canada,1,0,0,0,0,0,0,0,0,0
-Bangladesh,0,0,0,0,0,0,0,0,0,0
-India,1,1,0,0,0,0,0,0,0,0
-America,1,0,0,1,0,0,0,0,0,1
-Japan,1,1,1,0,0,1,1,1,1,0
-Bhutan,1,0,1,1,1,1,1,1,0,0
-China,1,1,0,1,1,1,0,0,0,0
-Africa,1,0,0,0,0,0,0,0,0,0
-Greece,1,1,1,1,1,1,1,1,1,1
+India,1,0,0,0,0,0,0,0,0,0
+Bangladesh,1,1,0,1,1,1,1,1,1,1
+China,1,1,0,0,0,0,0,0,0,0
