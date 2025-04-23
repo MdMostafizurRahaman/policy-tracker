@@ -297,3 +297,23 @@ def generate_policy_data_csv():
                 # Only count policies that are explicitly approved
                 row.append(1 if (p["file"] or p["text"]) and p.get("status") == "approved" else 0)
             writer.writerow(row)
+
+
+@app.get("/api/country-policies/{country_name}")
+def get_country_policies(country_name: str):
+    # Check approved policies first
+    policy = approved_collection.find_one({"country": country_name})
+    
+    if not policy:
+        # If not found in approved, check pending
+        policy = pending_collection.find_one({"country": country_name})
+        
+    if not policy:
+        # If still not found, return empty
+        raise HTTPException(status_code=404, detail="Country policies not found")
+    
+    # Convert ObjectId to string to make it JSON serializable
+    if "_id" in policy:
+        policy["_id"] = str(policy["_id"])
+    
+    return policy
