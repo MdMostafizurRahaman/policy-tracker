@@ -20,7 +20,7 @@ app.add_middleware(
 
 # MongoDB connection
 client = MongoClient("mongodb+srv://bsse1320:bsse1320@cluster0.xpk6lau.mongodb.net/")
-db = client["policy_tracker"]
+db = client["policy_tracker"] #have some changes in future
 pending_collection = db["pending_submissions"]
 approved_collection = db["approved_policies"]
 
