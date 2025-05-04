@@ -2,3 +2,4 @@ approved_policies/
 temp_policies/
 __pycache__/
 *.pyc
+venv
