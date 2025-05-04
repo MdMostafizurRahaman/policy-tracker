@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 export default function page(){
   const [pendingSubmissions, setPendingSubmissions] = useState([])
   const [expandedSubmission, setExpandedSubmission] = useState(null)
+  const [currentPage, setCurrentPage] = useState(0)
+  const submissionsPerPage = 5
   
   const policyNames = [
     "AI Safety",
@@ -148,6 +150,28 @@ export default function page(){
     return "#f8f9fa" // default background for pending
   }
 
+  // Calculate pagination indexes
+  const startIndex = currentPage * submissionsPerPage
+  const endIndex = Math.min(startIndex + submissionsPerPage, pendingSubmissions.length)
+  const totalPages = Math.ceil(pendingSubmissions.length / submissionsPerPage)
+  
+  // Get current page submissions
+  const currentSubmissions = pendingSubmissions.slice(startIndex, endIndex)
+
+  const nextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1)
+      setExpandedSubmission(null) // Reset expanded state when changing pages
+    }
+  }
+
+  const prevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1)
+      setExpandedSubmission(null) // Reset expanded state when changing pages
+    }
+  }
+
   return (
     <div style={{ 
       maxWidth: "800px", 
@@ -179,236 +203,290 @@ export default function page(){
         </div>
       ) : (
         <div>
-          {pendingSubmissions.map((submission, index) => (
-            <div 
-              key={index} 
-              style={{ 
-                marginBottom: "24px", 
-                border: "1px solid #e2e8f0", 
-                padding: "18px", 
-                borderRadius: "8px",
-                boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-                background: "#fff"
-              }}
-            >
+          {currentSubmissions.map((submission, index) => {
+            // Calculate the actual index in the full array
+            const actualIndex = startIndex + index;
+            
+            return (
               <div 
+                key={index} 
                 style={{ 
-                  display: "flex", 
-                  justifyContent: "space-between", 
-                  alignItems: "center",
-                  cursor: "pointer",
-                  padding: "5px 0"
-                }} 
-                onClick={() => toggleExpandSubmission(index)}
+                  marginBottom: "24px", 
+                  border: "1px solid #e2e8f0", 
+                  padding: "18px", 
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
+                  background: "#fff"
+                }}
               >
-                <h3 style={{ 
-                  margin: 0, 
-                  color: "#2c5282", 
-                  fontSize: "22px", 
-                  fontWeight: "600" 
-                }}>
-                  {submission.country}
-                </h3>
-                <button 
+                <div 
                   style={{ 
-                    padding: "8px 16px", 
-                    background: expandedSubmission === index ? "#4a5568" : "#3182ce", 
-                    color: "#FFFFFF", 
-                    border: "none", 
-                    borderRadius: "6px", 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center",
                     cursor: "pointer",
-                    fontWeight: "500",
-                    fontSize: "14px",
-                    transition: "all 0.2s ease"
-                  }}
+                    padding: "5px 0"
+                  }} 
+                  onClick={() => toggleExpandSubmission(actualIndex)}
                 >
-                  {expandedSubmission === index ? "Hide Details" : "View Details"}
-                </button>
-              </div>
-              
-              {expandedSubmission === index && (
-                <div style={{ 
-                  marginTop: "20px",
-                  borderTop: "1px solid #e2e8f0",
-                  paddingTop: "15px" 
-                }}>
-                  <h4 style={{ 
-                    color: "#4a5568", 
-                    marginBottom: "15px",
-                    fontSize: "18px"
+                  <h3 style={{ 
+                    margin: 0, 
+                    color: "#2c5282", 
+                    fontSize: "22px", 
+                    fontWeight: "600" 
                   }}>
-                    Policy Details:
-                  </h4>
-                  <div style={{ display: "grid", gap: "18px" }}>
-                    {submission.policies.map((policy, policyIndex) => (
-                      policy.file || policy.text ? (
-                        <div 
-                          key={policyIndex} 
-                          style={{ 
-                            padding: "18px", 
-                            border: "1px solid #e2e8f0", 
-                            borderRadius: "6px",
-                            background: getPolicyStatusColor(policy),
-                            opacity: policy.status === "approved" || policy.status === "declined" ? 0.8 : 1,
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
-                          }}
-                        >
-                          <div style={{ 
-                            display: "flex", 
-                            justifyContent: "space-between", 
-                            alignItems: "flex-start" 
-                          }}>
-                            <h5 style={{ 
-                              marginTop: 0, 
-                              color: policy.status === "approved" || policy.status === "declined" ? "#fff" : "#2d3748",
-                              fontSize: "17px",
-                              fontWeight: "600" 
-                            }}>
-                              {policyNames[policyIndex]}
-                              {policy.status === "approved" && " (Approved)"}
-                              {policy.status === "declined" && " (Declined)"}
-                            </h5>
-                            
-                            {policy.status !== "approved" && policy.status !== "declined" && (
-                              <div style={{ display: "flex", gap: "10px" }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    declinePolicy(submission.country, policyIndex);
-                                  }}
-                                  style={{
-                                    padding: "6px 12px",
-                                    background: "#e53e3e",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontWeight: "500",
-                                    transition: "background 0.2s ease",
-                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                                  }}
-                                  onMouseOver={(e) => e.target.style.background = "#c53030"}
-                                  onMouseOut={(e) => e.target.style.background = "#e53e3e"}
-                                >
-                                  Decline
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    approvePolicy(submission.country, policyIndex);
-                                  }}
-                                  style={{
-                                    padding: "6px 12px",
-                                    background: "#38a169",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontWeight: "500",
-                                    transition: "background 0.2s ease",
-                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                                  }}
-                                  onMouseOver={(e) => e.target.style.background = "#2f855a"}
-                                  onMouseOut={(e) => e.target.style.background = "#38a169"}
-                                >
-                                  Approve
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div style={{ 
-                            marginTop: "12px",
-                            color: policy.status === "approved" || policy.status === "declined" ? "#fff" : "#4a5568"
-                          }}>
-                            {policy.file && (
-                              <div style={{ marginBottom: "12px" }}>
-                                <p style={{ 
-                                  marginBottom: "8px", 
-                                  fontWeight: "500",
-                                  fontSize: "15px" 
-                                }}>
-                                  File: {policy.file.split('/').pop()}
-                                </p>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    viewFile(policy.file);
-                                  }}
-                                  style={{
-                                    padding: "6px 12px",
-                                    background: policy.status === "approved" || policy.status === "declined" ? 
-                                      "rgba(255,255,255,0.3)" : "#4299e1",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontWeight: "500",
-                                    transition: "background 0.2s ease",
-                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                                  }}
-                                  onMouseOver={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
-                                    "rgba(255,255,255,0.5)" : "#3182ce"}
-                                  onMouseOut={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
-                                    "rgba(255,255,255,0.3)" : "#4299e1"}
-                                >
-                                  View File
-                                </button>
-                              </div>
-                            )}
-                            {policy.text && (
-                              <div>
-                                <p style={{ 
-                                  marginBottom: "8px", 
-                                  wordBreak: "break-all",
-                                  fontWeight: "500",
-                                  fontSize: "15px" 
-                                }}>
-                                  Link: {policy.text}
-                                </p>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openLink(policy.text);
-                                  }}
-                                  style={{
-                                    padding: "6px 12px",
-                                    background: policy.status === "approved" || policy.status === "declined" ? 
-                                      "rgba(255,255,255,0.3)" : "#4299e1",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "4px",
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontWeight: "500",
-                                    transition: "background 0.2s ease",
-                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                                  }}
-                                  onMouseOver={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
-                                    "rgba(255,255,255,0.5)" : "#3182ce"}
-                                  onMouseOut={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
-                                    "rgba(255,255,255,0.3)" : "#4299e1"}
-                                >
-                                  Open Link
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : null
-                    ))}
-                  </div>
+                    {submission.country}
+                  </h3>
+                  <button 
+                    style={{ 
+                      padding: "8px 16px", 
+                      background: expandedSubmission === actualIndex ? "#4a5568" : "#3182ce", 
+                      color: "#FFFFFF", 
+                      border: "none", 
+                      borderRadius: "6px", 
+                      cursor: "pointer",
+                      fontWeight: "500",
+                      fontSize: "14px",
+                      transition: "all 0.2s ease"
+                    }}
+                  >
+                    {expandedSubmission === actualIndex ? "Hide Details" : "View Details"}
+                  </button>
                 </div>
-              )}
+                
+                {expandedSubmission === actualIndex && (
+                  <div style={{ 
+                    marginTop: "20px",
+                    borderTop: "1px solid #e2e8f0",
+                    paddingTop: "15px" 
+                  }}>
+                    <h4 style={{ 
+                      color: "#4a5568", 
+                      marginBottom: "15px",
+                      fontSize: "18px"
+                    }}>
+                      Policy Details:
+                    </h4>
+                    <div style={{ display: "grid", gap: "18px" }}>
+                      {submission.policies.map((policy, policyIndex) => (
+                        policy.file || policy.text ? (
+                          <div 
+                            key={policyIndex} 
+                            style={{ 
+                              padding: "18px", 
+                              border: "1px solid #e2e8f0", 
+                              borderRadius: "6px",
+                              background: getPolicyStatusColor(policy),
+                              opacity: policy.status === "approved" || policy.status === "declined" ? 0.8 : 1,
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+                            }}
+                          >
+                            <div style={{ 
+                              display: "flex", 
+                              justifyContent: "space-between", 
+                              alignItems: "flex-start" 
+                            }}>
+                              <h5 style={{ 
+                                marginTop: 0, 
+                                color: policy.status === "approved" || policy.status === "declined" ? "#fff" : "#2d3748",
+                                fontSize: "17px",
+                                fontWeight: "600" 
+                              }}>
+                                {policyNames[policyIndex]}
+                                {policy.status === "approved" && " (Approved)"}
+                                {policy.status === "declined" && " (Declined)"}
+                              </h5>
+                              
+                              {policy.status !== "approved" && policy.status !== "declined" && (
+                                <div style={{ display: "flex", gap: "10px" }}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      declinePolicy(submission.country, policyIndex);
+                                    }}
+                                    style={{
+                                      padding: "6px 12px",
+                                      background: "#e53e3e",
+                                      color: "#FFFFFF",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "14px",
+                                      fontWeight: "500",
+                                      transition: "background 0.2s ease",
+                                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = "#c53030"}
+                                    onMouseOut={(e) => e.target.style.background = "#e53e3e"}
+                                  >
+                                    Decline
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      approvePolicy(submission.country, policyIndex);
+                                    }}
+                                    style={{
+                                      padding: "6px 12px",
+                                      background: "#38a169",
+                                      color: "#FFFFFF",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "14px",
+                                      fontWeight: "500",
+                                      transition: "background 0.2s ease",
+                                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = "#2f855a"}
+                                    onMouseOut={(e) => e.target.style.background = "#38a169"}
+                                  >
+                                    Approve
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div style={{ 
+                              marginTop: "12px",
+                              color: policy.status === "approved" || policy.status === "declined" ? "#fff" : "#4a5568"
+                            }}>
+                              {policy.file && (
+                                <div style={{ marginBottom: "12px" }}>
+                                  <p style={{ 
+                                    marginBottom: "8px", 
+                                    fontWeight: "500",
+                                    fontSize: "15px" 
+                                  }}>
+                                    File: {policy.file.split('/').pop()}
+                                  </p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      viewFile(policy.file);
+                                    }}
+                                    style={{
+                                      padding: "6px 12px",
+                                      background: policy.status === "approved" || policy.status === "declined" ? 
+                                        "rgba(255,255,255,0.3)" : "#4299e1",
+                                      color: "#FFFFFF",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "14px",
+                                      fontWeight: "500",
+                                      transition: "background 0.2s ease",
+                                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
+                                      "rgba(255,255,255,0.5)" : "#3182ce"}
+                                    onMouseOut={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
+                                      "rgba(255,255,255,0.3)" : "#4299e1"}
+                                  >
+                                    View File
+                                  </button>
+                                </div>
+                              )}
+                              {policy.text && (
+                                <div>
+                                  <p style={{ 
+                                    marginBottom: "8px", 
+                                    wordBreak: "break-all",
+                                    fontWeight: "500",
+                                    fontSize: "15px" 
+                                  }}>
+                                    Link: {policy.text}
+                                  </p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openLink(policy.text);
+                                    }}
+                                    style={{
+                                      padding: "6px 12px",
+                                      background: policy.status === "approved" || policy.status === "declined" ? 
+                                        "rgba(255,255,255,0.3)" : "#4299e1",
+                                      color: "#FFFFFF",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "14px",
+                                      fontWeight: "500",
+                                      transition: "background 0.2s ease",
+                                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                                    }}
+                                    onMouseOver={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
+                                      "rgba(255,255,255,0.5)" : "#3182ce"}
+                                    onMouseOut={(e) => e.target.style.background = policy.status === "approved" || policy.status === "declined" ? 
+                                      "rgba(255,255,255,0.3)" : "#4299e1"}
+                                  >
+                                    Open Link
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : null
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          
+          {/* Pagination controls */}
+          {pendingSubmissions.length > submissionsPerPage && (
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "center", 
+              alignItems: "center", 
+              marginTop: "30px", 
+              gap: "15px" 
+            }}>
+              <button
+                onClick={prevPage}
+                disabled={currentPage === 0}
+                style={{
+                  padding: "8px 16px",
+                  background: currentPage === 0 ? "#cbd5e0" : "#3182ce",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: currentPage === 0 ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                  fontSize: "14px",
+                  transition: "all 0.2s ease",
+                  opacity: currentPage === 0 ? 0.6 : 1
+                }}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: "16px", color: "#4a5568" }}>
+                Page {currentPage + 1} of {totalPages}
+              </span>
+              <button
+                onClick={nextPage}
+                disabled={currentPage >= totalPages - 1}
+                style={{
+                  padding: "8px 16px",
+                  background: currentPage >= totalPages - 1 ? "#cbd5e0" : "#3182ce",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: currentPage >= totalPages - 1 ? "not-allowed" : "pointer",
+                  fontWeight: "500",
+                  fontSize: "14px",
+                  transition: "all 0.2s ease",
+                  opacity: currentPage >= totalPages - 1 ? 0.6 : 1
+                }}
+              >
+                Next
+              </button>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
   )
 }
-
-//done
