@@ -3,29 +3,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pymongo import MongoClient
+from dotenv import load_dotenv
 import os
 import shutil
 import csv
 from datetime import datetime
 from typing import Optional, List
 
+load_dotenv()
+MONODB_URL = os.getenv("MONODB_URL")
+
 app = FastAPI()
 
-# CORS configuration - FIX: Specific origin instead of wildcard when using credentials
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Specific Next.js frontend URL instead of "*"
-    allow_credentials=True,                   # Support credentials
+    allow_origins=["http://localhost:3000"],  
+    allow_credentials=True,                   
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Rest of your FastAPI code...
-# MongoDB connection
-# For local development, use:
-# client = MongoClient("mongodb://localhost:27017/")
-# For production, use connection string:
-client = MongoClient("mongodb+srv://bsse1320:bsse1320@cluster0.xpk6lau.mongodb.net/")
+# Initialize MongoDB client
+client = MongoClient(MONODB_URL)
 db = client["policy_tracker"]
 pending_collection = db["pending_submissions"]
 approved_collection = db["approved_policies"]
