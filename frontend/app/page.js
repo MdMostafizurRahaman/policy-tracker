@@ -1,46 +1,38 @@
 'use client'
-
 import { useState } from "react"
 import dynamic from "next/dynamic"
 import WorldMap from "./components/Worldmap.js"
 import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
-
+import AdminPanel from "./admin/AdminPanel.js" // Import the AdminPanel component
 // Dynamically import GlobeView with SSR disabled
 const GlobeView = dynamic(() => import("./components/GlobeView.js"), { ssr: false })
-
 import './page.css'
+import './admin/AdminStyles.css';
 
-export default function HomePage() {
-  const [view, setView] = useState("home") // Options: "home", "worldmap", "submission", "globeview"
-
+export default function page() {
+  const [view, setView] = useState("home") // Options: "home", "worldmap", "submission", "globeview", "admin"
+  
   const navigateBack = () => {
     setView("home")
   }
-
+  
   // Simple icon components to replace lucide-react
   const BackIcon = () => <span className="icon">←</span>
   const HomeIcon = () => <span className="icon">🏠</span>
   const MapIcon = () => <span className="icon">🗺️</span>
   const FileIcon = () => <span className="icon">📄</span>
-
+  const AdminIcon = () => <span className="icon">🔑</span>
+  
   const renderContent = () => {
     switch (view) {
       case "worldmap":
-        return (
-          <div>
-            <WorldMap />
-            <button
-              className="switch-button globe-button"
-              onClick={() => setView("globeview")}
-            >
-              Switch to Globe View
-            </button>
-          </div>
-        )
+        return <WorldMap />;
       case "globeview":
-        return <GlobeView />
+        return <GlobeView />;
       case "submission":
-        return <PolicySubmissionForm />
+        return <PolicySubmissionForm />;
+      case "admin":
+        return <AdminPanel />; // Render the AdminPanel when "admin" is selected
       default:
         return (
           <div className="home-content">
@@ -65,12 +57,19 @@ export default function HomePage() {
               </button>
             </div>
           </div>
-        )
+        );
     }
-  }
-
+  };
+  
   return (
     <div className="app-container">
+      {/* Admin Option at the top-right corner */}
+      <div className="admin-option">
+        <button onClick={() => setView("admin")} className="admin-button">
+          <AdminIcon />
+          Admin Panel
+        </button>
+      </div>
       <nav className="navbar">
         <div className="navbar-logo" onClick={() => setView("home")}>
           <span>Global Policy Tracker</span>
@@ -88,9 +87,12 @@ export default function HomePage() {
             <FileIcon />
             Submit Policy
           </button>
+          <button className={`navbar-link ${view === "admin" ? "active" : ""}`} onClick={() => setView("admin")}>
+            <AdminIcon />
+            Admin Panel
+          </button>
         </div>
       </nav>
-
       <main className="main-content">
         {view !== "home" && (
           <button className="back-button" onClick={navigateBack}>
@@ -98,24 +100,7 @@ export default function HomePage() {
             Back to Home
           </button>
         )}
-        
-        <header className="page-header">
-          <h1 className="page-title">
-            {view === "home" ? "Global Policy Tracker" : 
-             view === "worldmap" ? "World Map View" :
-             view === "globeview" ? "Interactive Globe View" : "Policy Submission"}
-          </h1>
-          <p className="page-description">
-            {view === "home" ? "A platform to track, manage, and visualize global digital policies." :
-             view === "worldmap" ? "Explore policies across different regions." :
-             view === "globeview" ? "Interactive 3D visualization of global policies." :
-             "Submit new policies to our database."}
-          </p>
-        </header>
-
-        <section className="content-section">
-          {renderContent()}
-        </section>
+        {renderContent()}
       </main>
     </div>
   )
