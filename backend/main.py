@@ -403,7 +403,59 @@ def get_country_policies(country_name: str):
         policy.setdefault("metrics", [])
     
     return country_data
+# Add these new endpoints to your FastAPI application
 
+@app.get("/api/rejected-submissions")
+def get_rejected_submissions(page: int = Query(0), per_page: int = Query(5)):
+    """Get a paginated list of rejected policy submissions"""
+    # Calculate skip amount
+    skip = page * per_page
+    
+    # Query for submissions with at least one declined policy
+    query = {"policies": {"$elemMatch": {"status": "declined"}}}
+    
+    # Count total documents for pagination info
+    total_docs = pending_collection.count_documents(query)
+    total_pages = (total_docs + per_page - 1) // per_page  # Ceiling division
+    
+    # Fetch rejected submissions from MongoDB with pagination
+    cursor = pending_collection.find(query, {"_id": 0}).skip(skip).limit(per_page)
+    submissions = list(cursor)
+    
+    return {
+        "submissions": submissions,
+        "pagination": {
+            "current_page": page,
+            "total_pages": max(1, total_pages),
+            "total_count": total_docs,
+            "per_page": per_page
+        }
+    }
+
+
+@app.get("/api/approved-submissions")
+def get_approved_submissions(page: int = Query(0), per_page: int = Query(5)):
+    """Get a paginated list of approved policy submissions"""
+    # Calculate skip amount
+    skip = page * per_page
+    
+    # Count total documents for pagination info
+    total_docs = approved_collection.count_documents({})
+    total_pages = (total_docs + per_page - 1) // per_page  # Ceiling division
+    
+    # Fetch approved submissions from MongoDB with pagination
+    cursor = approved_collection.find({}, {"_id": 0}).skip(skip).limit(per_page)
+    submissions = list(cursor)
+    
+    return {
+        "submissions": submissions,
+        "pagination": {
+            "current_page": page,
+            "total_pages": max(1, total_pages),
+            "total_count": total_docs,
+            "per_page": per_page
+        }
+    }
 
 @app.get("/api/download-csv")
 def download_policy_data_csv():
