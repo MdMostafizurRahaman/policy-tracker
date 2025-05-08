@@ -1,210 +1,267 @@
+// Policy Area Options
 export const policyAreaOptions = [
-  "AI Strategy", 
-  "Governance", 
+  "AI Strategy/Plan", 
   "Regulation", 
-  "Ethics", 
-  "R&D Investment", 
-  "Education", 
-  "Labor Market", 
-  "Economic Development",
-  "Security",
-  "Health",
-  "Environment"
+  "Guidelines", 
+  "Ethical Framework", 
+  "Funding Program", 
+  "Research Initiative", 
+  "Education Program", 
+  "Technical Standards", 
+  "Risk Assessment Framework",
+  "Governance Framework"
 ]
 
+// Target Group Options
 export const targetGroupOptions = [
   "Government", 
-  "Private Sector", 
+  "Industry", 
   "Academia", 
-  "Civil Society", 
-  "General Public"
+  "Small Businesses", 
+  "General Public", 
+  "Specific Sector"
 ]
 
+// AI Principles Options
 export const aiPrinciplesOptions = [
-  "Transparency", 
+  "Fairness", 
   "Accountability", 
+  "Transparency", 
+  "Explainability", 
   "Safety", 
-  "Non-discrimination", 
+  "Human Control",
   "Privacy", 
-  "Human Oversight", 
-  "Technical Robustness", 
-  "Social Benefit"
+  "Security", 
+  "Non-discrimination", 
+  "Trust", 
+  "Sustainability"
 ]
 
-// Initialize form data with default values for all fields
+// Initial form data structure
 export const getInitialFormData = () => ({
-  policyInitiatives: Array(10).fill(null).map(() => ({
+  country: "",
+  policyInitiatives: Array(10).fill().map(() => ({
     policyName: "",
     policyId: "",
     policyArea: "",
     targetGroups: [],
     policyDescription: "",
     policyFile: null,
-    policyLink: ""
-  })),
-  implementation: {
-    yearlyBudget: "",
-    budgetCurrency: "USD",
-    privateSecFunding: false,
-    deploymentYear: ""
-  },
-  evaluation: {
-    isEvaluated: false,
-    evaluationType: "internal", // Default value to avoid undefined
-    riskAssessment: false,
-    transparencyScore: 0,
-    explainabilityScore: 0,
-    accountabilityScore: 0
-  },
-  participation: {
-    hasConsultation: false,
-    consultationStartDate: "",
-    consultationEndDate: "",
-    commentsPublic: false,
-    stakeholderScore: 0
-  },
-  alignment: {
-    aiPrinciples: [],
-    humanRightsAligned: false,
-    ethicsScore: 0,
-    internationalCooperation: false,
-    comments: ""
-  }
+    policyLink: "",
+    
+    implementation: {
+      yearlyBudget: "",
+      budgetCurrency: "USD",
+      privateSecFunding: false,
+      deploymentYear: new Date().getFullYear()
+    },
+    
+    evaluation: {
+      isEvaluated: false,
+      evaluationType: "internal",
+      riskAssessment: false,
+      transparencyScore: 0,
+      explainabilityScore: 0,
+      accountabilityScore: 0
+    },
+    
+    participation: {
+      hasConsultation: false,
+      consultationStartDate: "",
+      consultationEndDate: "",
+      commentsPublic: false,
+      stakeholderScore: 0
+    },
+    
+    alignment: {
+      aiPrinciples: [],
+      humanRightsAlignment: false,
+      environmentalConsiderations: false,
+      internationalCooperation: false
+    }
+  }))
 })
 
-// Update handlers
+// Form update handlers
 export const updateHandlers = {
-  // General section handlers
-  handleGeneralChange: (setCountry, setFormData, value) => {
-    setCountry(value)
+  // Country section handlers
+  handleCountryChange: (setFormData, value) => {
+    setFormData(prev => ({
+      ...prev,
+      country: value
+    }))
   },
   
-  // Policy section handlers
-  handlePolicyChange: (formData, setFormData, policyIndex, field, value) => {
-    const updatedPolicies = [...formData.policyInitiatives]
-    updatedPolicies[policyIndex] = {
-      ...updatedPolicies[policyIndex],
+  // Policy handlers
+  handlePolicyChange: (formData, setFormData, index, field, value) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       [field]: value
     }
     
-    setFormData({
-      ...formData,
-      policyInitiatives: updatedPolicies
-    })
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
-  handleTargetGroupToggle: (formData, setFormData, policyIndex, groupName) => {
-    const currentGroups = formData.policyInitiatives[policyIndex].targetGroups || []
+  handleTargetGroupToggle: (formData, setFormData, index, group) => {
+    const currentGroups = formData.policyInitiatives[index].targetGroups
     let updatedGroups
     
-    if (currentGroups.includes(groupName)) {
-      updatedGroups = currentGroups.filter(group => group !== groupName)
+    if (currentGroups.includes(group)) {
+      updatedGroups = currentGroups.filter(g => g !== group)
     } else {
-      updatedGroups = [...currentGroups, groupName]
+      updatedGroups = [...currentGroups, group]
     }
     
-    const updatedPolicies = [...formData.policyInitiatives]
-    updatedPolicies[policyIndex] = {
-      ...updatedPolicies[policyIndex],
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       targetGroups: updatedGroups
     }
     
-    setFormData({
-      ...formData,
-      policyInitiatives: updatedPolicies
-    })
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
-  handleFileReset: (formData, setFormData, policyIndex) => {
-    const updatedPolicies = [...formData.policyInitiatives]
-    updatedPolicies[policyIndex] = {
-      ...updatedPolicies[policyIndex],
+  handleFileReset: (formData, setFormData, index) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       policyFile: null
     }
     
-    setFormData({
-      ...formData,
-      policyInitiatives: updatedPolicies
-    })
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
   // Implementation section handlers
-  handleImplementationChange: (formData, setFormData, field, value) => {
-    setFormData({
-      ...formData,
+  handleImplementationChange: (formData, setFormData, index, field, value) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       implementation: {
-        ...formData.implementation,
+        ...newPolicyInitiatives[index].implementation,
         [field]: value
       }
-    })
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
   // Evaluation section handlers
-  handleEvaluationChange: (formData, setFormData, field, value) => {
-    setFormData({
-      ...formData,
+  handleEvaluationChange: (formData, setFormData, index, field, value) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       evaluation: {
-        ...formData.evaluation,
+        ...newPolicyInitiatives[index].evaluation,
         [field]: value
       }
-    })
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
   // Participation section handlers
-  handleParticipationChange: (formData, setFormData, field, value) => {
-    setFormData({
-      ...formData,
+  handleParticipationChange: (formData, setFormData, index, field, value) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       participation: {
-        ...formData.participation,
+        ...newPolicyInitiatives[index].participation,
         [field]: value
       }
-    })
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   },
   
   // Alignment section handlers
-  handleAlignmentChange: (formData, setFormData, field, value) => {
-    setFormData({
-      ...formData,
+  handleAlignmentChange: (formData, setFormData, index, field, value) => {
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       alignment: {
-        ...formData.alignment,
+        ...newPolicyInitiatives[index].alignment,
         [field]: value
       }
-    })
-  },
-  
-  handlePrincipleToggle: (formData, setFormData, principleName) => {
-    const currentPrinciples = formData.alignment.aiPrinciples || []
-    let updatedPrinciples
-    
-    if (currentPrinciples.includes(principleName)) {
-      updatedPrinciples = currentPrinciples.filter(principle => principle !== principleName)
-    } else {
-      updatedPrinciples = [...currentPrinciples, principleName]
     }
     
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
+  },
+  
+  handlePrincipleToggle: (formData, setFormData, index, principle) => {
+    const currentPrinciples = formData.policyInitiatives[index].alignment.aiPrinciples
+    let updatedPrinciples
+    
+    if (currentPrinciples.includes(principle)) {
+      updatedPrinciples = currentPrinciples.filter(p => p !== principle)
+    } else {
+      updatedPrinciples = [...currentPrinciples, principle]
+    }
+    
+    const newPolicyInitiatives = [...formData.policyInitiatives]
+    newPolicyInitiatives[index] = {
+      ...newPolicyInitiatives[index],
       alignment: {
-        ...formData.alignment,
+        ...newPolicyInitiatives[index].alignment,
         aiPrinciples: updatedPrinciples
       }
-    })
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      policyInitiatives: newPolicyInitiatives
+    }))
   }
 }
 
 // Form submission handler
-export const handleSubmission = async (e, country, formData, resetForm) => {
+export const handleSubmission = async (e, formData, resetForm) => {
   e.preventDefault()
   
-  // Validation
-  if (!country.trim()) {
+  // Basic validation
+  if (!formData.country.trim()) {
     alert("Please enter a country name")
     return false
   }
   
-  // Here you would typically send the data to your backend
-  console.log("Submitting form with data:", { country, ...formData })
+  // Check if at least the first policy has a name
+  if (!formData.policyInitiatives[0].policyName.trim()) {
+    alert("Please enter a name for at least the first policy")
+    return false
+  }
   
-  // For demonstration purposes, we'll simulate a successful submission
-  return true
+  try {
+    // Here you would typically send the data to your backend
+    console.log("Submitting form data:", formData)
+    
+    // Simulating API call
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    return true
+  } catch (error) {
+    console.error("Error submitting form:", error)
+    alert("Error submitting the form. Please try again.")
+    return false
+  }
 }

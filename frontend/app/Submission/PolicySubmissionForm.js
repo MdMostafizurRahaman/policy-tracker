@@ -11,11 +11,11 @@ import {
 import "./styles.css"
 
 export default function PolicySubmissionForm() {
-  const [country, setCountry] = useState("")
   const [formData, setFormData] = useState(getInitialFormData())
   const [submitted, setSubmitted] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
   const [activePolicyIndex, setActivePolicyIndex] = useState(0)
+  const [policyTabSelected, setPolicyTabSelected] = useState("basic") // 'basic', 'implementation', 'eval', 'participation', 'alignment'
 
   // Form reset handler
   const resetForm = () => {
@@ -23,56 +23,68 @@ export default function PolicySubmissionForm() {
     alert("Submission successful! The country's AI policy data has been recorded.")
     
     // Reset form
-    setCountry("")
     setFormData(getInitialFormData())
     setActiveTab("general")
     setActivePolicyIndex(0)
+    setPolicyTabSelected("basic")
   }
 
   // Form submit handler
   const onSubmit = async (e) => {
-    const success = await handleSubmission(e, country, formData, resetForm)
+    const success = await handleSubmission(e, formData, resetForm)
     if (success) {
       resetForm()
     }
   }
 
-  // Tab navigation
-  const renderTabs = () => (
+  // Main tab navigation
+  const renderMainTabs = () => (
     <div className="tab-container">
       <div 
         className={`tab ${activeTab === "general" ? "active" : ""}`}
         onClick={() => setActiveTab("general")}
       >
-        General
+        Country
       </div>
       <div 
         className={`tab ${activeTab === "policy" ? "active" : ""}`}
         onClick={() => setActiveTab("policy")}
       >
-        Policy Coverage
+        Policy Details
+      </div>
+    </div>
+  )
+
+  // Policy detail tabs (shown when a policy is selected)
+  const renderPolicyDetailTabs = () => (
+    <div className="policy-detail-tabs">
+      <div 
+        className={`policy-tab ${policyTabSelected === "basic" ? "active" : ""}`}
+        onClick={() => setPolicyTabSelected("basic")}
+      >
+        Basic Info
       </div>
       <div 
-        className={`tab ${activeTab === "implementation" ? "active" : ""}`}
-        onClick={() => setActiveTab("implementation")}
+        className={`policy-tab ${policyTabSelected === "implementation" ? "active" : ""}`}
+        onClick={() => setPolicyTabSelected("implementation")}
       >
         Implementation
       </div>
       <div 
-        className={`tab ${activeTab === "evaluation" ? "active" : ""}`}
-        onClick={() => setActiveTab("evaluation")}
+        className={`policy-tab ${policyTabSelected === "eval" ? "active" : ""}`}
+        onClick={() => setPolicyTabSelected("eval")}
       >
         Evaluation
       </div>
       <div 
-        className={`tab ${activeTab === "participation" ? "active" : ""}`}
-        onClick={() => setActiveTab("participation")}
+        className={`policy-tab ${policyTabSelected === "participation" ? "active" : ""}`}
+        onClick={() => setPolicyTabSelected("participation")}
       >
         Participation
       </div>
       <div 
-        className={`tab ${activeTab === "alignment" ? "active" : ""}`}
-        onClick={() => setActiveTab("alignment")}
+        className={`policy-tab ${policyTabSelected === "alignment" ? "active" : ""}`}
+        onClick={() => setPolicyTabSelected("alignment")}
       >
         Alignment
       </div>
@@ -80,15 +92,15 @@ export default function PolicySubmissionForm() {
   )
 
   // Form sections
-  const renderGeneralSection = () => (
+  const renderCountrySection = () => (
     <div className="form-section">
       <h3>Country Information</h3>
       <div>
         <label className="form-label">Country Name:</label>
         <input
           type="text"
-          value={country}
-          onChange={(e) => updateHandlers.handleGeneralChange(setCountry, setFormData, e.target.value)}
+          value={formData.country}
+          onChange={(e) => updateHandlers.handleCountryChange(setFormData, e.target.value)}
           required
           className="form-input"
           placeholder="Enter country name"
@@ -97,17 +109,18 @@ export default function PolicySubmissionForm() {
     </div>
   )
 
-  const renderPolicySection = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
-    
+  const renderPolicyNavigation = () => {
     return (
-      <div className="form-section">
+      <>
         <div className="policy-nav">
           <button 
             type="button" 
             className="policy-nav-button"
             disabled={activePolicyIndex === 0}
-            onClick={() => setActivePolicyIndex(prev => Math.max(0, prev - 1))}
+            onClick={() => {
+              setActivePolicyIndex(prev => Math.max(0, prev - 1))
+              setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+            }}
           >
             Previous Policy
           </button>
@@ -115,7 +128,10 @@ export default function PolicySubmissionForm() {
             type="button" 
             className="policy-nav-button"
             disabled={activePolicyIndex === 9}
-            onClick={() => setActivePolicyIndex(prev => Math.min(9, prev + 1))}
+            onClick={() => {
+              setActivePolicyIndex(prev => Math.min(9, prev + 1))
+              setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+            }}
           >
             Next Policy
           </button>
@@ -126,13 +142,24 @@ export default function PolicySubmissionForm() {
             <div 
               key={i}
               className={`policy-dot ${i === activePolicyIndex ? "active" : ""}`}
-              onClick={() => setActivePolicyIndex(i)}
+              onClick={() => {
+                setActivePolicyIndex(i)
+                setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+              }}
             />
           ))}
         </div>
         
         <h3>Policy {activePolicyIndex + 1}</h3>
-        
+      </>
+    )
+  }
+
+  const renderBasicPolicyInfo = () => {
+    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+    
+    return (
+      <div className="form-section">
         <div>
           <label className="form-label">Policy Name:</label>
           <input
@@ -236,427 +263,450 @@ export default function PolicySubmissionForm() {
     )
   }
 
-  const renderImplementationSection = () => (
-    <div className="form-section">
-      <h3>Implementation & Funding</h3>
-      
-      <div>
-        <label className="form-label">Yearly Budget:</label>
-        <input
-          type="number"
-          value={formData.implementation.yearlyBudget}
-          onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, "yearlyBudget", e.target.value)}
-          className="form-input"
-          placeholder="Enter yearly budget amount"
-        />
-      </div>
-      
-      <div>
-        <label className="form-label">Budget Currency:</label>
-        <select
-          value={formData.implementation.budgetCurrency}
-          onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, "budgetCurrency", e.target.value)}
-          className="form-select"
-        >
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-          <option value="GBP">GBP</option>
-          <option value="JPY">JPY</option>
-          <option value="CNY">CNY</option>
-          <option value="Local">Local Currency</option>
-        </select>
-      </div>
-      
-      <div>
-        <label className="form-label">Private Sector Funding:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="private-funding-yes"
-              checked={formData.implementation.privateSecFunding === true}
-              onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, "privateSecFunding", true)}
-            />
-            <label htmlFor="private-funding-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="private-funding-no"
-              checked={formData.implementation.privateSecFunding === false}
-              onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, "privateSecFunding", false)}
-            />
-            <label htmlFor="private-funding-no">No</label>
-          </div>
-        </div>
-      </div>
-      
-      <div>
-        <label className="form-label">Deployment Year:</label>
-        <input
-          type="number"
-          min="1990"
-          max="2030"
-          value={formData.implementation.deploymentYear}
-          onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, "deploymentYear", e.target.value)}
-          className="form-input"
-          placeholder="Enter year policies entered into force"
-        />
-      </div>
-    </div>
-  )
-
-  const renderEvaluationSection = () => (
-    <div className="form-section">
-      <h3>Evaluation & Accountability</h3>
-      
-      <div>
-        <label className="form-label">Is Evaluated:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="is-evaluated-yes"
-              checked={formData.evaluation.isEvaluated === true}
-              onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "isEvaluated", true)}
-            />
-            <label htmlFor="is-evaluated-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="is-evaluated-no"
-              checked={formData.evaluation.isEvaluated === false}
-              onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "isEvaluated", false)}
-            />
-            <label htmlFor="is-evaluated-no">No</label>
-          </div>
-        </div>
-      </div>
-      
-      {formData.evaluation.isEvaluated && (
+  const renderImplementationSection = () => {
+    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+    const implementation = currentPolicy.implementation
+    
+    return (
+      <div className="form-section">
+        <h3>Implementation & Funding</h3>
+        
         <div>
-          <label className="form-label">Evaluation Type:</label>
+          <label className="form-label">Yearly Budget:</label>
+          <input
+            type="number"
+            value={implementation.yearlyBudget}
+            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "yearlyBudget", e.target.value)}
+            className="form-input"
+            placeholder="Enter yearly budget amount"
+          />
+        </div>
+        
+        <div>
+          <label className="form-label">Budget Currency:</label>
+          <select
+            value={implementation.budgetCurrency}
+            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "budgetCurrency", e.target.value)}
+            className="form-select"
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+            <option value="JPY">JPY</option>
+            <option value="CNY">CNY</option>
+            <option value="Local">Local Currency</option>
+          </select>
+        </div>
+        
+        <div>
+          <label className="form-label">Private Sector Funding:</label>
           <div className="radio-group">
             <div className="checkbox-item">
               <input
                 type="radio"
-                id="eval-type-internal"
-                checked={formData.evaluation.evaluationType === "internal"}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "evaluationType", "internal")}
+                id={`private-funding-yes-${activePolicyIndex}`}
+                checked={implementation.privateSecFunding === true}
+                onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "privateSecFunding", true)}
               />
-              <label htmlFor="eval-type-internal">Internal</label>
+              <label htmlFor={`private-funding-yes-${activePolicyIndex}`}>Yes</label>
             </div>
             <div className="checkbox-item">
               <input
                 type="radio"
-                id="eval-type-external"
-                checked={formData.evaluation.evaluationType === "external"}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "evaluationType", "external")}
+                id={`private-funding-no-${activePolicyIndex}`}
+                checked={implementation.privateSecFunding === false}
+                onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "privateSecFunding", false)}
               />
-              <label htmlFor="eval-type-external">External</label>
+              <label htmlFor={`private-funding-no-${activePolicyIndex}`}>No</label>
             </div>
           </div>
         </div>
-      )}
-      
-      <div>
-        <label className="form-label">Risk Assessment Methodology:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="risk-assessment-yes"
-              checked={formData.evaluation.riskAssessment === true}
-              onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "riskAssessment", true)}
-            />
-            <label htmlFor="risk-assessment-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="risk-assessment-no"
-              checked={formData.evaluation.riskAssessment === false}
-              onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, "riskAssessment", false)}
-            />
-            <label htmlFor="risk-assessment-no">No</label>
-          </div>
+        
+        <div>
+          <label className="form-label">Deployment Year:</label>
+          <input
+            type="number"
+            min="1990"
+            max="2030"
+            value={implementation.deploymentYear}
+            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "deploymentYear", e.target.value)}
+            className="form-input"
+            placeholder="Enter year policy entered into force"
+          />
         </div>
       </div>
-      
-      <div>
-        <label className="form-label">Transparency Score (0-5): {formData.evaluation.transparencyScore}</label>
-        <input
-          type="range"
-          min="0"
-          max="5"
-          step="1"
-          value={formData.evaluation.transparencyScore}
-          onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, "transparencyScore", parseInt(e.target.value))}
-          className="score-slider"
-        />
-      </div>
-      
-      <div>
-        <label className="form-label">Explainability Score (0-5): {formData.evaluation.explainabilityScore}</label>
-        <input
-          type="range"
-          min="0"
-          max="5"
-          step="1"
-          value={formData.evaluation.explainabilityScore}
-          onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, "explainabilityScore", parseInt(e.target.value))}
-          className="score-slider"
-        />
-      </div>
-      
-      <div>
-        <label className="form-label">Accountability Score (0-5): {formData.evaluation.accountabilityScore}</label>
-        <input
-          type="range"
-          min="0"
-          max="5"
-          step="1"
-          value={formData.evaluation.accountabilityScore}
-          onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, "accountabilityScore", parseInt(e.target.value))}
-          className="score-slider"
-        />
-      </div>
-    </div>
-  )
+    )
+  }
 
-  const renderParticipationSection = () => (
-    <div className="form-section">
-      <h3>Public Participation</h3>
-      
-      <div>
-        <label className="form-label">Has Consultation Process:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="consultation-yes"
-              checked={formData.participation.hasConsultation === true}
-              onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, "hasConsultation", true)}
-            />
-            <label htmlFor="consultation-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="consultation-no"
-              checked={formData.participation.hasConsultation === false}
-              onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, "hasConsultation", false)}
-            />
-            <label htmlFor="consultation-no">No</label>
+  const renderEvaluationSection = () => {
+    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+    const evaluation = currentPolicy.evaluation
+    
+    return (
+      <div className="form-section">
+        <h3>Evaluation & Accountability</h3>
+        
+        <div>
+          <label className="form-label">Is Evaluated:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`is-evaluated-yes-${activePolicyIndex}`}
+                checked={evaluation.isEvaluated === true}
+                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "isEvaluated", true)}
+              />
+              <label htmlFor={`is-evaluated-yes-${activePolicyIndex}`}>Yes</label>
+            </div>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`is-evaluated-no-${activePolicyIndex}`}
+                checked={evaluation.isEvaluated === false}
+                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "isEvaluated", false)}
+              />
+              <label htmlFor={`is-evaluated-no-${activePolicyIndex}`}>No</label>
+            </div>
           </div>
         </div>
-      </div>
-      
-      {formData.participation.hasConsultation && (
-        <>
+        
+        {evaluation.isEvaluated && (
           <div>
-            <label className="form-label">Consultation Start Date:</label>
-            <input
-              type="date"
-              value={formData.participation.consultationStartDate}
-              onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, "consultationStartDate", e.target.value)}
-              className="form-input"
-            />
-          </div>
-          
-          <div>
-            <label className="form-label">Consultation End Date:</label>
-            <input
-              type="date"
-              value={formData.participation.consultationEndDate}
-              onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, "consultationEndDate", e.target.value)}
-              className="form-input"
-            />
-          </div>
-          
-          <div>
-            <label className="form-label">Public Comments Availability:</label>
+            <label className="form-label">Evaluation Type:</label>
             <div className="radio-group">
               <div className="checkbox-item">
                 <input
                   type="radio"
-                  id="comments-public"
-                  checked={formData.participation.commentsPublic === true}
-                  onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, "commentsPublic", true)}
+                  id={`eval-type-internal-${activePolicyIndex}`}
+                  checked={evaluation.evaluationType === "internal"}
+                  onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "evaluationType", "internal")}
                 />
-                <label htmlFor="comments-public">Yes</label>
+                <label htmlFor={`eval-type-internal-${activePolicyIndex}`}>Internal</label>
               </div>
               <div className="checkbox-item">
                 <input
                   type="radio"
-                  id="comments-private"
-                  checked={formData.participation.commentsPublic === false}
-                  onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, "commentsPublic", false)}
+                  id={`eval-type-external-${activePolicyIndex}`}
+                  checked={evaluation.evaluationType === "external"}
+                  onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "evaluationType", "external")}
                 />
-                <label htmlFor="comments-private">No</label>
+                <label htmlFor={`eval-type-external-${activePolicyIndex}`}>External</label>
               </div>
             </div>
           </div>
-        </>
-      )}
-      
-      <div>
-        <label className="form-label">Stakeholder Engagement Score (0-5): {formData.participation.stakeholderScore}</label>
-        <input
-          type="range"
-          min="0"
-          max="5"
-          step="1"
-          value={formData.participation.stakeholderScore}
-          onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, "stakeholderScore", parseInt(e.target.value))}
-          className="score-slider"
-        />
-      </div>
-    </div>
-  )
-
-  const renderAlignmentSection = () => (
-    <div className="form-section">
-      <h3>AI Principles Alignment</h3>
-      
-      <div>
-        <label className="form-label">AI Principles Coverage:</label>
-        <div className="checkbox-group">
-          {aiPrinciplesOptions.map((principle, i) => (
-            <div key={i} className="checkbox-item">
+        )}
+        
+        <div>
+          <label className="form-label">Risk Assessment Methodology:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
               <input
-                type="checkbox"
-                id={`ai-principle-${i}`}
-                checked={formData.alignment.aiPrinciples.includes(principle)}
-                onChange={() => updateHandlers.handlePrincipleToggle(formData, setFormData, principle)}
+                type="radio"
+                id={`risk-assessment-yes-${activePolicyIndex}`}
+                checked={evaluation.riskAssessment === true}
+                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "riskAssessment", true)}
               />
-              <label htmlFor={`ai-principle-${i}`}>{principle}</label>
+              <label htmlFor={`risk-assessment-yes-${activePolicyIndex}`}>Yes</label>
             </div>
-          ))}
-        </div>
-      </div>
-      
-      <div>
-        <label className="form-label">Human Rights Alignment:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="human-rights-yes"
-              checked={formData.alignment.humanRightsAligned === true}
-              onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, "humanRightsAligned", true)}
-            />
-            <label htmlFor="human-rights-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="human-rights-no"
-              checked={formData.alignment.humanRightsAligned === false}
-              onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, "humanRightsAligned", false)}
-            />
-            <label htmlFor="human-rights-no">No</label>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`risk-assessment-no-${activePolicyIndex}`}
+                checked={evaluation.riskAssessment === false}
+                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "riskAssessment", false)}
+              />
+              <label htmlFor={`risk-assessment-no-${activePolicyIndex}`}>No</label>
+            </div>
           </div>
         </div>
-      </div>
-      
-      <div>
-        <label className="form-label">Ethics Alignment Score (0-5): {formData.alignment.ethicsScore}</label>
-        <input
-          type="range"
-          min="0"
-          max="5"
-          step="1"
-          value={formData.alignment.ethicsScore}
-          onChange={(e) => updateHandlers.handleAlignmentChange(formData, setFormData, "ethicsScore", parseInt(e.target.value))}
-          className="score-slider"
-        />
-      </div>
-      
-      <div>
-        <label className="form-label">International Cooperation:</label>
-        <div className="radio-group">
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="intl-coop-yes"
-              checked={formData.alignment.internationalCooperation === true}
-              onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, "internationalCooperation", true)}
-            />
-            <label htmlFor="intl-coop-yes">Yes</label>
-          </div>
-          <div className="checkbox-item">
-            <input
-              type="radio"
-              id="intl-coop-no"
-              checked={formData.alignment.internationalCooperation === false}
-              onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, "internationalCooperation", false)}
-            />
-            <label htmlFor="intl-coop-no">No</label>
-          </div>
+        
+        <div>
+          <label className="form-label">Transparency Score (0-5): {evaluation.transparencyScore}</label>
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            value={evaluation.transparencyScore}
+            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "transparencyScore", parseInt(e.target.value))}
+            className="score-slider"
+          />
+        </div>
+        
+        <div>
+          <label className="form-label">Explainability Score (0-5): {evaluation.explainabilityScore}</label>
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            value={evaluation.explainabilityScore}
+            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "explainabilityScore", parseInt(e.target.value))}
+            className="score-slider"
+          />
+        </div>
+        
+        <div>
+          <label className="form-label">Accountability Score (0-5): {evaluation.accountabilityScore}</label>
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            value={evaluation.accountabilityScore}
+            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "accountabilityScore", parseInt(e.target.value))}
+            className="score-slider"
+          />
         </div>
       </div>
-      
-      <div>
-        <label className="form-label">Comments:</label>
-        <textarea
-          value={formData.alignment.comments}
-          onChange={(e) => updateHandlers.handleAlignmentChange(formData, setFormData, "comments", e.target.value)}
-          className="form-textarea"
-          placeholder="Additional comments on alignment with AI principles"
-        />
-      </div>
-    </div>
-  )
+    )
+  }
 
-  // Main render function
+  const renderParticipationSection = () => {
+    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+    const participation = currentPolicy.participation
+    
+    return (
+      <div className="form-section">
+        <h3>Public Participation</h3>
+        
+        <div>
+          <label className="form-label">Has Consultation Process:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`consultation-yes-${activePolicyIndex}`}
+                checked={participation.hasConsultation === true}
+                onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "hasConsultation", true)}
+              />
+              <label htmlFor={`consultation-yes-${activePolicyIndex}`}>Yes</label>
+            </div>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`consultation-no-${activePolicyIndex}`}
+                checked={participation.hasConsultation === false}
+                onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "hasConsultation", false)}
+              />
+              <label htmlFor={`consultation-no-${activePolicyIndex}`}>No</label>
+            </div>
+          </div>
+        </div>
+        
+        {participation.hasConsultation && (
+          <>
+            <div>
+              <label className="form-label">Consultation Start Date:</label>
+              <input
+                type="date"
+                value={participation.consultationStartDate}
+                onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "consultationStartDate", e.target.value)}
+                className="form-input"
+              />
+            </div>
+            
+            <div>
+              <label className="form-label">Consultation End Date:</label>
+              <input
+                type="date"
+                value={participation.consultationEndDate}
+                onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "consultationEndDate", e.target.value)}
+                className="form-input"
+              />
+            </div>
+            
+            <div>
+              <label className="form-label">Public Comments Availability:</label>
+              <div className="radio-group">
+                <div className="checkbox-item">
+                  <input
+                    type="radio"
+                    id={`comments-public-${activePolicyIndex}`}
+                    checked={participation.commentsPublic === true}
+                    onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "commentsPublic", true)}
+                  />
+                  <label htmlFor={`comments-public-${activePolicyIndex}`}>Yes</label>
+                </div>
+                <div className="checkbox-item">
+                  <input
+                    type="radio"
+                    id={`comments-private-${activePolicyIndex}`}
+                    checked={participation.commentsPublic === false}
+                    onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "commentsPublic", false)}
+                  />
+                  <label htmlFor={`comments-private-${activePolicyIndex}`}>No</label>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        
+        <div>
+          <label className="form-label">Stakeholder Engagement Score (0-5): {participation.stakeholderScore}</label>
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            value={participation.stakeholderScore}
+            onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "stakeholderScore", parseInt(e.target.value))}
+            className="score-slider"
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const renderAlignmentSection = () => {
+    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+    const alignment = currentPolicy.alignment
+    
+    return (
+      <div className="form-section">
+        <h3>AI Principles Alignment</h3>
+        
+        <div>
+          <label className="form-label">AI Principles Coverage:</label>
+          <div className="checkbox-group">
+            {aiPrinciplesOptions.map((principle, i) => (
+              <div key={i} className="checkbox-item">
+                <input
+                  type="checkbox"
+                  id={`ai-principle-${activePolicyIndex}-${i}`}
+                  checked={alignment.aiPrinciples.includes(principle)}
+                  onChange={() => updateHandlers.handlePrincipleToggle(formData, setFormData, activePolicyIndex, principle)}
+                />
+                <label htmlFor={`ai-principle-${activePolicyIndex}-${i}`}>{principle}</label>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div>
+          <label className="form-label">Human Rights Alignment:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
+              <input
+                // Continuing from where the code was cut off
+                type="radio"
+                id={`human-rights-yes-${activePolicyIndex}`}
+                checked={alignment.humanRightsAlignment === true}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "humanRightsAlignment", true)}
+              />
+              <label htmlFor={`human-rights-yes-${activePolicyIndex}`}>Yes</label>
+            </div>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`human-rights-no-${activePolicyIndex}`}
+                checked={alignment.humanRightsAlignment === false}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "humanRightsAlignment", false)}
+              />
+              <label htmlFor={`human-rights-no-${activePolicyIndex}`}>No</label>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label className="form-label">Environmental Considerations:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`environmental-yes-${activePolicyIndex}`}
+                checked={alignment.environmentalConsiderations === true}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "environmentalConsiderations", true)}
+              />
+              <label htmlFor={`environmental-yes-${activePolicyIndex}`}>Yes</label>
+            </div>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`environmental-no-${activePolicyIndex}`}
+                checked={alignment.environmentalConsiderations === false}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "environmentalConsiderations", false)}
+              />
+              <label htmlFor={`environmental-no-${activePolicyIndex}`}>No</label>
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label className="form-label">International Cooperation:</label>
+          <div className="radio-group">
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`international-yes-${activePolicyIndex}`}
+                checked={alignment.internationalCooperation === true}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "internationalCooperation", true)}
+              />
+              <label htmlFor={`international-yes-${activePolicyIndex}`}>Yes</label>
+            </div>
+            <div className="checkbox-item">
+              <input
+                type="radio"
+                id={`international-no-${activePolicyIndex}`}
+                checked={alignment.internationalCooperation === false}
+                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "internationalCooperation", false)}
+              />
+              <label htmlFor={`international-no-${activePolicyIndex}`}>No</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render the appropriate policy tab content
+  const renderPolicyTabContent = () => {
+    switch (policyTabSelected) {
+      case "basic":
+        return renderBasicPolicyInfo();
+      case "implementation":
+        return renderImplementationSection();
+      case "eval":
+        return renderEvaluationSection();
+      case "participation":
+        return renderParticipationSection();
+      case "alignment":
+        return renderAlignmentSection();
+      default:
+        return renderBasicPolicyInfo();
+    }
+  }
+
   return (
-    <div className="policy-form-container">
-      <h2>AI Policy Submission Form</h2>
+    <div className="form-container">
+      <h2>AI Policy Database - Country Submission Form</h2>
+      <p className="form-description">
+        Submit information about AI policies and regulatory frameworks in your country.
+        You can add up to 10 different policy initiatives.
+      </p>
       
-      {renderTabs()}
+      {renderMainTabs()}
       
       <form onSubmit={onSubmit}>
-        {activeTab === "general" && renderGeneralSection()}
-        {activeTab === "policy" && renderPolicySection()}
-        {activeTab === "implementation" && renderImplementationSection()}
-        {activeTab === "evaluation" && renderEvaluationSection()}
-        {activeTab === "participation" && renderParticipationSection()}
-        {activeTab === "alignment" && renderAlignmentSection()}
+        {activeTab === "general" ? (
+          renderCountrySection()
+        ) : (
+          <div className="policy-section">
+            {renderPolicyNavigation()}
+            {renderPolicyDetailTabs()}
+            {renderPolicyTabContent()}
+          </div>
+        )}
         
-        <div className="form-navigation">
-          {activeTab !== "general" && (
-            <button 
-              type="button" 
-              onClick={() => {
-                const tabs = ["general", "policy", "implementation", "evaluation", "participation", "alignment"]
-                const currentIndex = tabs.indexOf(activeTab)
-                setActiveTab(tabs[currentIndex - 1])
-              }}
-              className="nav-button"
-            >
-              Previous
-            </button>
-          )}
-          
-          {activeTab !== "alignment" ? (
-            <button 
-              type="button" 
-              onClick={() => {
-                const tabs = ["general", "policy", "implementation", "evaluation", "participation", "alignment"]
-                const currentIndex = tabs.indexOf(activeTab)
-                setActiveTab(tabs[currentIndex + 1])
-              }}
-              className="nav-button"
-            >
-              Next
-            </button>
-          ) : (
-            <button type="submit" className="submit-button">
-              Submit
-            </button>
-          )}
+        <div className="form-buttons">
+          <button type="submit" className="btn-primary">Submit Data</button>
+          <button 
+            type="button" 
+            onClick={resetForm} 
+            className="btn-secondary"
+          >
+            Reset Form
+          </button>
         </div>
       </form>
     </div>
