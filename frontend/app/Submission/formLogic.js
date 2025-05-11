@@ -1,5 +1,5 @@
 // Policy Area Options
-export const policyAreaOptions = [
+export const policyType = [
   "AI Safety",
   "CyberSafety",
   "Digital Education",
