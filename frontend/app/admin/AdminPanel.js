@@ -23,7 +23,7 @@ export default function AdminPanel() {
   const submissionsPerPage = 5
   
   // API base URL - centralized for easy changes
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const API_BASE_URL = "http://localhost:8000"
   
   const policyNames = [
     "AI Safety",
@@ -191,7 +191,8 @@ export default function AdminPanel() {
           : filteredSubmissions.find(s => s.country === country)?.policies[policyIndex]?.text || ""
       }
       
-      const response = await fetch(`${API_BASE_URL}/api/reject-policy`, {
+      // Using correct endpoint to match backend
+      const response = await fetch(`${API_BASE_URL}/api/decline-policy`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -212,7 +213,7 @@ export default function AdminPanel() {
         const updatedSubmissions = [...filteredSubmissions]
         const countrySubmission = updatedSubmissions.find(sub => sub.country === country)
         if (countrySubmission) {
-          countrySubmission.policies[policyIndex].status = "rejected"
+          countrySubmission.policies[policyIndex].status = "declined" // Match backend terminology
           // If we edited the text, update that too
           if (editMode && editMode.country === country && editMode.policyIndex === policyIndex) {
             countrySubmission.policies[policyIndex].text = editedPolicyText
@@ -242,7 +243,7 @@ export default function AdminPanel() {
     
     if (countryIndex >= 0) {
       const allPoliciesHandled = updatedSubmissions[countryIndex].policies.every(policy => 
-        !policy.file && !policy.text || policy.status === "approved" || policy.status === "rejected"
+        !policy.file && !policy.text || policy.status === "approved" || policy.status === "declined" // Changed from "rejected" to "declined"
       )
       
       if (allPoliciesHandled) {
@@ -269,30 +270,55 @@ export default function AdminPanel() {
     }
   }
 
-  // Remove a country from the current view
-  const removeSubmission = (country) => {
-    const updatedSubmissions = filteredSubmissions.filter(sub => sub.country !== country)
-    setFilteredSubmissions(updatedSubmissions)
-    
-    // Reset expanded state if needed
-    const countryIndex = filteredSubmissions.findIndex(sub => sub.country === country)
-    if (expandedSubmission === countryIndex) {
-      setExpandedSubmission(null)
-    } else if (expandedSubmission > countryIndex) {
-      setExpandedSubmission(expandedSubmission - 1)
-    }
-    
-    // Also remove any notes for this country
-    const updatedNotes = { ...adminNotes }
-    delete updatedNotes[`${country}_note`]
-    setAdminNotes(updatedNotes)
-    
-    // If this was the last item on the page and not the first page, go to previous page
-    if (updatedSubmissions.length === 0 && currentPage > 0) {
-      setCurrentPage(currentPage - 1)
-    } else if (updatedSubmissions.length === 0) {
-      // If no more submissions on this page, refresh
-      fetchSubmissions(currentPage, currentView)
+  // Remove a country permanently from the system
+  const removeSubmission = async (country) => {
+    try {
+      // Add API call to permanently remove
+      const response = await fetch(`${API_BASE_URL}/api/remove-submission`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ country }),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        alert(`Failed to remove submission: ${errorData.detail || response.statusText || 'Unknown error'}`)
+        return
+      }
+      
+      // Update the UI after successful removal
+      const updatedSubmissions = filteredSubmissions.filter(sub => sub.country !== country)
+      setFilteredSubmissions(updatedSubmissions)
+      
+      // Reset expanded state if needed
+      const countryIndex = filteredSubmissions.findIndex(sub => sub.country === country)
+      if (expandedSubmission === countryIndex) {
+        setExpandedSubmission(null)
+      } else if (expandedSubmission > countryIndex) {
+        setExpandedSubmission(expandedSubmission - 1)
+      }
+      
+      // Also remove any notes for this country
+      const updatedNotes = { ...adminNotes }
+      delete updatedNotes[`${country}_note`]
+      setAdminNotes(updatedNotes)
+      
+      // If this was the last item on the page and not the first page, go to previous page
+      if (updatedSubmissions.length === 0 && currentPage > 0) {
+        setCurrentPage(currentPage - 1)
+      } else if (updatedSubmissions.length === 0) {
+        // If no more submissions on this page, refresh
+        fetchSubmissions(currentPage, currentView)
+      }
+      
+      alert(`Successfully removed ${country} and all its policies from the system.`)
+    } catch (error) {
+      console.error("Error removing submission:", error)
+      alert("An error occurred while removing the submission. Please check your connection and try again.")
     }
   }
 
@@ -308,6 +334,50 @@ export default function AdminPanel() {
   const cancelEditPolicy = () => {
     setEditMode(null)
     setEditedPolicyText("")
+  }
+
+  // Update a policy in approved/rejected views
+  const updatePolicy = async (country, policyIndex) => {
+    try {
+      const policyData = {
+        country,
+        policyIndex,
+        text: editedPolicyText,
+        status: filteredSubmissions.find(s => s.country === country)?.policies[policyIndex]?.status || "pending"
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/api/update-policy`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          'Accept': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(policyData),
+      })
+    
+      if (response.ok) {
+        // Update the UI
+        const updatedSubmissions = [...filteredSubmissions]
+        const countrySubmission = updatedSubmissions.find(sub => sub.country === country)
+        if (countrySubmission) {
+          countrySubmission.policies[policyIndex].text = editedPolicyText
+          setFilteredSubmissions(updatedSubmissions)
+        }
+        
+        // Reset edit mode
+        setEditMode(null)
+        setEditedPolicyText("")
+        
+        alert(`Policy "${policyNames[policyIndex]}" for ${country} updated successfully!`)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        alert(`Failed to update policy: ${errorData.detail || response.statusText || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error updating policy:", error)
+      alert("An error occurred while updating the policy. Please check your connection and try again.")
+    }
   }
 
   // Note functions
@@ -358,7 +428,7 @@ export default function AdminPanel() {
 
   const getPolicyStatusColor = (policy) => {
     if (policy.status === "approved") return "bg-approved"
-    if (policy.status === "rejected") return "bg-rejected"
+    if (policy.status === "declined" || policy.status === "rejected") return "bg-rejected"
     return "bg-pending" // default background for pending
   }
 
@@ -481,193 +551,208 @@ export default function AdminPanel() {
                         </button>
                       )}
                       
-                      {/* Remove button - only in approved/rejected views */}
-                      {currentView !== 'unread' && (
-                        <button
-                          className="btn-remove"
-                          onClick={() => removeSubmission(submission.country)}
-                        >
-                          Remove
-                        </button>
-                      )}
+                      {/* Remove button - for all views */}
+                      <button
+                        className="btn-remove"
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to permanently remove ${submission.country} and all its policies from the system?`)) {
+                            removeSubmission(submission.country)
+                          }
+                        }}
+                      >
+                        Remove
+                      </button>
                       
-                      {/* View details button */}
                       <button 
-                        className={`btn-details ${expandedSubmission === index ? 'expanded' : ''}`}
+                        className="btn-expand"
                         onClick={() => toggleExpandSubmission(index)}
                       >
-                        {expandedSubmission === index ? "Hide Details" : "View Details"}
+                        {expandedSubmission === index ? 'Collapse' : 'Expand'}
                       </button>
                     </div>
                   </div>
                   
-                  {/* Admin Note Display */}
+                  {/* Show admin note if exists */}
                   {adminNotes[`${submission.country}_note`] && (
                     <div className="admin-note">
-                      <p>
-                        <strong>Admin Note:</strong> {adminNotes[`${submission.country}_note`]}
-                      </p>
+                      <strong>Note:</strong> {adminNotes[`${submission.country}_note`]}
                     </div>
                   )}
                   
+                  {/* Expanded view with policies */}
                   {expandedSubmission === index && (
-                    <div className="submission-details">
-                      <h4 className="details-title">Policy Details:</h4>
-                      <div className="policies-grid">
-                        {submission.policies.map((policy, policyIndex) => (
-                          policy.file || policy.text ? (
-                            <div 
-                              key={policyIndex} 
-                              className={`policy-card ${getPolicyStatusColor(policy)}`}
-                            >
-                              <div className="policy-header">
-                                <h5 className="policy-title">
-                                  {policyNames[policyIndex]}
-                                  {policy.status === "approved" && " (Approved)"}
-                                  {policy.status === "rejected" && " (Rejected)"}
-                                </h5>
-                                
-                                {/* Actions for unread policies */}
-                                {currentView === 'unread' && policy.status !== "approved" && policy.status !== "rejected" && (
-                                  <div className="policy-actions">
-                                    <button
-                                      className="btn-reject"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        rejectPolicy(submission.country, policyIndex);
-                                      }}
-                                    >
-                                      Reject
-                                    </button>
-                                    <button
-                                      className="btn-approve"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        approvePolicy(submission.country, policyIndex);
-                                      }}
-                                    >
-                                      Approve
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              
-                              <div className="policy-content">
-                                {policy.file && (
-                                  <div className="policy-file">
-                                    <p className="file-name">
-                                      File: {policy.file.split('/').pop()}
-                                    </p>
-                                    <button
-                                      className="btn-view"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        viewFile(policy.file);
-                                      }}
-                                    >
-                                      View File
-                                    </button>
-                                  </div>
-                                )}
-                                
-                                {/* Edit mode for policy text */}
-                                {editMode && editMode.country === submission.country && editMode.policyIndex === policyIndex ? (
-                                  <div className="policy-edit">
-                                    <textarea
-                                      value={editedPolicyText}
-                                      onChange={(e) => setEditedPolicyText(e.target.value)}
-                                      className="policy-textarea"
-                                      rows={3}
-                                    />
-                                    <div className="edit-actions">
-                                      <button className="btn-cancel" onClick={cancelEditPolicy}>
-                                        Cancel
+                    <div className="policies-container">
+                      {submission.policies.map((policy, policyIndex) => (
+                        <div 
+                          key={policyIndex} 
+                          className={`policy-item ${getPolicyStatusColor(policy)}`}
+                        >
+                          <div className="policy-header">
+                            <h4 className="policy-name">
+                              {policyNames[policyIndex]}
+                            </h4>
+                            <div className="policy-status">
+                              Status: {policy.status || "pending"}
+                            </div>
+                          </div>
+                          
+                          {/* Display policy content */}
+                          <div className="policy-content">
+                            {editMode && 
+                             editMode.country === submission.country && 
+                             editMode.policyIndex === policyIndex ? (
+                              <div className="policy-edit-mode">
+                                <textarea
+                                  value={editedPolicyText}
+                                  onChange={(e) => setEditedPolicyText(e.target.value)}
+                                  className="policy-textarea"
+                                  rows={10}
+                                />
+                                <div className="edit-actions">
+                                  <button 
+                                    className="btn-cancel"
+                                    onClick={cancelEditPolicy}
+                                  >
+                                    Cancel
+                                  </button>
+                                  
+                                  {currentView === 'unread' ? (
+                                    <>
+                                      <button 
+                                        className="btn-approve"
+                                        onClick={() => approvePolicy(submission.country, policyIndex)}
+                                      >
+                                        Approve with Edits
                                       </button>
                                       <button 
-                                        className="btn-save"
-                                        onClick={() => {
-                                          if (currentView === 'unread') {
-                                            // For unread, save happens when approving/rejecting
-                                            alert("Please approve or reject the policy to save changes")
-                                          } else {
-                                            // For approved/rejected, update directly
-                                            const updatedSubmissions = [...filteredSubmissions]
-                                            const countrySubmission = updatedSubmissions.find(sub => sub.country === submission.country)
-                                            if (countrySubmission) {
-                                              countrySubmission.policies[policyIndex].text = editedPolicyText
-                                              setFilteredSubmissions(updatedSubmissions)
-                                              // API call to update the policy would go here
-                                              setEditMode(null)
-                                              setEditedPolicyText("")
-                                              alert("Policy updated successfully")
-                                            }
-                                          }
-                                        }}
+                                        className="btn-reject"
+                                        onClick={() => rejectPolicy(submission.country, policyIndex)}
                                       >
-                                        Save Changes
+                                        Reject with Comments
                                       </button>
-                                    </div>
-                                  </div>
-                                ) : policy.text && (
-                                  <div className="policy-text">
-                                    <p className="text-content">
-                                      Link: {policy.text}
-                                    </p>
-                                    <div className="text-actions">
-                                      <button
-                                        className="btn-view"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          openLink(policy.text);
-                                        }}
-                                      >
-                                        Open Link
-                                      </button>
-                                      {/* Edit button */}
-                                      <button
-                                        className="btn-edit"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          startEditPolicy(submission.country, policyIndex);
-                                        }}
-                                      >
-                                        Edit
-                                      </button>
-                                    </div>
+                                    </>
+                                  ) : (
+                                    <button 
+                                      className="btn-save"
+                                      onClick={() => updatePolicy(submission.country, policyIndex)}
+                                    >
+                                      Save Changes
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Display file link if exists */}
+                                {policy.file && (
+                                  <div className="policy-file">
+                                    <button 
+                                      className="btn-file"
+                                      onClick={() => viewFile(policy.file)}
+                                    >
+                                      View Uploaded File
+                                    </button>
                                   </div>
                                 )}
-                              </div>
-                            </div>
-                          ) : null
-                        ))}
-                      </div>
+                                
+                                {/* Display link if exists */}
+                                {policy.link && (
+                                  <div className="policy-link">
+                                    <button 
+                                      className="btn-link"
+                                      onClick={() => openLink(policy.link)}
+                                    >
+                                      Open External Link
+                                    </button>
+                                    <span className="link-display">{policy.link}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Display text content */}
+                                {policy.text && (
+                                  <div className="policy-text">
+                                    {policy.text}
+                                  </div>
+                                )}
+                                
+                                {/* Actions based on current view */}
+                                <div className="policy-actions">
+                                  <button 
+                                    className="btn-edit"
+                                    onClick={() => startEditPolicy(submission.country, policyIndex)}
+                                  >
+                                    Edit
+                                  </button>
+                                  
+                                  {currentView === 'unread' && (
+                                    <>
+                                      <button 
+                                        className="btn-approve"
+                                        onClick={() => approvePolicy(submission.country, policyIndex)}
+                                      >
+                                        Approve
+                                      </button>
+                                      <button 
+                                        className="btn-reject"
+                                        onClick={() => rejectPolicy(submission.country, policyIndex)}
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  
+                                  {/* For approved view, allow rejecting */}
+                                  {currentView === 'approved' && (
+                                    <button 
+                                      className="btn-reject"
+                                      onClick={() => rejectPolicy(submission.country, policyIndex)}
+                                    >
+                                      Move to Rejected
+                                    </button>
+                                  )}
+                                  
+                                  {/* For rejected view, allow approving */}
+                                  {currentView === 'rejected' && (
+                                    <button 
+                                      className="btn-approve"
+                                      onClick={() => approvePolicy(submission.country, policyIndex)}
+                                    >
+                                      Move to Approved
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               ))}
-              
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="pagination">
-                  <button
-                    className="btn-page"
-                    onClick={prevPage}
-                    disabled={currentPage === 0}
-                  >
-                    Previous
-                  </button>
-                  <span className="page-info">
-                    Page {currentPage + 1} of {totalPages}
-                  </span>
-                  <button
-                    className="btn-page"
-                    onClick={nextPage}
-                    disabled={currentPage >= totalPages - 1}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
+            </div>
+          )}
+          
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="pagination">
+              <button 
+                className="page-btn"
+                onClick={prevPage}
+                disabled={currentPage === 0}
+              >
+                Previous
+              </button>
+              <span className="page-info">
+                Page {currentPage + 1} of {totalPages}
+              </span>
+              <button 
+                className="page-btn"
+                onClick={nextPage}
+                disabled={currentPage === totalPages - 1}
+              >
+                Next
+              </button>
             </div>
           )}
         </>
