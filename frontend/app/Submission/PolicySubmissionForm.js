@@ -3,7 +3,7 @@ import { useState } from "react"
 import { 
   policyType, 
   targetGroupOptions, 
-  aiPrinciplesOptions,
+  PrinciplesOptions,
   getInitialFormData,
   updateHandlers,
   handleSubmission
@@ -569,7 +569,7 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Principles Coverage:</label>
           <div className="checkbox-group">
-            {aiPrinciplesOptions.map((principle, i) => (
+            {PrinciplesOptions.map((principle, i) => (
               <div key={i} className="checkbox-item">
                 <input
                   type="checkbox"
