@@ -23,7 +23,7 @@ export const targetGroupOptions = [
 ]
 
 // AI Principles Options
-export const aiPrinciplesOptions = [
+export const PrinciplesOptions = [
   "Fairness", 
   "Accountability", 
   "Transparency", 
