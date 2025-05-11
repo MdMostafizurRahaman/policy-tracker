@@ -1,7 +1,7 @@
 'use client'
 import { useState } from "react"
 import { 
-  policyAreaOptions, 
+  policyType, 
   targetGroupOptions, 
   aiPrinciplesOptions,
   getInitialFormData,
@@ -168,7 +168,7 @@ export default function PolicySubmissionForm() {
             className="form-select"
           >
             <option value="">Select Policy type</option>
-            {policyAreaOptions.map((area, i) => (
+            {policyType.map((area, i) => (
               <option key={i} value={area}>{area}</option>
             ))}
           </select>
