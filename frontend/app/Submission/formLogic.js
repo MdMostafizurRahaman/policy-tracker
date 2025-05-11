@@ -1,15 +1,15 @@
 // Policy Area Options
 export const policyAreaOptions = [
-  "AI Strategy/Plan", 
-  "Regulation", 
-  "Guidelines", 
-  "Ethical Framework", 
-  "Funding Program", 
-  "Research Initiative", 
-  "Education Program", 
-  "Technical Standards", 
-  "Risk Assessment Framework",
-  "Governance Framework"
+  "AI Safety",
+  "CyberSafety",
+  "Digital Education",
+  "Digital Inclusion",
+  "Digital Leisure", 
+  "(Dis)Information", 
+  "Digital Work",
+  "Mental Health",
+  "Physical Health",
+  "Social Media/Gaming Regulation",
 ]
 
 // Target Group Options
