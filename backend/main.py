@@ -5,7 +5,7 @@ import os
 
 # Import routers from route modules
 from routes import pending_routes, approved_routes, utils_routes
-from utils import ensure_directories
+from routes.utils_routes import ensure_directories
 
 # Create FastAPI application
 app = FastAPI()
