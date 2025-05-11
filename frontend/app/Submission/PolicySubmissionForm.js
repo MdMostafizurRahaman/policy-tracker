@@ -161,6 +161,20 @@ export default function PolicySubmissionForm() {
     return (
       <div className="form-section">
         <div>
+          <label className="form-label">Policy type:</label>
+          <select
+            value={currentPolicy.policyArea}
+            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyArea", e.target.value)}
+            className="form-select"
+          >
+            <option value="">Select Policy type</option>
+            {policyAreaOptions.map((area, i) => (
+              <option key={i} value={area}>{area}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
           <label className="form-label">Policy Name:</label>
           <input
             type="text"
@@ -180,20 +194,6 @@ export default function PolicySubmissionForm() {
             className="form-input"
             placeholder="Enter policy ID"
           />
-        </div>
-        
-        <div>
-          <label className="form-label">Policy Area:</label>
-          <select
-            value={currentPolicy.policyArea}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyArea", e.target.value)}
-            className="form-select"
-          >
-            <option value="">Select Policy Area</option>
-            {policyAreaOptions.map((area, i) => (
-              <option key={i} value={area}>{area}</option>
-            ))}
-          </select>
         </div>
         
         <div>
@@ -564,10 +564,10 @@ export default function PolicySubmissionForm() {
     
     return (
       <div className="form-section">
-        <h3>AI Principles Alignment</h3>
+        <h3>Principles Alignment</h3>
         
         <div>
-          <label className="form-label">AI Principles Coverage:</label>
+          <label className="form-label">Principles Coverage:</label>
           <div className="checkbox-group">
             {aiPrinciplesOptions.map((principle, i) => (
               <div key={i} className="checkbox-item">
