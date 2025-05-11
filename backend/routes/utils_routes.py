@@ -1,29 +1,56 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 import os
-from utils import generate_policy_data_csv
+import csv
+from datetime import datetime
+from database import approved_collection
+from models import POLICY_TYPES
 
 router = APIRouter(prefix="/api", tags=["utilities"])
+
+def generate_policy_data_csv():
+    """Generate a CSV file with all approved policies data"""
+    try:
+        approved_policies = list(approved_collection.find({}, {"_id": 0}))
+        csv_path = f"policy_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['country'] + POLICY_TYPES
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            for country_data in approved_policies:
+                country = country_data.get('country', 'Unknown')
+                row = {'country': country}
+                for i, policy in enumerate(country_data.get('policies', [])):
+                    if i < len(POLICY_TYPES):
+                        policy_type = POLICY_TYPES[i]
+                        has_policy = 1 if (policy.get('file') or policy.get('text')) and policy.get('status') == 'approved' else 0
+                        row[policy_type] = has_policy
+                writer.writerow(row)
+        return csv_path
+    except Exception as e:
+        print(f"Error generating CSV: {str(e)}")
+        return None
+
+def ensure_directories():
+    """Create necessary directories if they don't exist"""
+    os.makedirs("temp_policies", exist_ok=True)
+    os.makedirs("approved_policies", exist_ok=True)
 
 @router.get("/policy-file/{filename}")
 def get_policy_file(filename: str):
     """Retrieve a policy file from either temp or approved directories"""
-    # Check in temp directory first
     temp_path = f"temp_policies/{filename}"
     if os.path.exists(temp_path):
         return FileResponse(temp_path)
-    
-    # Check in approved directory next
     approved_path = f"approved_policies/{filename}"
     if os.path.exists(approved_path):
         return FileResponse(approved_path)
-    
-    # If file not found in either directory
     raise HTTPException(status_code=404, detail="File not found")
 
 @router.get("/download-csv")
 def download_policy_data_csv():
     """Generate and download the policy data CSV file"""
+    ensure_directories()
     csv_path = generate_policy_data_csv()
     if csv_path and os.path.exists(csv_path):
         return FileResponse(

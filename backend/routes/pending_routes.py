@@ -5,7 +5,7 @@ import shutil
 from typing import Optional, List
 from database import pending_collection, approved_collection
 from models import POLICY_TYPES
-from utils import generate_policy_data_csv
+from routes.utils_routes import generate_policy_data_csv  
 
 router = APIRouter(prefix="/api", tags=["pending_submissions"])
 
