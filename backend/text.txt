@@ -1,0 +1,7 @@
+main.py - Main application entry point
+database.py - Database connection and configuration
+models.py - Data models and types
+routes/ directory containing:
+    pending_routes.py - Endpoints for pending submissions
+    approved_routes.py - Endpoints for approved policies
+    utils_routes.py - Utility endpoints and CSV generation
