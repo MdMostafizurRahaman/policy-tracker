@@ -21,6 +21,7 @@ export default function Worldmap() {
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showPolicyPopup, setShowPolicyPopup] = useState(false)
 
+  
   useEffect(() => {
     fetch("http://localhost:8000/api/countries")
       .then(res => res.json())
