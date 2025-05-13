@@ -6,13 +6,16 @@ import {
   PrinciplesOptions,
   getInitialFormData,
   updateHandlers,
-  handleSubmission
+  // Replace this import with our enhanced version
+  // handleSubmission 
 } from "./formLogic"
+import { enhancedHandleSubmission } from "./enhancedFormLogic"
 import "./styles.css"
 
 export default function PolicySubmissionForm() {
   const [formData, setFormData] = useState(getInitialFormData())
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
   const [activePolicyIndex, setActivePolicyIndex] = useState(0)
   const [policyTabSelected, setPolicyTabSelected] = useState("basic") // 'basic', 'implementation', 'eval', 'participation', 'alignment'
@@ -29,11 +32,16 @@ export default function PolicySubmissionForm() {
     setPolicyTabSelected("basic")
   }
 
-  // Form submit handler
+  // Form submit handler using enhanced version
   const onSubmit = async (e) => {
-    const success = await handleSubmission(e, formData, resetForm)
-    if (success) {
-      resetForm()
+    setLoading(true)
+    try {
+      const success = await enhancedHandleSubmission(e, formData, resetForm)
+      if (success) {
+        resetForm()
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -588,7 +596,6 @@ export default function PolicySubmissionForm() {
           <div className="radio-group">
             <div className="checkbox-item">
               <input
-                // Continuing from where the code was cut off
                 type="radio"
                 id={`human-rights-yes-${activePolicyIndex}`}
                 checked={alignment.humanRightsAlignment === true}
@@ -659,7 +666,6 @@ export default function PolicySubmissionForm() {
     )
   }
 
-  // Render the appropriate policy tab content
   const renderPolicyTabContent = () => {
     switch (policyTabSelected) {
       case "basic":
@@ -673,9 +679,29 @@ export default function PolicySubmissionForm() {
       case "alignment":
         return renderAlignmentSection();
       default:
-        return renderBasicPolicyInfo();
+        return <p>Please select a valid tab.</p>;
     }
-  }
+  };
+
+  const renderFormButtons = () => (
+    <div className="form-buttons">
+      <button 
+        type="submit" 
+        className="btn-primary"
+        disabled={loading}
+      >
+        {loading ? "Submitting..." : "Submit Data"}
+      </button>
+      <button 
+        type="button" 
+        onClick={resetForm} 
+        className="btn-secondary"
+        disabled={loading}
+      >
+        Reset Form
+      </button>
+    </div>
+  )
 
   return (
     <div className="form-container">
@@ -698,16 +724,7 @@ export default function PolicySubmissionForm() {
           </div>
         )}
         
-        <div className="form-buttons">
-          <button type="submit" className="btn-primary">Submit Data</button>
-          <button 
-            type="button" 
-            onClick={resetForm} 
-            className="btn-secondary"
-          >
-            Reset Form
-          </button>
-        </div>
+        {renderFormButtons()}
       </form>
     </div>
   )
