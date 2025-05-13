@@ -1,32 +1,14 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Body 
 from database import approved_collection, pending_collection
 from fastapi.responses import FileResponse
+from datetime import datetime 
+import os
+import shutil
+from routes.utils_routes import generate_policy_data_csv
+
 
 router = APIRouter(prefix="/api", tags=["approved_policies"])
 
-@router.get("/approved-submissions")
-def get_approved_submissions(page: int = Query(0), per_page: int = Query(5)):
-    """Get a paginated list of approved policy submissions"""
-    # Calculate skip amount
-    skip = page * per_page
-    
-    # Count total documents for pagination info
-    total_docs = approved_collection.count_documents({})
-    total_pages = (total_docs + per_page - 1) // per_page  # Ceiling division
-    
-    # Fetch approved submissions from MongoDB with pagination
-    cursor = approved_collection.find({}, {"_id": 0}).skip(skip).limit(per_page)
-    submissions = list(cursor)
-    
-    return {
-        "submissions": submissions,
-        "pagination": {
-            "current_page": page,
-            "total_pages": max(1, total_pages),
-            "total_count": total_docs,
-            "per_page": per_page
-        }
-    }
 
 @router.get("/countries")
 def get_all_countries():
