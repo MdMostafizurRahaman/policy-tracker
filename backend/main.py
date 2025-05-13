@@ -10,21 +10,20 @@ from routes.utils_routes import ensure_directories
 # Create FastAPI application
 app = FastAPI()
 
-# Configure CORS
+# Configure CORS with expanded origins list
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  
-    allow_credentials=True,                   
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  
+    allow_credentials=True,                  
+    allow_methods=["*"],           
+    allow_headers=["*"],              
 )
 
 # Ensure required directories exist
 ensure_directories()
 
-# Mount static directories for policy files
-app.mount("/files", StaticFiles(directory="temp_policies"), name="temp_policy_files")
-app.mount("/approved", StaticFiles(directory="approved_policies"), name="approved_policy_files")
+os.makedirs("temp_policies", exist_ok=True)
+os.makedirs("approved_policies", exist_ok=True)
 
 # Include routers from different modules
 app.include_router(pending_routes.router)
