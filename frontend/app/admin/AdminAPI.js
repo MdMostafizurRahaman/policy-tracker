@@ -1,5 +1,5 @@
 // API base URL - centralized for easy changes
-const API_BASE_URL = "http://localhost:8000"
+const API_BASE_URL = "http://localhost:3000"
 
 // Utility function for making API requests with consistent options
 const makeAPIRequest = async (endpoint, method = 'GET', body = null) => {
