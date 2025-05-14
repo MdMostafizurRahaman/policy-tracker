@@ -10,6 +10,7 @@ from routes.utils_routes import generate_policy_data_csv
 router = APIRouter(prefix="/api", tags=["approved_policies"])
 
 
+
 @router.get("/countries")
 def get_all_countries():
     """Get a list of all countries with policy data and color-coding"""
