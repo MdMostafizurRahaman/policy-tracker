@@ -1,5 +1,5 @@
 import React from 'react'
-
+//form submission successful
 export const AdminUIComponents = {
   // Component for displaying connection error
   ConnectionErrorDisplay: ({ onRetry, apiBaseUrl }) => (
