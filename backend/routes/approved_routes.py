@@ -5,10 +5,9 @@ from datetime import datetime
 import os
 import shutil
 from routes.utils_routes import generate_policy_data_csv
-
+#hello
 
 router = APIRouter(prefix="/api", tags=["approved_policies"])
-
 
 
 @router.get("/countries")
@@ -17,6 +16,7 @@ def get_all_countries():
     # Fetch all approved policies from MongoDB
     approved_policies = list(approved_collection.find({}, {"_id": 0}))
     
+
     # Transform the data into the required format
     countries = {}
     for policy in approved_policies:
