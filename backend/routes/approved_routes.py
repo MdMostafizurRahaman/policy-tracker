@@ -1,65 +1,174 @@
-from fastapi import APIRouter, Query, HTTPException, Body 
-from database import approved_collection, pending_collection
-from fastapi.responses import FileResponse
-from datetime import datetime 
+from fastapi import APIRouter, Body, HTTPException, Query, UploadFile, File, BackgroundTasks
+from fastapi.responses import JSONResponse
+from typing import Optional, List, Dict, Any
+from models import CountrySubmission, PolicyApprovalRequest, PolicyDeclineRequest, SubmissionRemovalRequest
+from database import pending_collection, approved_collection
 import os
-import shutil
-from routes.utils_routes import generate_policy_data_csv
-#hello
+import json
+from datetime import datetime
+from bson import ObjectId
 
-router = APIRouter(prefix="/api", tags=["approved_policies"])
+router = APIRouter(
+    prefix="/api",
+    tags=["approved-policies"]
+)
 
+# Route to approve a policy
+@router.post("/approve-policy")
+async def approve_policy(request: PolicyApprovalRequest = Body(...)):
+    try:
+        # Find the pending submission
+        submission = pending_collection.find_one({"country": request.country})
+        
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Check if policy index is valid
+        if request.policyIndex < 0 or request.policyIndex >= len(submission["policyInitiatives"]):
+            raise HTTPException(status_code=400, detail="Invalid policy index")
+        
+        # Update policy status to approved
+        current_time = datetime.utcnow()
+        policy = submission["policyInitiatives"][request.policyIndex]
+        policy["status"] = "approved"
+        policy["updatedAt"] = current_time
+        
+        # Update policy text if provided
+        if request.text:
+            policy["policyDescription"] = request.text
+        
+        # Update pending collection
+        result = pending_collection.update_one(
+            {"country": request.country},
+            {"$set": {
+                f"policyInitiatives.{request.policyIndex}": policy,
+                "updatedAt": current_time
+            }}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Policy approval failed")
+        
+        # Check if approved collection already has this country
+        existing = approved_collection.find_one({"country": request.country})
+        
+        if existing:
+            # Update existing approved policies
+            approved_collection.update_one(
+                {"country": request.country},
+                {"$push": {"policyInitiatives": policy}, "$set": {"updatedAt": current_time}}
+            )
+        else:
+            # Create new approved document
+            approved_collection.insert_one({
+                "country": request.country,
+                "policyInitiatives": [policy],
+                "createdAt": current_time,
+                "updatedAt": current_time
+            })
+        
+        return JSONResponse(
+            content={"success": True, "message": "Policy approved successfully"},
+            status_code=200
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
-@router.get("/countries")
-def get_all_countries():
-    """Get a list of all countries with policy data and color-coding"""
-    # Fetch all approved policies from MongoDB
-    approved_policies = list(approved_collection.find({}, {"_id": 0}))
+# Route to decline a policy
+@router.post("/decline-policy")
+async def decline_policy(request: PolicyDeclineRequest = Body(...)):
+    try:
+        # Find the pending submission
+        submission = pending_collection.find_one({"country": request.country})
+        
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Check if policy index is valid
+        if request.policyIndex < 0 or request.policyIndex >= len(submission["policyInitiatives"]):
+            raise HTTPException(status_code=400, detail="Invalid policy index")
+        
+        # Update policy status to declined
+        current_time = datetime.utcnow()
+        policy = submission["policyInitiatives"][request.policyIndex]
+        policy["status"] = "declined"
+        policy["updatedAt"] = current_time
+        
+        # Update pending collection
+        result = pending_collection.update_one(
+            {"country": request.country},
+            {"$set": {
+                f"policyInitiatives.{request.policyIndex}": policy,
+                "updatedAt": current_time
+            }}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=400, detail="Policy decline failed")
+        
+        return JSONResponse(
+            content={"success": True, "message": "Policy declined successfully"},
+            status_code=200
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# Get approved submissions with pagination
+@router.get("/approved-policies")
+async def get_approved_policies(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = Query(None)
+):
+    # Calculate skip value for pagination
+    skip = (page - 1) * limit
     
-
-    # Transform the data into the required format
-    countries = {}
-    for policy in approved_policies:
-        country = policy["country"]
-        total_policies = sum(1 for p in policy["policies"] if (p["file"] or p["text"]) and p.get("status") == "approved")
-        
-        # Color code based on number of approved policies
-        color = "#FF0000" if total_policies <= 3 else "#FFD700" if total_policies <= 7 else "#00AA00"
-        
-        countries[country] = {
-            "total_policies": total_policies,
-            "color": color
+    # Build query filter
+    query_filter = {}
+    if search:
+        # Case-insensitive search for country or policy names
+        query_filter["$or"] = [
+            {"country": {"$regex": search, "$options": "i"}},
+            {"policyInitiatives.policyName": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Get total count for pagination
+    total_count = approved_collection.count_documents(query_filter)
+    
+    # Get submissions for current page
+    cursor = approved_collection.find(query_filter).skip(skip).limit(limit).sort("updatedAt", -1)
+    
+    # Convert to list and handle MongoDB-specific types
+    submissions = []
+    for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        submissions.append(doc)
+    
+    # Calculate total pages
+    total_pages = (total_count + limit - 1) // limit
+    
+    # Return paginated response
+    return {
+        "submissions": submissions,
+        "pagination": {
+            "current_page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "per_page": limit
         }
-    
-    return countries
+    }
 
-@router.get("/country-policies/{country_name}")
-def get_country_policies(country_name: str):
-    """Get detailed policy information for a specific country"""
-    # Fetch the country's policies from approved collection
-    country_data = approved_collection.find_one({"country": country_name})
+# Get single approved country submission
+@router.get("/approved-policy/{country}")
+async def get_approved_policy(country: str):
+    submission = approved_collection.find_one({"country": country})
     
-    # If not found, check the pending collection as fallback
-    if not country_data:
-        country_data = pending_collection.find_one({"country": country_name})
-        
-    # If still not found, return 404
-    if not country_data:
-        raise HTTPException(status_code=404, detail=f"No policy data found for {country_name}")
+    if not submission:
+        raise HTTPException(status_code=404, detail="Approved policy not found")
     
-    # Format the response by removing MongoDB _id field
-    if "_id" in country_data:
-        country_data.pop("_id")
-        
-    # Ensure each policy has proper metadata
-    from models import POLICY_TYPES
-    for i, policy in enumerate(country_data["policies"]):
-        if i < len(POLICY_TYPES) and "type" not in policy:
-            policy["type"] = POLICY_TYPES[i]
-            
-        # Ensure we have default fields even if they're empty
-        policy.setdefault("year", "N/A")
-        policy.setdefault("description", "")
-        policy.setdefault("metrics", [])
+    # Convert ObjectId to string
+    submission["_id"] = str(submission["_id"])
     
-    return country_data
+    return submission

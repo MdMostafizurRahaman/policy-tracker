@@ -1,104 +1,131 @@
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile  # Add these imports
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse, FileResponse
+from typing import List
+from models import SubmissionRemovalRequest
+from database import pending_collection, approved_collection
 import os
-import csv
-from datetime import datetime
-from database import approved_collection, pending_collection
-from models import POLICY_TYPES
 import shutil
+from pathlib import Path
 
-router = APIRouter(prefix="/api", tags=["utilities"])
+router = APIRouter(
+    prefix="/api",
+    tags=["utilities"]
+)
 
-def generate_policy_data_csv():
-    """Generate CSV file with policy data from approved submissions"""
-    try:
-        # Get all approved submissions
-        approved_submissions = list(approved_collection.find({}, {"_id": 0}))
-        
-        # Prepare CSV data
-        csv_data = []
-        csv_headers = ["Country", "Policy Area", "Policy Name", "Status", "Last Updated", "Has File"]
-        
-        for submission in approved_submissions:
-            country = submission.get("country", "Unknown")
-            
-            for policy in submission.get("policyInitiatives", []):
-                if policy.get("status") == "approved":
-                    csv_data.append({
-                        "Country": country,
-                        "Policy Area": policy.get("policyArea", "Unknown"),
-                        "Policy Name": policy.get("policyName", "Unnamed Policy"),
-                        "Status": policy.get("status", "Unknown"),
-                        "Last Updated": policy.get("updatedAt", datetime.now().isoformat()),
-                        "Has File": "Yes" if policy.get("policyFile") else "No"
-                    })
-        
-        # Write CSV file
-        os.makedirs("exports", exist_ok=True)
-        csv_path = "exports/policy_data.csv"
-        
-        with open(csv_path, 'w', newline='') as csv_file:
-            writer = csv.DictWriter(csv_file, fieldnames=csv_headers)
-            writer.writeheader()
-            writer.writerows(csv_data)
-        
-        return csv_path
-        
-    except Exception as e:
-        print(f"Error generating CSV: {str(e)}")
-        return None
-
-@router.get("/export-csv")
-def export_csv():
-    """Generate and download a CSV export of all approved policies"""
-    try:
-        csv_path = generate_policy_data_csv()
-        
-        if not csv_path or not os.path.exists(csv_path):
-            raise HTTPException(status_code=500, detail="Failed to generate CSV export")
-        
-        # Return the file as a download
-        return FileResponse(
-            path=csv_path, 
-            filename="policy_data.csv",
-            media_type="text/csv"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error exporting CSV: {str(e)}")
-
+# Function to ensure required directories exist
 def ensure_directories():
-    """Ensure all required directories exist"""
-    directories = ["temp_policies", "approved_policies", "exports"]
-    for directory in directories:
-        os.makedirs(directory, exist_ok=True)
-    return True
+    os.makedirs("temp_policies", exist_ok=True)
+    os.makedirs("approved_policies", exist_ok=True)
 
+# Route to get policy file
 @router.get("/policy-file/{filename}")
 async def get_policy_file(filename: str):
-    """Serve policy files from either temp or approved directories"""
-    # First check in the approved directory
-    approved_path = f"approved_policies/{filename}"
-    if os.path.exists(approved_path):
-        return FileResponse(approved_path)
-    
-    # Then check in the temp directory
-    temp_path = f"temp_policies/{filename}"
+    # Check temp policies directory first
+    temp_path = os.path.join("temp_policies", filename)
     if os.path.exists(temp_path):
         return FileResponse(temp_path)
     
-    # If not found in either location
+    # Check approved policies directory
+    approved_path = os.path.join("approved_policies", filename)
+    if os.path.exists(approved_path):
+        return FileResponse(approved_path)
+    
+    # File not found
     raise HTTPException(status_code=404, detail="Policy file not found")
 
-@router.get("/download-csv")
-def download_policy_data_csv():
-    """Generate and download the policy data CSV file"""
-    ensure_directories()
-    csv_path = generate_policy_data_csv()
-    if csv_path and os.path.exists(csv_path):
-        return FileResponse(
-            path=csv_path,
-            filename="policy_data.csv",
-            media_type="text/csv"
+# Route to remove a submission
+@router.post("/remove-submission")
+async def remove_submission(request: SubmissionRemovalRequest, background_tasks: BackgroundTasks):
+    try:
+        # Find the submission
+        submission = pending_collection.find_one({"country": request.country})
+        
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Get policy file paths to remove
+        file_paths = []
+        for policy in submission.get("policyInitiatives", []):
+            if policy.get("policyFile"):
+                file_path = os.path.join("temp_policies", policy["policyFile"])
+                if os.path.exists(file_path):
+                    file_paths.append(file_path)
+        
+        # Remove the submission
+        result = pending_collection.delete_one({"country": request.country})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=400, detail="Submission removal failed")
+        
+        # Remove policy files in background
+        for file_path in file_paths:
+            background_tasks.add_task(os.remove, file_path)
+        
+        return JSONResponse(
+            content={"success": True, "message": "Submission removed successfully"},
+            status_code=200
         )
-    else:
-        raise HTTPException(status_code=500, detail="Failed to generate CSV file")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# Route to get statistics
+@router.get("/statistics")
+async def get_statistics():
+    try:
+        # Get total submissions
+        pending_count = pending_collection.count_documents({})
+        approved_count = approved_collection.count_documents({})
+        
+        # Get policy statistics
+        pending_policies = 0
+        approved_policies = 0
+        declined_policies = 0
+        
+        # Count policies by status in pending submissions
+        cursor = pending_collection.find({}, {"policyInitiatives": 1})
+        for doc in cursor:
+            for policy in doc.get("policyInitiatives", []):
+                if policy.get("status") == "pending":
+                    pending_policies += 1
+                elif policy.get("status") == "approved":
+                    approved_policies += 1
+                elif policy.get("status") == "declined":
+                    declined_policies += 1
+        
+        # Count policies in approved submissions
+        cursor = approved_collection.find({}, {"policyInitiatives": 1})
+        for doc in cursor:
+            approved_policies += len(doc.get("policyInitiatives", []))
+        
+        # Get policy area distribution
+        policy_areas = {}
+        cursor = pending_collection.find({}, {"policyInitiatives": 1})
+        for doc in cursor:
+            for policy in doc.get("policyInitiatives", []):
+                area = policy.get("policyArea")
+                if area:
+                    policy_areas[area] = policy_areas.get(area, 0) + 1
+        
+        cursor = approved_collection.find({}, {"policyInitiatives": 1})
+        for doc in cursor:
+            for policy in doc.get("policyInitiatives", []):
+                area = policy.get("policyArea")
+                if area:
+                    policy_areas[area] = policy_areas.get(area, 0) + 1
+        
+        return {
+            "total_countries": pending_count + approved_count,
+            "pending_submissions": pending_count,
+            "approved_submissions": approved_count,
+            "policy_stats": {
+                "pending": pending_policies,
+                "approved": approved_policies,
+                "declined": declined_policies,
+                "total": pending_policies + approved_policies + declined_policies
+            },
+            "policy_areas": policy_areas
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
