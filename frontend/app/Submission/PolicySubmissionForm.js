@@ -6,10 +6,7 @@ import {
   PrinciplesOptions,
   getInitialFormData,
   updateHandlers,
-  // Replace this import with our enhanced version
-  // handleSubmission 
 } from "./formLogic"
-import { enhancedHandleSubmission } from "./enhancedFormLogic"
 import "./styles.css"
 
 export default function PolicySubmissionForm() {

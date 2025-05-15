@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -21,10 +21,6 @@ AI_PRINCIPLES = [
     "Safety", "Human Control", "Privacy", "Security",
     "Non-discrimination", "Trust", "Sustainability"
 ]
-
-class Metric(BaseModel):
-    name: str
-    value: Any
 
 class Implementation(BaseModel):
     yearlyBudget: Optional[str] = None
@@ -59,7 +55,7 @@ class Policy(BaseModel):
     policyArea: str
     targetGroups: List[str] = []
     policyDescription: Optional[str] = ""
-    policyFile: Optional[str] = None
+    policyFile: Optional[Union[str, Dict[str, Any]]] = None
     policyLink: Optional[str] = None
     implementation: Optional[Implementation] = None
     evaluation: Optional[Evaluation] = None
@@ -71,6 +67,7 @@ class Policy(BaseModel):
    
     class Config:
         orm_mode = True
+        arbitrary_types_allowed = True
 
 class CountrySubmission(BaseModel):
     country: str
@@ -80,6 +77,7 @@ class CountrySubmission(BaseModel):
    
     class Config:
         orm_mode = True
+        arbitrary_types_allowed = True
 
 class PaginationInfo(BaseModel):
     current_page: int
