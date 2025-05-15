@@ -7,6 +7,7 @@ import os
 import shutil
 import csv
 from typing import Optional, List
+from dotenv import load_dotenv
 
 app = FastAPI()
 
@@ -18,8 +19,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB connection
-client = MongoClient("mongodb+srv://policy_tracker:bsse1320@cluster0.pocdfcx.mongodb.net/")
+load_dotenv()
+
+MONGODB_URL = os.getenv("MONGODB_URL")
+client = MongoClient(MONGODB_URL)
 db = client["policy_tracker"] #have some changes in future
 pending_collection = db["pending_submissions"]
 approved_collection = db["approved_policies"]
