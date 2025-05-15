@@ -4,7 +4,7 @@ import os
 
 # Load environment variables
 load_dotenv()
-MONGODB_URL = os.getenv("MONODB_URL")  # Note: keeping the original variable name with typo for compatibility
+MONGODB_URL = os.getenv("MONGODB_URL")  # Note: keeping the original variable name with typo for compatibility
 
 # Initialize MongoDB client
 client = MongoClient(MONGODB_URL)
