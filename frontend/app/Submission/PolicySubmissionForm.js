@@ -705,9 +705,9 @@ export default function PolicySubmissionForm() {
 
   return (
     <div className="form-container">
-      <h2>AI Policy Database - Country Submission Form</h2>
+      <h2>Policy Database - Country Submission Form</h2>
       <p className="form-description">
-        Submit information about AI policies and regulatory frameworks in your country.
+        Submit information about policy and regulatory frameworks in your country.
         You can add up to 10 different policy initiatives.
       </p>
       
