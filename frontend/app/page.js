@@ -496,6 +496,7 @@ const styles = `
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   }
   
+  
   .theme-toggle {
     position: fixed;
     top: 1rem;
