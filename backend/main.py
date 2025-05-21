@@ -1,109 +1,177 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import os
-import json
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Dict, Any, Union
+from pathlib import Path
 from datetime import datetime
+import os
+import motor.motor_asyncio
+import shutil
+import uuid
+from dotenv import load_dotenv
 
-# Import routers from route modules
-from routes import pending_routes, approved_routes, utils_routes
-from routes.utils_routes import ensure_directories
-from database import pending_collection
+# Load environment variables
+load_dotenv()
 
-# Create FastAPI application
-app = FastAPI()
+# Create upload directory if it doesn't exist
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
 
-# Configure CORS with expanded origins list
+# Initialize FastAPI app
+app = FastAPI(title="AI Policy Database API")
+
+# Add CORS middleware to allow requests from the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
-    allow_credentials=True,                  
-    allow_methods=["*"],           
-    allow_headers=["*"],              
+    allow_origins=["*"],  # Adjust this in production to specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Ensure required directories exist
-ensure_directories()
+# Get MongoDB connection string from environment variables
+MONGODB_URL = os.getenv("MONGO_URI")
+if not MONGODB_URL:
+    raise ValueError("MONGODB_URL environment variable is not set")
 
-os.makedirs("temp_policies", exist_ok=True)
-os.makedirs("approved_policies", exist_ok=True)
+# Connect to MongoDB
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
+db = client.ai_policy_database
+policies_collection = db.policies
 
-# Include routers from different modules
-app.include_router(pending_routes.router)
-app.include_router(approved_routes.router)
-app.include_router(utils_routes.router)
+# Pydantic Models for validating request data
+class PolicyFile(BaseModel):
+    name: str
+    path: str
+    size: int
+    type: str
+    localOnly: Optional[bool]
+    uploadFailed: Optional[bool]
 
-# Special route to handle the form submission directly
-@app.post("/api/submit-form")
-async def submit_form(request: Request):
+class Implementation(BaseModel):
+    yearlyBudget: str = ""
+    budgetCurrency: str = "USD"
+    privateSecFunding: bool = False
+    deploymentYear: int = Field(...)
+
+class Evaluation(BaseModel):
+    isEvaluated: bool = False
+    evaluationType: str = "internal"
+    riskAssessment: bool = False
+    transparencyScore: int = 0
+    explainabilityScore: int = 0
+    accountabilityScore: int = 0
+
+class Participation(BaseModel):
+    hasConsultation: bool = False
+    consultationStartDate: str = ""
+    consultationEndDate: str = ""
+    commentsPublic: bool = False
+    stakeholderScore: int = 0
+
+class Alignment(BaseModel):
+    aiPrinciples: List[str] = []
+    humanRightsAlignment: bool = False
+    environmentalConsiderations: bool = False
+    internationalCooperation: bool = False
+
+class PolicyInitiative(BaseModel):
+    policyName: str
+    policyId: str = ""
+    policyArea: str = ""
+    targetGroups: List[str] = []
+    policyDescription: str = ""
+    policyFile: Optional[PolicyFile]
+    policyLink: str = ""
+    implementation: Implementation
+    evaluation: Evaluation
+    participation: Participation
+    alignment: Alignment
+
+    @validator('policyName')
+    def name_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Policy name must not be empty')
+        return v
+
+class FormSubmission(BaseModel):
+    country: str
+    policyInitiatives: List[PolicyInitiative]
+
+    @validator('country')
+    def country_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Country name must not be empty')
+        return v
+
+    @validator('policyInitiatives')
+    def must_have_at_least_one_policy(cls, v):
+        if not v or not v[0].policyName.strip():
+            raise ValueError('At least one policy initiative must be provided')
+        return v
+
+# Helper function to sanitize filenames
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename to avoid potential security issues"""
+    # Get the filename without extension and the extension
+    name, ext = os.path.splitext(filename)
+    
+    # Generate a UUID for uniqueness
+    unique_id = str(uuid.uuid4())[:8]
+    
+    # Create a safe filename with the original extension
+    safe_name = f"{name.replace(' ', '_')}_{unique_id}{ext}"
+    
+    return safe_name
+
+@app.post("/api/upload-policy-file")
+async def upload_policy_file(
+    country: str = Form(...),
+    policy_index: int = Form(...),
+    file: UploadFile = File(...)
+):
     try:
-        # Get JSON data from request
-        form_data = await request.json()
+        # Create country-specific directory
+        country_dir = UPLOAD_DIR / country.replace(" ", "_")
+        country_dir.mkdir(exist_ok=True)
         
-        # Extract country name
-        country = form_data.get("country", "")
-        if not country:
-            return {"success": False, "message": "Country name is required"}
+        # Sanitize filename and prepare path
+        safe_filename = sanitize_filename(file.filename)
+        file_path = country_dir / safe_filename
         
-        # Extract policy initiatives and filter out empty ones
-        policy_initiatives = form_data.get("policyInitiatives", [])
-        valid_policies = []
+        # Save the file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         
-        for policy in policy_initiatives:
-            # Skip policies without names
-            if not policy.get("policyName"):
-                continue
-                
-            # Convert file object to metadata only (actual file upload would need to be handled separately)
-            if policy.get("policyFile") and not isinstance(policy["policyFile"], dict):
-                policy["policyFile"] = None
-                
-            # Ensure all nested objects exist
-            if "implementation" not in policy:
-                policy["implementation"] = {}
-            if "evaluation" not in policy:
-                policy["evaluation"] = {}
-            if "participation" not in policy:
-                policy["participation"] = {}
-            if "alignment" not in policy:
-                policy["alignment"] = {}
-                
-            policy["status"] = "pending"
-            valid_policies.append(policy)
-        
-        # Skip if no valid policies
-        if not valid_policies:
-            return {"success": False, "message": "No valid policy entries found"}
-            
-        # Prepare the document to insert/update
-        now = datetime.now().isoformat()
-        submission_doc = {
-            "country": country,
-            "policyInitiatives": valid_policies,
-            "updatedAt": now
-        }
-        
-        # Check if country already exists
-        existing = pending_collection.find_one({"country": country})
-        if existing:
-            # Update existing
-            pending_collection.update_one(
-                {"country": country},
-                {"$set": {
-                    "policyInitiatives": valid_policies,
-                    "updatedAt": now
-                }}
-            )
-        else:
-            # Insert new
-            submission_doc["createdAt"] = now
-            pending_collection.insert_one(submission_doc)
-            
-        return {"success": True, "message": "Form data submitted successfully"}
-        
+        # Return the relative file path
+        return {"success": True, "file_path": str(file_path.relative_to(UPLOAD_DIR))}
+    
     except Exception as e:
-        print(f"Error processing form submission: {str(e)}")
-        return {"success": False, "message": f"Error processing submission: {str(e)}"}
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+@app.post("/api/submit-form")
+async def submit_form(submission: FormSubmission):
+    try:
+        # Add timestamps
+        submission_dict = submission.dict()
+        submission_dict["created_at"] = datetime.utcnow()
+        submission_dict["updated_at"] = datetime.utcnow()
+        
+        # Insert into MongoDB
+        result = await policies_collection.insert_one(submission_dict)
+        
+        if result.inserted_id:
+            return {"success": True, "message": "Form submitted successfully", "id": str(result.inserted_id)}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to insert data into database")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Form submission failed: {str(e)}")
+
+@app.get("/")
+async def root():
+    return {"message": "AI Policy Database API is running"}
 
 if __name__ == "__main__":
     import uvicorn

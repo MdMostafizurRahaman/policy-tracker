@@ -1,51 +1,278 @@
 'use client'
 import { useState } from "react"
-import { 
-  policyType, 
-  targetGroupOptions, 
-  PrinciplesOptions,
-  getInitialFormData,
-  updateHandlers,
-  // Replace this import with our enhanced version
-  // handleSubmission 
-} from "./formLogic"
-import { enhancedHandleSubmission } from "./enhancedFormLogic"
-import "./styles.css"
+import './styles.css'
+
+// Policy configuration data
+const POLICY_TYPES = [
+  "AI Safety", "CyberSafety", "Digital Education", "Digital Inclusion",
+  "Digital Leisure", "(Dis)Information", "Digital Work", "Mental Health",
+  "Physical Health", "Social Media/Gaming Regulation"
+]
+
+const TARGET_GROUPS = [
+  "Government", "Industry", "Academia", "Small Businesses", 
+  "General Public", "Specific Sector"
+]
+
+const PRINCIPLES = [
+  "Fairness", "Accountability", "Transparency", "Explainability", 
+  "Safety", "Human Control", "Privacy", "Security", 
+  "Non-discrimination", "Trust", "Sustainability"
+]
+
+const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "Local"]
+
+// API base URL - configurable for different environments
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+// Initial empty policy template 
+const createEmptyPolicy = () => ({
+  policyName: "",
+  policyId: "",
+  policyArea: "",
+  targetGroups: [],
+  policyDescription: "",
+  policyFile: null,
+  policyLink: "",
+  implementation: {
+    yearlyBudget: "",
+    budgetCurrency: "USD",
+    privateSecFunding: false,
+    deploymentYear: new Date().getFullYear()
+  },
+  evaluation: {
+    isEvaluated: false,
+    evaluationType: "internal",
+    riskAssessment: false,
+    transparencyScore: 0,
+    explainabilityScore: 0,
+    accountabilityScore: 0
+  },
+  participation: {
+    hasConsultation: false,
+    consultationStartDate: "",
+    consultationEndDate: "",
+    commentsPublic: false,
+    stakeholderScore: 0
+  },
+  alignment: {
+    aiPrinciples: [],
+    humanRightsAlignment: false,
+    environmentalConsiderations: false,
+    internationalCooperation: false
+  }
+})
+
+// Handle file uploads
+const uploadPolicyFile = async (countryName, policyIndex, file) => {
+  if (!file || !countryName) {
+    return { success: false, message: 'Missing required data for file upload' }
+  }
+
+  try {
+    const formData = new FormData()
+    formData.append('country', countryName)
+    formData.append('policy_index', policyIndex)
+    formData.append('file', file)
+
+    const response = await fetch(`${API_BASE_URL}/upload-policy-file`, {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Upload failed with status: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return {
+      success: true,
+      filePath: result.file_path,
+      message: 'File uploaded successfully'
+    }
+  } catch (error) {
+    console.error('Error uploading file:', error)
+    return {
+      success: false,
+      error: error.message,
+      message: `Upload error: ${error.message}`
+    }
+  }
+}
 
 export default function PolicySubmissionForm() {
-  const [formData, setFormData] = useState(getInitialFormData())
-  const [submitted, setSubmitted] = useState(false)
+  const [formData, setFormData] = useState({
+    country: "",
+    policyInitiatives: Array(10).fill().map(() => createEmptyPolicy())
+  })
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
   const [activePolicyIndex, setActivePolicyIndex] = useState(0)
-  const [policyTabSelected, setPolicyTabSelected] = useState("basic") // 'basic', 'implementation', 'eval', 'participation', 'alignment'
+  const [policyTabSelected, setPolicyTabSelected] = useState("basic")
+  const [formError, setFormError] = useState("")
+  const [formSuccess, setFormSuccess] = useState("")
+
+  // Generic update helpers
+  const updatePolicy = (index, field, value) => {
+    const updatedPolicies = [...formData.policyInitiatives]
+    updatedPolicies[index] = {
+      ...updatedPolicies[index],
+      [field]: value
+    }
+    setFormData({...formData, policyInitiatives: updatedPolicies})
+  }
+
+  const updatePolicySection = (index, section, field, value) => {
+    const updatedPolicies = [...formData.policyInitiatives]
+    updatedPolicies[index] = {
+      ...updatedPolicies[index],
+      [section]: {
+        ...updatedPolicies[index][section],
+        [field]: value
+      }
+    }
+    setFormData({...formData, policyInitiatives: updatedPolicies})
+  }
+
+  const toggleArrayItem = (index, section, field, item) => {
+    const currentItems = section ? 
+      formData.policyInitiatives[index][section][field] : 
+      formData.policyInitiatives[index][field]
+    
+    const updatedItems = currentItems.includes(item) ?
+      currentItems.filter(i => i !== item) :
+      [...currentItems, item]
+    
+    if (section) {
+      updatePolicySection(index, section, field, updatedItems)
+    } else {
+      updatePolicy(index, field, updatedItems)
+    }
+  }
 
   // Form reset handler
   const resetForm = () => {
-    setSubmitted(true)
-    alert("Submission successful! The country's AI policy data has been recorded.")
-    
-    // Reset form
-    setFormData(getInitialFormData())
+    setFormData({
+      country: "",
+      policyInitiatives: Array(10).fill().map(() => createEmptyPolicy())
+    })
     setActiveTab("general")
     setActivePolicyIndex(0)
     setPolicyTabSelected("basic")
+    setFormError("")
+    setFormSuccess("Submission successful! The country's AI policy data has been recorded.")
+    
+    // Clear success message after 5 seconds
+    setTimeout(() => {
+      setFormSuccess("")
+    }, 5000)
   }
 
-  // Form submit handler using enhanced version
-  const onSubmit = async (e) => {
+  // Form validation
+  const validateForm = () => {
+    if (!formData.country.trim()) {
+      setFormError("Please enter a country name")
+      return false
+    }
+
+    if (!formData.policyInitiatives[0].policyName.trim()) {
+      setFormError("Please enter a name for at least the first policy")
+      setActiveTab("policy")
+      setActivePolicyIndex(0)
+      setPolicyTabSelected("basic")
+      return false
+    }
+    
+    setFormError("")
+    return true
+  }
+
+  // Form submission handler
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setLoading(true)
+    setFormError("")
+    setFormSuccess("")
+
     try {
-      const success = await enhancedHandleSubmission(e, formData, resetForm)
-      if (success) {
-        resetForm()
+      // Validate form data
+      if (!validateForm()) {
+        setLoading(false)
+        return
       }
+
+      // Process file uploads first
+      const fileUploadPromises = []
+      const submissionData = {
+        country: formData.country,
+        policyInitiatives: JSON.parse(JSON.stringify(formData.policyInitiatives))
+      }
+
+      // Handle file uploads
+      for (let index = 0; index < formData.policyInitiatives.length; index++) {
+        const policy = formData.policyInitiatives[index]
+        if (policy.policyFile && policy.policyFile instanceof File) {
+          const uploadPromise = uploadPolicyFile(formData.country, index, policy.policyFile)
+            .then(result => {
+              if (result.success) {
+                submissionData.policyInitiatives[index].policyFile = {
+                  name: policy.policyFile.name, 
+                  path: result.filePath || 'local-only',
+                  size: policy.policyFile.size,
+                  type: policy.policyFile.type
+                }
+              } else {
+                throw new Error(result.message || "File upload failed")
+              }
+              return result
+            })
+          fileUploadPromises.push(uploadPromise)
+        } else if (policy.policyFile === null) {
+          // If no file, ensure the field is null in the submission
+          submissionData.policyInitiatives[index].policyFile = null
+        }
+      }
+
+      if (fileUploadPromises.length > 0) {
+        await Promise.all(fileUploadPromises)
+      }
+
+      // Remove empty policies (those without a name)
+      submissionData.policyInitiatives = submissionData.policyInitiatives
+        .filter(policy => policy.policyName.trim() !== "");
+
+      // Submit the form data
+      const response = await fetch(`${API_BASE_URL}/submit-form`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(submissionData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Request failed with status: ${response.status}`)
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.message || 'Form submission failed')
+      }
+
+      // Success!
+      resetForm()
+    } catch (error) {
+      console.error("Error submitting form:", error)
+      setFormError(`Error: ${error.message || 'Please try again.'}`)
     } finally {
       setLoading(false)
     }
   }
 
-  // Main tab navigation
+  // UI COMPONENTS
   const renderMainTabs = () => (
     <div className="tab-container">
       <div 
@@ -63,43 +290,22 @@ export default function PolicySubmissionForm() {
     </div>
   )
 
-  // Policy detail tabs (shown when a policy is selected)
   const renderPolicyDetailTabs = () => (
     <div className="policy-detail-tabs">
-      <div 
-        className={`policy-tab ${policyTabSelected === "basic" ? "active" : ""}`}
-        onClick={() => setPolicyTabSelected("basic")}
-      >
-        Basic Info
-      </div>
-      <div 
-        className={`policy-tab ${policyTabSelected === "implementation" ? "active" : ""}`}
-        onClick={() => setPolicyTabSelected("implementation")}
-      >
-        Implementation
-      </div>
-      <div 
-        className={`policy-tab ${policyTabSelected === "eval" ? "active" : ""}`}
-        onClick={() => setPolicyTabSelected("eval")}
-      >
-        Evaluation
-      </div>
-      <div 
-        className={`policy-tab ${policyTabSelected === "participation" ? "active" : ""}`}
-        onClick={() => setPolicyTabSelected("participation")}
-      >
-        Participation
-      </div>
-      <div 
-        className={`policy-tab ${policyTabSelected === "alignment" ? "active" : ""}`}
-        onClick={() => setPolicyTabSelected("alignment")}
-      >
-        Alignment
-      </div>
+      {["basic", "implementation", "eval", "participation", "alignment"].map(tab => (
+        <div 
+          key={tab}
+          className={`policy-tab ${policyTabSelected === tab ? "active" : ""}`}
+          onClick={() => setPolicyTabSelected(tab)}
+        >
+          {tab === "basic" ? "Basic Info" : 
+           tab === "eval" ? "Evaluation" : 
+           tab.charAt(0).toUpperCase() + tab.slice(1)}
+        </div>
+      ))}
     </div>
   )
 
-  // Form sections
   const renderCountrySection = () => (
     <div className="form-section">
       <h3>Country Information</h3>
@@ -108,7 +314,7 @@ export default function PolicySubmissionForm() {
         <input
           type="text"
           value={formData.country}
-          onChange={(e) => updateHandlers.handleCountryChange(setFormData, e.target.value)}
+          onChange={(e) => setFormData({...formData, country: e.target.value})}
           required
           className="form-input"
           placeholder="Enter country name"
@@ -126,8 +332,8 @@ export default function PolicySubmissionForm() {
             className="policy-nav-button"
             disabled={activePolicyIndex === 0}
             onClick={() => {
-              setActivePolicyIndex(prev => Math.max(0, prev - 1))
-              setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+              setActivePolicyIndex(Math.max(0, activePolicyIndex - 1))
+              setPolicyTabSelected("basic")
             }}
           >
             Previous Policy
@@ -137,8 +343,8 @@ export default function PolicySubmissionForm() {
             className="policy-nav-button"
             disabled={activePolicyIndex === 9}
             onClick={() => {
-              setActivePolicyIndex(prev => Math.min(9, prev + 1))
-              setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+              setActivePolicyIndex(Math.min(9, activePolicyIndex + 1))
+              setPolicyTabSelected("basic")
             }}
           >
             Next Policy
@@ -152,7 +358,7 @@ export default function PolicySubmissionForm() {
               className={`policy-dot ${i === activePolicyIndex ? "active" : ""}`}
               onClick={() => {
                 setActivePolicyIndex(i)
-                setPolicyTabSelected("basic") // Reset to basic info tab when changing policies
+                setPolicyTabSelected("basic")
               }}
             />
           ))}
@@ -172,11 +378,11 @@ export default function PolicySubmissionForm() {
           <label className="form-label">Policy type:</label>
           <select
             value={currentPolicy.policyArea}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyArea", e.target.value)}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyArea", e.target.value)}
             className="form-select"
           >
             <option value="">Select Policy type</option>
-            {policyType.map((area, i) => (
+            {POLICY_TYPES.map((area, i) => (
               <option key={i} value={area}>{area}</option>
             ))}
           </select>
@@ -187,7 +393,7 @@ export default function PolicySubmissionForm() {
           <input
             type="text"
             value={currentPolicy.policyName}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyName", e.target.value)}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyName", e.target.value)}
             className="form-input"
             placeholder="Enter policy name"
           />
@@ -198,7 +404,7 @@ export default function PolicySubmissionForm() {
           <input
             type="text"
             value={currentPolicy.policyId}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyId", e.target.value)}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyId", e.target.value)}
             className="form-input"
             placeholder="Enter policy ID"
           />
@@ -207,13 +413,13 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Target Groups:</label>
           <div className="checkbox-group">
-            {targetGroupOptions.map((group, i) => (
+            {TARGET_GROUPS.map((group, i) => (
               <div key={i} className="checkbox-item">
                 <input
                   type="checkbox"
                   id={`target-group-${activePolicyIndex}-${i}`}
                   checked={currentPolicy.targetGroups.includes(group)}
-                  onChange={() => updateHandlers.handleTargetGroupToggle(formData, setFormData, activePolicyIndex, group)}
+                  onChange={() => toggleArrayItem(activePolicyIndex, null, "targetGroups", group)}
                 />
                 <label htmlFor={`target-group-${activePolicyIndex}-${i}`}>{group}</label>
               </div>
@@ -225,7 +431,7 @@ export default function PolicySubmissionForm() {
           <label className="form-label">Policy Description:</label>
           <textarea
             value={currentPolicy.policyDescription}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyDescription", e.target.value)}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyDescription", e.target.value)}
             className="form-textarea"
             placeholder="Enter policy description"
           />
@@ -237,13 +443,13 @@ export default function PolicySubmissionForm() {
             <input
               id={`file-input-${activePolicyIndex}`}
               type="file"
-              onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyFile", e.target.files[0])}
+              onChange={(e) => updatePolicy(activePolicyIndex, "policyFile", e.target.files[0])}
               style={{ flex: 1 }}
             />
             {currentPolicy.policyFile && (
               <button 
                 type="button" 
-                onClick={() => updateHandlers.handleFileReset(formData, setFormData, activePolicyIndex)}
+                onClick={() => updatePolicy(activePolicyIndex, "policyFile", null)}
                 className="btn-danger"
               >
                 Clear
@@ -252,7 +458,8 @@ export default function PolicySubmissionForm() {
           </div>
           {currentPolicy.policyFile && (
             <div className="file-name">
-              Selected file: {currentPolicy.policyFile.name}
+              Selected file: {typeof currentPolicy.policyFile === 'object' && 'name' in currentPolicy.policyFile ? 
+                currentPolicy.policyFile.name : 'File selected'}
             </div>
           )}
         </div>
@@ -262,7 +469,7 @@ export default function PolicySubmissionForm() {
           <input
             type="url"
             value={currentPolicy.policyLink}
-            onChange={(e) => updateHandlers.handlePolicyChange(formData, setFormData, activePolicyIndex, "policyLink", e.target.value)}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyLink", e.target.value)}
             className="form-input"
             placeholder="Enter policy URL"
           />
@@ -272,8 +479,7 @@ export default function PolicySubmissionForm() {
   }
 
   const renderImplementationSection = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
-    const implementation = currentPolicy.implementation
+    const implementation = formData.policyInitiatives[activePolicyIndex].implementation
     
     return (
       <div className="form-section">
@@ -284,7 +490,7 @@ export default function PolicySubmissionForm() {
           <input
             type="number"
             value={implementation.yearlyBudget}
-            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "yearlyBudget", e.target.value)}
+            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "yearlyBudget", e.target.value)}
             className="form-input"
             placeholder="Enter yearly budget amount"
           />
@@ -294,39 +500,31 @@ export default function PolicySubmissionForm() {
           <label className="form-label">Budget Currency:</label>
           <select
             value={implementation.budgetCurrency}
-            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "budgetCurrency", e.target.value)}
+            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "budgetCurrency", e.target.value)}
             className="form-select"
           >
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-            <option value="JPY">JPY</option>
-            <option value="CNY">CNY</option>
-            <option value="Local">Local Currency</option>
+            {CURRENCIES.map(currency => (
+              <option key={currency} value={currency}>{currency}</option>
+            ))}
           </select>
         </div>
         
         <div>
           <label className="form-label">Private Sector Funding:</label>
           <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`private-funding-yes-${activePolicyIndex}`}
-                checked={implementation.privateSecFunding === true}
-                onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "privateSecFunding", true)}
-              />
-              <label htmlFor={`private-funding-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`private-funding-no-${activePolicyIndex}`}
-                checked={implementation.privateSecFunding === false}
-                onChange={() => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "privateSecFunding", false)}
-              />
-              <label htmlFor={`private-funding-no-${activePolicyIndex}`}>No</label>
-            </div>
+            {[true, false].map(value => (
+              <div key={`private-funding-${value}`} className="checkbox-item">
+                <input
+                  type="radio"
+                  id={`private-funding-${value ? "yes" : "no"}-${activePolicyIndex}`}
+                  checked={implementation.privateSecFunding === value}
+                  onChange={() => updatePolicySection(activePolicyIndex, "implementation", "privateSecFunding", value)}
+                />
+                <label htmlFor={`private-funding-${value ? "yes" : "no"}-${activePolicyIndex}`}>
+                  {value ? "Yes" : "No"}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
         
@@ -337,7 +535,7 @@ export default function PolicySubmissionForm() {
             min="1990"
             max="2030"
             value={implementation.deploymentYear}
-            onChange={(e) => updateHandlers.handleImplementationChange(formData, setFormData, activePolicyIndex, "deploymentYear", e.target.value)}
+            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "deploymentYear", parseInt(e.target.value))}
             className="form-input"
             placeholder="Enter year policy entered into force"
           />
@@ -347,8 +545,7 @@ export default function PolicySubmissionForm() {
   }
 
   const renderEvaluationSection = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
-    const evaluation = currentPolicy.evaluation
+    const evaluation = formData.policyInitiatives[activePolicyIndex].evaluation
     
     return (
       <div className="form-section">
@@ -357,24 +554,19 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Is Evaluated:</label>
           <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`is-evaluated-yes-${activePolicyIndex}`}
-                checked={evaluation.isEvaluated === true}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "isEvaluated", true)}
-              />
-              <label htmlFor={`is-evaluated-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`is-evaluated-no-${activePolicyIndex}`}
-                checked={evaluation.isEvaluated === false}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "isEvaluated", false)}
-              />
-              <label htmlFor={`is-evaluated-no-${activePolicyIndex}`}>No</label>
-            </div>
+            {[true, false].map(value => (
+              <div key={`is-evaluated-${value}`} className="checkbox-item">
+                <input
+                  type="radio"
+                  id={`is-evaluated-${value ? "yes" : "no"}-${activePolicyIndex}`}
+                  checked={evaluation.isEvaluated === value}
+                  onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "isEvaluated", value)}
+                />
+                <label htmlFor={`is-evaluated-${value ? "yes" : "no"}-${activePolicyIndex}`}>
+                  {value ? "Yes" : "No"}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
         
@@ -382,24 +574,19 @@ export default function PolicySubmissionForm() {
           <div>
             <label className="form-label">Evaluation Type:</label>
             <div className="radio-group">
-              <div className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`eval-type-internal-${activePolicyIndex}`}
-                  checked={evaluation.evaluationType === "internal"}
-                  onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "evaluationType", "internal")}
-                />
-                <label htmlFor={`eval-type-internal-${activePolicyIndex}`}>Internal</label>
-              </div>
-              <div className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`eval-type-external-${activePolicyIndex}`}
-                  checked={evaluation.evaluationType === "external"}
-                  onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "evaluationType", "external")}
-                />
-                <label htmlFor={`eval-type-external-${activePolicyIndex}`}>External</label>
-              </div>
+              {["internal", "external"].map(type => (
+                <div key={`eval-type-${type}`} className="checkbox-item">
+                  <input
+                    type="radio"
+                    id={`eval-type-${type}-${activePolicyIndex}`}
+                    checked={evaluation.evaluationType === type}
+                    onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "evaluationType", type)}
+                  />
+                  <label htmlFor={`eval-type-${type}-${activePolicyIndex}`}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -407,72 +594,50 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Risk Assessment Methodology:</label>
           <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`risk-assessment-yes-${activePolicyIndex}`}
-                checked={evaluation.riskAssessment === true}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "riskAssessment", true)}
-              />
-              <label htmlFor={`risk-assessment-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`risk-assessment-no-${activePolicyIndex}`}
-                checked={evaluation.riskAssessment === false}
-                onChange={() => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "riskAssessment", false)}
-              />
-              <label htmlFor={`risk-assessment-no-${activePolicyIndex}`}>No</label>
-            </div>
+            {[true, false].map(value => (
+              <div key={`risk-assessment-${value}`} className="checkbox-item">
+                <input
+                  type="radio"
+                  id={`risk-assessment-${value ? "yes" : "no"}-${activePolicyIndex}`}
+                  checked={evaluation.riskAssessment === value}
+                  onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "riskAssessment", value)}
+                />
+                <label htmlFor={`risk-assessment-${value ? "yes" : "no"}-${activePolicyIndex}`}>
+                  {value ? "Yes" : "No"}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
         
-        <div>
-          <label className="form-label">Transparency Score (0-5): {evaluation.transparencyScore}</label>
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="1"
-            value={evaluation.transparencyScore}
-            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "transparencyScore", parseInt(e.target.value))}
-            className="score-slider"
-          />
-        </div>
-        
-        <div>
-          <label className="form-label">Explainability Score (0-5): {evaluation.explainabilityScore}</label>
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="1"
-            value={evaluation.explainabilityScore}
-            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "explainabilityScore", parseInt(e.target.value))}
-            className="score-slider"
-          />
-        </div>
-        
-        <div>
-          <label className="form-label">Accountability Score (0-5): {evaluation.accountabilityScore}</label>
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="1"
-            value={evaluation.accountabilityScore}
-            onChange={(e) => updateHandlers.handleEvaluationChange(formData, setFormData, activePolicyIndex, "accountabilityScore", parseInt(e.target.value))}
-            className="score-slider"
-          />
-        </div>
+        {/* Score sliders */}
+        {["transparency", "explainability", "accountability"].map(metric => (
+          <div key={metric}>
+            <label className="form-label">
+              {metric.charAt(0).toUpperCase() + metric.slice(1)} Score (0-5): {evaluation[`${metric}Score`]}
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="5"
+              step="1"
+              value={evaluation[`${metric}Score`]}
+              onChange={(e) => updatePolicySection(
+                activePolicyIndex, 
+                "evaluation", 
+                `${metric}Score`, 
+                parseInt(e.target.value)
+              )}
+              className="score-slider"
+            />
+          </div>
+        ))}
       </div>
     )
   }
 
   const renderParticipationSection = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
-    const participation = currentPolicy.participation
+    const participation = formData.policyInitiatives[activePolicyIndex].participation
     
     return (
       <div className="form-section">
@@ -481,24 +646,19 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Has Consultation Process:</label>
           <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`consultation-yes-${activePolicyIndex}`}
-                checked={participation.hasConsultation === true}
-                onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "hasConsultation", true)}
-              />
-              <label htmlFor={`consultation-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`consultation-no-${activePolicyIndex}`}
-                checked={participation.hasConsultation === false}
-                onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "hasConsultation", false)}
-              />
-              <label htmlFor={`consultation-no-${activePolicyIndex}`}>No</label>
-            </div>
+            {[true, false].map(value => (
+              <div key={`consultation-${value}`} className="checkbox-item">
+                <input
+                  type="radio"
+                  id={`consultation-${value ? "yes" : "no"}-${activePolicyIndex}`}
+                  checked={participation.hasConsultation === value}
+                  onChange={() => updatePolicySection(activePolicyIndex, "participation", "hasConsultation", value)}
+                />
+                <label htmlFor={`consultation-${value ? "yes" : "no"}-${activePolicyIndex}`}>
+                  {value ? "Yes" : "No"}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
         
@@ -509,7 +669,7 @@ export default function PolicySubmissionForm() {
               <input
                 type="date"
                 value={participation.consultationStartDate}
-                onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "consultationStartDate", e.target.value)}
+                onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationStartDate", e.target.value)}
                 className="form-input"
               />
             </div>
@@ -519,7 +679,7 @@ export default function PolicySubmissionForm() {
               <input
                 type="date"
                 value={participation.consultationEndDate}
-                onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "consultationEndDate", e.target.value)}
+                onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationEndDate", e.target.value)}
                 className="form-input"
               />
             </div>
@@ -527,24 +687,19 @@ export default function PolicySubmissionForm() {
             <div>
               <label className="form-label">Public Comments Availability:</label>
               <div className="radio-group">
-                <div className="checkbox-item">
-                  <input
-                    type="radio"
-                    id={`comments-public-${activePolicyIndex}`}
-                    checked={participation.commentsPublic === true}
-                    onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "commentsPublic", true)}
-                  />
-                  <label htmlFor={`comments-public-${activePolicyIndex}`}>Yes</label>
-                </div>
-                <div className="checkbox-item">
-                  <input
-                    type="radio"
-                    id={`comments-private-${activePolicyIndex}`}
-                    checked={participation.commentsPublic === false}
-                    onChange={() => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "commentsPublic", false)}
-                  />
-                  <label htmlFor={`comments-private-${activePolicyIndex}`}>No</label>
-                </div>
+                {[true, false].map(value => (
+                  <div key={`comments-${value}`} className="checkbox-item">
+                    <input
+                      type="radio"
+                      id={`comments-${value ? "public" : "private"}-${activePolicyIndex}`}
+                      checked={participation.commentsPublic === value}
+                      onChange={() => updatePolicySection(activePolicyIndex, "participation", "commentsPublic", value)}
+                    />
+                    <label htmlFor={`comments-${value ? "public" : "private"}-${activePolicyIndex}`}>
+                      {value ? "Yes" : "No"}
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
           </>
@@ -558,7 +713,7 @@ export default function PolicySubmissionForm() {
             max="5"
             step="1"
             value={participation.stakeholderScore}
-            onChange={(e) => updateHandlers.handleParticipationChange(formData, setFormData, activePolicyIndex, "stakeholderScore", parseInt(e.target.value))}
+            onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "stakeholderScore", parseInt(e.target.value))}
             className="score-slider"
           />
         </div>
@@ -567,8 +722,7 @@ export default function PolicySubmissionForm() {
   }
 
   const renderAlignmentSection = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
-    const alignment = currentPolicy.alignment
+    const alignment = formData.policyInitiatives[activePolicyIndex].alignment
     
     return (
       <div className="form-section">
@@ -577,13 +731,13 @@ export default function PolicySubmissionForm() {
         <div>
           <label className="form-label">Principles Coverage:</label>
           <div className="checkbox-group">
-            {PrinciplesOptions.map((principle, i) => (
+            {PRINCIPLES.map((principle, i) => (
               <div key={i} className="checkbox-item">
                 <input
                   type="checkbox"
                   id={`ai-principle-${activePolicyIndex}-${i}`}
                   checked={alignment.aiPrinciples.includes(principle)}
-                  onChange={() => updateHandlers.handlePrincipleToggle(formData, setFormData, activePolicyIndex, principle)}
+                  onChange={() => toggleArrayItem(activePolicyIndex, "alignment", "aiPrinciples", principle)}
                 />
                 <label htmlFor={`ai-principle-${activePolicyIndex}-${i}`}>{principle}</label>
               </div>
@@ -591,97 +745,45 @@ export default function PolicySubmissionForm() {
           </div>
         </div>
         
-        <div>
-          <label className="form-label">Human Rights Alignment:</label>
-          <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`human-rights-yes-${activePolicyIndex}`}
-                checked={alignment.humanRightsAlignment === true}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "humanRightsAlignment", true)}
-              />
-              <label htmlFor={`human-rights-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`human-rights-no-${activePolicyIndex}`}
-                checked={alignment.humanRightsAlignment === false}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "humanRightsAlignment", false)}
-              />
-              <label htmlFor={`human-rights-no-${activePolicyIndex}`}>No</label>
-            </div>
-          </div>
-        </div>
-        
-        <div>
-          <label className="form-label">Environmental Considerations:</label>
-          <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`environmental-yes-${activePolicyIndex}`}
-                checked={alignment.environmentalConsiderations === true}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "environmentalConsiderations", true)}
-              />
-              <label htmlFor={`environmental-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`environmental-no-${activePolicyIndex}`}
-                checked={alignment.environmentalConsiderations === false}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "environmentalConsiderations", false)}
-              />
-              <label htmlFor={`environmental-no-${activePolicyIndex}`}>No</label>
+        {/* Boolean fields */}
+        {[
+          { id: "humanRightsAlignment", label: "Human Rights Alignment" },
+          { id: "environmentalConsiderations", label: "Environmental Considerations" },
+          { id: "internationalCooperation", label: "International Cooperation" }
+        ].map(field => (
+          <div key={field.id}>
+            <label className="form-label">{field.label}:</label>
+            <div className="radio-group">
+              {[true, false].map(value => (
+                <div key={`${field.id}-${value}`} className="checkbox-item">
+                  <input
+                    type="radio"
+                    id={`${field.id}-${value ? "yes" : "no"}-${activePolicyIndex}`}
+                    checked={alignment[field.id] === value}
+                    onChange={() => updatePolicySection(activePolicyIndex, "alignment", field.id, value)}
+                  />
+                  <label htmlFor={`${field.id}-${value ? "yes" : "no"}-${activePolicyIndex}`}>
+                    {value ? "Yes" : "No"}
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-        
-        <div>
-          <label className="form-label">International Cooperation:</label>
-          <div className="radio-group">
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`international-yes-${activePolicyIndex}`}
-                checked={alignment.internationalCooperation === true}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "internationalCooperation", true)}
-              />
-              <label htmlFor={`international-yes-${activePolicyIndex}`}>Yes</label>
-            </div>
-            <div className="checkbox-item">
-              <input
-                type="radio"
-                id={`international-no-${activePolicyIndex}`}
-                checked={alignment.internationalCooperation === false}
-                onChange={() => updateHandlers.handleAlignmentChange(formData, setFormData, activePolicyIndex, "internationalCooperation", false)}
-              />
-              <label htmlFor={`international-no-${activePolicyIndex}`}>No</label>
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     )
   }
 
   const renderPolicyTabContent = () => {
     switch (policyTabSelected) {
-      case "basic":
-        return renderBasicPolicyInfo();
-      case "implementation":
-        return renderImplementationSection();
-      case "eval":
-        return renderEvaluationSection();
-      case "participation":
-        return renderParticipationSection();
-      case "alignment":
-        return renderAlignmentSection();
-      default:
-        return <p>Please select a valid tab.</p>;
+      case "basic": return renderBasicPolicyInfo();
+      case "implementation": return renderImplementationSection();
+      case "eval": return renderEvaluationSection();
+      case "participation": return renderParticipationSection();
+      case "alignment": return renderAlignmentSection();
+      default: return <p>Please select a valid tab.</p>;
     }
-  };
+  }
 
   const renderFormButtons = () => (
     <div className="form-buttons">
@@ -713,7 +815,19 @@ export default function PolicySubmissionForm() {
       
       {renderMainTabs()}
       
-      <form onSubmit={onSubmit}>
+      {formError && (
+        <div className="error-message">
+          {formError}
+        </div>
+      )}
+      
+      {formSuccess && (
+        <div className="success-message">
+          {formSuccess}
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
         {activeTab === "general" ? (
           renderCountrySection()
         ) : (
