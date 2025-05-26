@@ -1,5 +1,5 @@
 'use client'
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import './styles.css'
 
 // Policy configuration data
@@ -22,8 +22,13 @@ const PRINCIPLES = [
 
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "Local"]
 
-// API base URL - configurable for different environments
+// API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+// Generate unique submission ID
+const generateSubmissionId = () => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
 
 // Initial empty policy template 
 const createEmptyPolicy = () => ({
@@ -60,12 +65,14 @@ const createEmptyPolicy = () => ({
     humanRightsAlignment: false,
     environmentalConsiderations: false,
     internationalCooperation: false
-  }
+  },
+  status: "pending",
+  admin_notes: ""
 })
 
-// Handle file uploads
-const uploadPolicyFile = async (countryName, policyIndex, file) => {
-  if (!file || !countryName) {
+// Handle individual file uploads
+const uploadPolicyFile = async (countryName, policyIndex, submissionId, file) => {
+  if (!file || !countryName || !submissionId) {
     return { success: false, message: 'Missing required data for file upload' }
   }
 
@@ -73,6 +80,7 @@ const uploadPolicyFile = async (countryName, policyIndex, file) => {
     const formData = new FormData()
     formData.append('country', countryName)
     formData.append('policy_index', policyIndex)
+    formData.append('submission_id', submissionId)
     formData.append('file', file)
 
     const response = await fetch(`${API_BASE_URL}/upload-policy-file`, {
@@ -88,7 +96,14 @@ const uploadPolicyFile = async (countryName, policyIndex, file) => {
     const result = await response.json()
     return {
       success: true,
-      filePath: result.file_path,
+      fileData: {
+        name: result.filename,
+        file_id: result.file_id,
+        size: result.size,
+        type: result.content_type,
+        upload_date: new Date().toISOString(),
+        content: result.content // File content extracted by backend
+      },
       message: 'File uploaded successfully'
     }
   } catch (error) {
@@ -106,12 +121,14 @@ export default function PolicySubmissionForm() {
     country: "",
     policyInitiatives: Array(10).fill().map(() => createEmptyPolicy())
   })
+  const [submissionId] = useState(generateSubmissionId())
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("general")
   const [activePolicyIndex, setActivePolicyIndex] = useState(0)
   const [policyTabSelected, setPolicyTabSelected] = useState("basic")
   const [formError, setFormError] = useState("")
   const [formSuccess, setFormSuccess] = useState("")
+  const [fileUploading, setFileUploading] = useState({})
 
   // Generic update helpers
   const updatePolicy = (index, field, value) => {
@@ -151,6 +168,30 @@ export default function PolicySubmissionForm() {
     }
   }
 
+  // File upload handler
+  const handleFileUpload = async (policyIndex, file) => {
+    if (!file) return;
+
+    setFileUploading(prev => ({ ...prev, [policyIndex]: true }));
+
+    try {
+      const result = await uploadPolicyFile(formData.country, policyIndex, submissionId, file);
+      
+      if (result.success) {
+        updatePolicy(policyIndex, "policyFile", result.fileData);
+        setFormError("");
+      } else {
+        setFormError(result.message);
+        updatePolicy(policyIndex, "policyFile", null);
+      }
+    } catch (error) {
+      setFormError(`File upload error: ${error.message}`);
+      updatePolicy(policyIndex, "policyFile", null);
+    } finally {
+      setFileUploading(prev => ({ ...prev, [policyIndex]: false }));
+    }
+  };
+
   // Form reset handler
   const resetForm = () => {
     setFormData({
@@ -161,7 +202,7 @@ export default function PolicySubmissionForm() {
     setActivePolicyIndex(0)
     setPolicyTabSelected("basic")
     setFormError("")
-    setFormSuccess("Submission successful! The country's AI policy data has been recorded.")
+    setFormSuccess("Submission successful! Your data has been submitted for admin review.")
     
     // Clear success message after 5 seconds
     setTimeout(() => {
@@ -202,47 +243,25 @@ export default function PolicySubmissionForm() {
         return
       }
 
-      // Process file uploads first
-      const fileUploadPromises = []
+      // Prepare submission data
       const submissionData = {
+        submission_id: submissionId,
         country: formData.country,
-        policyInitiatives: JSON.parse(JSON.stringify(formData.policyInitiatives))
+        policyInitiatives: formData.policyInitiatives
+          .filter(policy => policy.policyName.trim() !== "")
+          .map((policy, index) => ({
+            ...policy,
+            policy_index: index,
+            // Ensure file data is properly formatted with content
+            policyFile: policy.policyFile && typeof policy.policyFile === 'object' && 'file_id' in policy.policyFile 
+              ? policy.policyFile 
+              : null
+          })),
+        submission_status: "pending",
+        submitted_at: new Date().toISOString()
       }
 
-      // Handle file uploads
-      for (let index = 0; index < formData.policyInitiatives.length; index++) {
-        const policy = formData.policyInitiatives[index]
-        if (policy.policyFile && policy.policyFile instanceof File) {
-          const uploadPromise = uploadPolicyFile(formData.country, index, policy.policyFile)
-            .then(result => {
-              if (result.success) {
-                submissionData.policyInitiatives[index].policyFile = {
-                  name: policy.policyFile.name, 
-                  path: result.filePath || 'local-only',
-                  size: policy.policyFile.size,
-                  type: policy.policyFile.type
-                }
-              } else {
-                throw new Error(result.message || "File upload failed")
-              }
-              return result
-            })
-          fileUploadPromises.push(uploadPromise)
-        } else if (policy.policyFile === null) {
-          // If no file, ensure the field is null in the submission
-          submissionData.policyInitiatives[index].policyFile = null
-        }
-      }
-
-      if (fileUploadPromises.length > 0) {
-        await Promise.all(fileUploadPromises)
-      }
-
-      // Remove empty policies (those without a name)
-      submissionData.policyInitiatives = submissionData.policyInitiatives
-        .filter(policy => policy.policyName.trim() !== "");
-
-      // Submit the form data
+      // Submit the form data to temp database
       const response = await fetch(`${API_BASE_URL}/submit-form`, {
         method: 'POST',
         headers: {
@@ -320,6 +339,10 @@ export default function PolicySubmissionForm() {
           placeholder="Enter country name"
         />
       </div>
+      <div className="submission-info">
+        <p><strong>Submission ID:</strong> {submissionId}</p>
+        <p><em>This ID will be used to track your submission through the admin review process.</em></p>
+      </div>
     </div>
   )
 
@@ -355,490 +378,473 @@ export default function PolicySubmissionForm() {
           {Array(10).fill(null).map((_, i) => (
             <div 
               key={i}
-              className={`policy-dot ${i === activePolicyIndex ? "active" : ""}`}
+              className={`policy-dot ${i === activePolicyIndex ? "active" : ""} ${formData.policyInitiatives[i].policyName ? "filled" : ""}`}
               onClick={() => {
                 setActivePolicyIndex(i)
                 setPolicyTabSelected("basic")
               }}
+              title={`Policy ${i + 1}${formData.policyInitiatives[i].policyName ? ': ' + formData.policyInitiatives[i].policyName : ''}`}
             />
           ))}
         </div>
-        
-        <h3>Policy {activePolicyIndex + 1}</h3>
       </>
     )
   }
 
-  const renderBasicPolicyInfo = () => {
-    const currentPolicy = formData.policyInitiatives[activePolicyIndex]
+  const renderBasicInfo = () => {
+    const policy = formData.policyInitiatives[activePolicyIndex]
     
     return (
       <div className="form-section">
-        <div>
-          <label className="form-label">Policy type:</label>
-          <select
-            value={currentPolicy.policyArea}
-            onChange={(e) => updatePolicy(activePolicyIndex, "policyArea", e.target.value)}
-            className="form-select"
-          >
-            <option value="">Select Policy type</option>
-            {POLICY_TYPES.map((area, i) => (
-              <option key={i} value={area}>{area}</option>
-            ))}
-          </select>
-        </div>
-
+        <h4>Policy {activePolicyIndex + 1} - Basic Information</h4>
+        
         <div>
           <label className="form-label">Policy Name:</label>
           <input
             type="text"
-            value={currentPolicy.policyName}
+            value={policy.policyName}
             onChange={(e) => updatePolicy(activePolicyIndex, "policyName", e.target.value)}
             className="form-input"
             placeholder="Enter policy name"
           />
         </div>
-        
+
         <div>
           <label className="form-label">Policy ID:</label>
           <input
             type="text"
-            value={currentPolicy.policyId}
+            value={policy.policyId}
             onChange={(e) => updatePolicy(activePolicyIndex, "policyId", e.target.value)}
             className="form-input"
             placeholder="Enter policy ID"
           />
         </div>
-        
+
+        <div>
+          <label className="form-label">Policy Area:</label>
+          <select
+            value={policy.policyArea}
+            onChange={(e) => updatePolicy(activePolicyIndex, "policyArea", e.target.value)}
+            className="form-select"
+          >
+            <option value="">Select Policy Area</option>
+            {POLICY_TYPES.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <label className="form-label">Target Groups:</label>
           <div className="checkbox-group">
-            {TARGET_GROUPS.map((group, i) => (
-              <div key={i} className="checkbox-item">
+            {TARGET_GROUPS.map(group => (
+              <label key={group} className="checkbox-label">
                 <input
                   type="checkbox"
-                  id={`target-group-${activePolicyIndex}-${i}`}
-                  checked={currentPolicy.targetGroups.includes(group)}
+                  checked={policy.targetGroups.includes(group)}
                   onChange={() => toggleArrayItem(activePolicyIndex, null, "targetGroups", group)}
                 />
-                <label htmlFor={`target-group-${activePolicyIndex}-${i}`}>{group}</label>
-              </div>
+                {group}
+              </label>
             ))}
           </div>
         </div>
-        
+
         <div>
           <label className="form-label">Policy Description:</label>
           <textarea
-            value={currentPolicy.policyDescription}
+            value={policy.policyDescription}
             onChange={(e) => updatePolicy(activePolicyIndex, "policyDescription", e.target.value)}
             className="form-textarea"
-            placeholder="Enter policy description"
+            rows="4"
+            placeholder="Describe the policy..."
           />
         </div>
-        
+
         <div>
-          <label className="form-label">Policy File:</label>
-          <div className="file-upload-container">
+          <label className="form-label">Policy Document:</label>
+          <div className="file-upload-section">
             <input
-              id={`file-input-${activePolicyIndex}`}
               type="file"
-              onChange={(e) => updatePolicy(activePolicyIndex, "policyFile", e.target.files[0])}
-              style={{ flex: 1 }}
+              onChange={(e) => {
+                const file = e.target.files[0]
+                if (file) {
+                  handleFileUpload(activePolicyIndex, file)
+                }
+              }}
+              className="form-input"
+              accept=".pdf,.doc,.docx,.txt"
+              disabled={fileUploading[activePolicyIndex]}
             />
-            {currentPolicy.policyFile && (
-              <button 
-                type="button" 
-                onClick={() => updatePolicy(activePolicyIndex, "policyFile", null)}
-                className="btn-danger"
-              >
-                Clear
-              </button>
+            {fileUploading[activePolicyIndex] && (
+              <div className="upload-status">Uploading...</div>
+            )}
+            {policy.policyFile && (
+              <div className="file-info">
+                <span className="file-name">📄 {policy.policyFile.name}</span>
+                <span className="file-size">({(policy.policyFile.size / 1024).toFixed(1)} KB)</span>
+                <button 
+                  type="button"
+                  onClick={() => updatePolicy(activePolicyIndex, "policyFile", null)}
+                  className="remove-file-btn"
+                >
+                  Remove
+                </button>
+              </div>
             )}
           </div>
-          {currentPolicy.policyFile && (
-            <div className="file-name">
-              Selected file: {typeof currentPolicy.policyFile === 'object' && 'name' in currentPolicy.policyFile ? 
-                currentPolicy.policyFile.name : 'File selected'}
-            </div>
-          )}
         </div>
-        
+
         <div>
-          <label className="form-label">Policy Link:</label>
+          <label className="form-label">Policy Link (Optional):</label>
           <input
             type="url"
-            value={currentPolicy.policyLink}
+            value={policy.policyLink}
             onChange={(e) => updatePolicy(activePolicyIndex, "policyLink", e.target.value)}
             className="form-input"
-            placeholder="Enter policy URL"
+            placeholder="https://..."
           />
         </div>
       </div>
     )
   }
 
-  const renderImplementationSection = () => {
-    const implementation = formData.policyInitiatives[activePolicyIndex].implementation
+  const renderImplementation = () => {
+    const policy = formData.policyInitiatives[activePolicyIndex]
     
     return (
       <div className="form-section">
-        <h3>Implementation & Funding</h3>
+        <h4>Policy {activePolicyIndex + 1} - Implementation</h4>
         
-        <div>
-          <label className="form-label">Yearly Budget:</label>
-          <input
-            type="number"
-            value={implementation.yearlyBudget}
-            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "yearlyBudget", e.target.value)}
-            className="form-input"
-            placeholder="Enter yearly budget amount"
-          />
-        </div>
-        
-        <div>
-          <label className="form-label">Budget Currency:</label>
-          <select
-            value={implementation.budgetCurrency}
-            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "budgetCurrency", e.target.value)}
-            className="form-select"
-          >
-            {CURRENCIES.map(currency => (
-              <option key={currency} value={currency}>{currency}</option>
-            ))}
-          </select>
-        </div>
-        
-        <div>
-          <label className="form-label">Private Sector Funding:</label>
-          <div className="radio-group">
-            {[true, false].map(value => (
-              <div key={`private-funding-${value}`} className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`private-funding-${value ? "yes" : "no"}-${activePolicyIndex}`}
-                  checked={implementation.privateSecFunding === value}
-                  onChange={() => updatePolicySection(activePolicyIndex, "implementation", "privateSecFunding", value)}
-                />
-                <label htmlFor={`private-funding-${value ? "yes" : "no"}-${activePolicyIndex}`}>
-                  {value ? "Yes" : "No"}
-                </label>
-              </div>
-            ))}
+        <div className="form-row">
+          <div>
+            <label className="form-label">Yearly Budget:</label>
+            <input
+              type="number"
+              value={policy.implementation.yearlyBudget}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "yearlyBudget", e.target.value)}
+              className="form-input"
+              placeholder="Enter budget amount"
+            />
+          </div>
+          <div>
+            <label className="form-label">Currency:</label>
+            <select
+              value={policy.implementation.budgetCurrency}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "budgetCurrency", e.target.value)}
+              className="form-select"
+            >
+              {CURRENCIES.map(currency => (
+                <option key={currency} value={currency}>{currency}</option>
+              ))}
+            </select>
           </div>
         </div>
-        
+
+        <div>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={policy.implementation.privateSecFunding}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "privateSecFunding", e.target.checked)}
+            />
+            Private Sector Funding
+          </label>
+        </div>
+
         <div>
           <label className="form-label">Deployment Year:</label>
           <input
             type="number"
-            min="1990"
-            max="2030"
-            value={implementation.deploymentYear}
-            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "deploymentYear", parseInt(e.target.value))}
+            value={policy.implementation.deploymentYear}
+            onChange={(e) => updatePolicySection(activePolicyIndex, "implementation", "deploymentYear", parseInt(e.target.value) || new Date().getFullYear())}
             className="form-input"
-            placeholder="Enter year policy entered into force"
+            min="2020"
+            max="2030"
           />
         </div>
       </div>
     )
   }
 
-  const renderEvaluationSection = () => {
-    const evaluation = formData.policyInitiatives[activePolicyIndex].evaluation
+  const renderEvaluation = () => {
+    const policy = formData.policyInitiatives[activePolicyIndex]
     
     return (
       <div className="form-section">
-        <h3>Evaluation & Accountability</h3>
+        <h4>Policy {activePolicyIndex + 1} - Evaluation</h4>
         
         <div>
-          <label className="form-label">Is Evaluated:</label>
-          <div className="radio-group">
-            {[true, false].map(value => (
-              <div key={`is-evaluated-${value}`} className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`is-evaluated-${value ? "yes" : "no"}-${activePolicyIndex}`}
-                  checked={evaluation.isEvaluated === value}
-                  onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "isEvaluated", value)}
-                />
-                <label htmlFor={`is-evaluated-${value ? "yes" : "no"}-${activePolicyIndex}`}>
-                  {value ? "Yes" : "No"}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {evaluation.isEvaluated && (
-          <div>
-            <label className="form-label">Evaluation Type:</label>
-            <div className="radio-group">
-              {["internal", "external"].map(type => (
-                <div key={`eval-type-${type}`} className="checkbox-item">
-                  <input
-                    type="radio"
-                    id={`eval-type-${type}-${activePolicyIndex}`}
-                    checked={evaluation.evaluationType === type}
-                    onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "evaluationType", type)}
-                  />
-                  <label htmlFor={`eval-type-${type}-${activePolicyIndex}`}>
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        <div>
-          <label className="form-label">Risk Assessment Methodology:</label>
-          <div className="radio-group">
-            {[true, false].map(value => (
-              <div key={`risk-assessment-${value}`} className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`risk-assessment-${value ? "yes" : "no"}-${activePolicyIndex}`}
-                  checked={evaluation.riskAssessment === value}
-                  onChange={() => updatePolicySection(activePolicyIndex, "evaluation", "riskAssessment", value)}
-                />
-                <label htmlFor={`risk-assessment-${value ? "yes" : "no"}-${activePolicyIndex}`}>
-                  {value ? "Yes" : "No"}
-                </label>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Score sliders */}
-        {["transparency", "explainability", "accountability"].map(metric => (
-          <div key={metric}>
-            <label className="form-label">
-              {metric.charAt(0).toUpperCase() + metric.slice(1)} Score (0-5): {evaluation[`${metric}Score`]}
-            </label>
+          <label className="checkbox-label">
             <input
-              type="range"
-              min="0"
-              max="5"
-              step="1"
-              value={evaluation[`${metric}Score`]}
-              onChange={(e) => updatePolicySection(
-                activePolicyIndex, 
-                "evaluation", 
-                `${metric}Score`, 
-                parseInt(e.target.value)
-              )}
-              className="score-slider"
+              type="checkbox"
+              checked={policy.evaluation.isEvaluated}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "isEvaluated", e.target.checked)}
             />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const renderParticipationSection = () => {
-    const participation = formData.policyInitiatives[activePolicyIndex].participation
-    
-    return (
-      <div className="form-section">
-        <h3>Public Participation</h3>
-        
-        <div>
-          <label className="form-label">Has Consultation Process:</label>
-          <div className="radio-group">
-            {[true, false].map(value => (
-              <div key={`consultation-${value}`} className="checkbox-item">
-                <input
-                  type="radio"
-                  id={`consultation-${value ? "yes" : "no"}-${activePolicyIndex}`}
-                  checked={participation.hasConsultation === value}
-                  onChange={() => updatePolicySection(activePolicyIndex, "participation", "hasConsultation", value)}
-                />
-                <label htmlFor={`consultation-${value ? "yes" : "no"}-${activePolicyIndex}`}>
-                  {value ? "Yes" : "No"}
-                </label>
-              </div>
-            ))}
-          </div>
+            Policy has been evaluated
+          </label>
         </div>
-        
-        {participation.hasConsultation && (
+
+        {policy.evaluation.isEvaluated && (
           <>
             <div>
-              <label className="form-label">Consultation Start Date:</label>
-              <input
-                type="date"
-                value={participation.consultationStartDate}
-                onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationStartDate", e.target.value)}
-                className="form-input"
-              />
+              <label className="form-label">Evaluation Type:</label>
+              <select
+                value={policy.evaluation.evaluationType}
+                onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "evaluationType", e.target.value)}
+                className="form-select"
+              >
+                <option value="internal">Internal</option>
+                <option value="external">External</option>
+                <option value="mixed">Mixed</option>
+              </select>
             </div>
-            
+
             <div>
-              <label className="form-label">Consultation End Date:</label>
-              <input
-                type="date"
-                value={participation.consultationEndDate}
-                onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationEndDate", e.target.value)}
-                className="form-input"
-              />
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={policy.evaluation.riskAssessment}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "riskAssessment", e.target.checked)}
+                />
+                Risk Assessment Conducted
+              </label>
             </div>
-            
-            <div>
-              <label className="form-label">Public Comments Availability:</label>
-              <div className="radio-group">
-                {[true, false].map(value => (
-                  <div key={`comments-${value}`} className="checkbox-item">
-                    <input
-                      type="radio"
-                      id={`comments-${value ? "public" : "private"}-${activePolicyIndex}`}
-                      checked={participation.commentsPublic === value}
-                      onChange={() => updatePolicySection(activePolicyIndex, "participation", "commentsPublic", value)}
-                    />
-                    <label htmlFor={`comments-${value ? "public" : "private"}-${activePolicyIndex}`}>
-                      {value ? "Yes" : "No"}
-                    </label>
-                  </div>
-                ))}
+
+            <div className="score-section">
+              <div>
+                <label className="form-label">Transparency Score (0-10):</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={policy.evaluation.transparencyScore}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "transparencyScore", parseInt(e.target.value))}
+                  className="form-range"
+                />
+                <span className="score-value">{policy.evaluation.transparencyScore}</span>
+              </div>
+
+              <div>
+                <label className="form-label">Explainability Score (0-10):</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={policy.evaluation.explainabilityScore}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "explainabilityScore", parseInt(e.target.value))}
+                  className="form-range"
+                />
+                <span className="score-value">{policy.evaluation.explainabilityScore}</span>
+              </div>
+
+              <div>
+                <label className="form-label">Accountability Score (0-10):</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  value={policy.evaluation.accountabilityScore}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "evaluation", "accountabilityScore", parseInt(e.target.value))}
+                  className="form-range"
+                />
+                <span className="score-value">{policy.evaluation.accountabilityScore}</span>
               </div>
             </div>
           </>
         )}
-        
-        <div>
-          <label className="form-label">Stakeholder Engagement Score (0-5): {participation.stakeholderScore}</label>
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="1"
-            value={participation.stakeholderScore}
-            onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "stakeholderScore", parseInt(e.target.value))}
-            className="score-slider"
-          />
-        </div>
       </div>
     )
   }
 
-  const renderAlignmentSection = () => {
-    const alignment = formData.policyInitiatives[activePolicyIndex].alignment
+  const renderParticipation = () => {
+    const policy = formData.policyInitiatives[activePolicyIndex]
     
     return (
       <div className="form-section">
-        <h3>Principles Alignment</h3>
+        <h4>Policy {activePolicyIndex + 1} - Public Participation</h4>
         
         <div>
-          <label className="form-label">Principles Coverage:</label>
-          <div className="checkbox-group">
-            {PRINCIPLES.map((principle, i) => (
-              <div key={i} className="checkbox-item">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={policy.participation.hasConsultation}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "hasConsultation", e.target.checked)}
+            />
+            Public Consultation Conducted
+          </label>
+        </div>
+
+        {policy.participation.hasConsultation && (
+          <>
+            <div className="form-row">
+              <div>
+                <label className="form-label">Consultation Start Date:</label>
+                <input
+                  type="date"
+                  value={policy.participation.consultationStartDate}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationStartDate", e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label className="form-label">Consultation End Date:</label>
+                <input
+                  type="date"
+                  value={policy.participation.consultationEndDate}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "consultationEndDate", e.target.value)}
+                  className="form-input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="checkbox-label">
                 <input
                   type="checkbox"
-                  id={`ai-principle-${activePolicyIndex}-${i}`}
-                  checked={alignment.aiPrinciples.includes(principle)}
-                  onChange={() => toggleArrayItem(activePolicyIndex, "alignment", "aiPrinciples", principle)}
+                  checked={policy.participation.commentsPublic}
+                  onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "commentsPublic", e.target.checked)}
                 />
-                <label htmlFor={`ai-principle-${activePolicyIndex}-${i}`}>{principle}</label>
-              </div>
-            ))}
-          </div>
-        </div>
-        
-        {/* Boolean fields */}
-        {[
-          { id: "humanRightsAlignment", label: "Human Rights Alignment" },
-          { id: "environmentalConsiderations", label: "Environmental Considerations" },
-          { id: "internationalCooperation", label: "International Cooperation" }
-        ].map(field => (
-          <div key={field.id}>
-            <label className="form-label">{field.label}:</label>
-            <div className="radio-group">
-              {[true, false].map(value => (
-                <div key={`${field.id}-${value}`} className="checkbox-item">
-                  <input
-                    type="radio"
-                    id={`${field.id}-${value ? "yes" : "no"}-${activePolicyIndex}`}
-                    checked={alignment[field.id] === value}
-                    onChange={() => updatePolicySection(activePolicyIndex, "alignment", field.id, value)}
-                  />
-                  <label htmlFor={`${field.id}-${value ? "yes" : "no"}-${activePolicyIndex}`}>
-                    {value ? "Yes" : "No"}
-                  </label>
-                </div>
-              ))}
+                Comments Made Public
+              </label>
             </div>
-          </div>
-        ))}
+
+            <div>
+              <label className="form-label">Stakeholder Engagement Score (0-10):</label>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                value={policy.participation.stakeholderScore}
+                onChange={(e) => updatePolicySection(activePolicyIndex, "participation", "stakeholderScore", parseInt(e.target.value))}
+                className="form-range"
+              />
+              <span className="score-value">{policy.participation.stakeholderScore}</span>
+            </div>
+          </>
+        )}
       </div>
     )
   }
 
-  const renderPolicyTabContent = () => {
-    switch (policyTabSelected) {
-      case "basic": return renderBasicPolicyInfo();
-      case "implementation": return renderImplementationSection();
-      case "eval": return renderEvaluationSection();
-      case "participation": return renderParticipationSection();
-      case "alignment": return renderAlignmentSection();
-      default: return <p>Please select a valid tab.</p>;
+  const renderAlignment = () => {
+    const policy = formData.policyInitiatives[activePolicyIndex]
+    
+    return (
+      <div className="form-section">
+        <h4>Policy {activePolicyIndex + 1} - Alignment</h4>
+        
+        <div>
+          <label className="form-label">AI Principles Alignment:</label>
+          <div className="checkbox-group">
+            {PRINCIPLES.map(principle => (
+              <label key={principle} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={policy.alignment.aiPrinciples.includes(principle)}
+                  onChange={() => toggleArrayItem(activePolicyIndex, "alignment", "aiPrinciples", principle)}
+                />
+                {principle}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={policy.alignment.humanRightsAlignment}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "alignment", "humanRightsAlignment", e.target.checked)}
+            />
+            Human Rights Alignment
+          </label>
+        </div>
+
+        <div>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={policy.alignment.environmentalConsiderations}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "alignment", "environmentalConsiderations", e.target.checked)}
+            />
+            Environmental Considerations
+          </label>
+        </div>
+
+        <div>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={policy.alignment.internationalCooperation}
+              onChange={(e) => updatePolicySection(activePolicyIndex, "alignment", "internationalCooperation", e.target.checked)}
+            />
+            International Cooperation
+          </label>
+        </div>
+      </div>
+    )
+  }
+
+  const renderPolicyContent = () => {
+    switch(policyTabSelected) {
+      case "basic":
+        return renderBasicInfo()
+      case "implementation":
+        return renderImplementation()
+      case "eval":
+        return renderEvaluation()
+      case "participation":
+        return renderParticipation()
+      case "alignment":
+        return renderAlignment()
+      default:
+        return renderBasicInfo()
     }
   }
 
-  const renderFormButtons = () => (
-    <div className="form-buttons">
-      <button 
-        type="submit" 
-        className="btn-primary"
-        disabled={loading}
-      >
-        {loading ? "Submitting..." : "Submit Data"}
-      </button>
-      <button 
-        type="button" 
-        onClick={resetForm} 
-        className="btn-secondary"
-        disabled={loading}
-      >
-        Reset Form
-      </button>
-    </div>
-  )
-
+  // Main render
   return (
-    <div className="form-container">
-      <h2>Policy Database - Country Submission Form</h2>
-      <p className="form-description">
-        Submit information about policy and regulatory frameworks in your country.
-        You can add up to 10 different policy initiatives.
-      </p>
-      
-      {renderMainTabs()}
-      
+    <div className="policy-form-container">
+      <div className="form-header">
+        <h1>Policy Submission Form</h1>
+        <p>Submit policy information for admin review before final database storage.</p>
+      </div>
+
       {formError && (
-        <div className="error-message">
+        <div className="alert alert-error">
           {formError}
         </div>
       )}
-      
+
       {formSuccess && (
-        <div className="success-message">
+        <div className="alert alert-success">
           {formSuccess}
         </div>
       )}
-      
+
       <form onSubmit={handleSubmit}>
-        {activeTab === "general" ? (
-          renderCountrySection()
-        ) : (
+        {renderMainTabs()}
+
+        {activeTab === "general" && renderCountrySection()}
+
+        {activeTab === "policy" && (
           <div className="policy-section">
             {renderPolicyNavigation()}
             {renderPolicyDetailTabs()}
-            {renderPolicyTabContent()}
+            {renderPolicyContent()}
           </div>
         )}
-        
-        {renderFormButtons()}
+
+        <div className="form-actions">
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="submit-btn"
+          >
+            {loading ? "Submitting..." : "Submit for Review"}
+          </button>
+        </div>
       </form>
     </div>
   )
