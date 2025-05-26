@@ -48,6 +48,33 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleOpenFile = async (fileInfo) => {
+  try {
+    if (fileInfo.file_path) {
+      // For server-stored files
+      const response = await fetch(`${API_BASE_URL}/files/${fileInfo.file_path}`)
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+      }
+    } else if (fileInfo.data) {
+      // For base64 stored files  
+      const byteCharacters = atob(fileInfo.data)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: fileInfo.type })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    }
+  } catch (error) {
+    setError(`Error opening file: ${error.message}`)
+  }
+}
+
   const fetchStatistics = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/statistics`)
@@ -186,9 +213,10 @@ export default function AdminDashboard() {
 
   // Filter submissions based on search term
   const filteredSubmissions = submissions.filter(submission =>
-    submission.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    submission.policyInitiatives.some(policy =>
-      policy.policyName.toLowerCase().includes(searchTerm.toLowerCase())
+    submission.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    submission.policyInitiatives?.some(policy =>
+      policy.policyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      policy.policyId?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   )
 
@@ -208,11 +236,13 @@ export default function AdminDashboard() {
       case 'approved': return 'text-green-600 bg-green-100'
       case 'rejected': return 'text-red-600 bg-red-100'
       case 'needs_revision': return 'text-yellow-600 bg-yellow-100'
+      case 'active': return 'text-blue-600 bg-blue-100'
       default: return 'text-gray-600 bg-gray-100'
     }
   }
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -220,6 +250,11 @@ export default function AdminDashboard() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const formatCurrency = (amount, currency) => {
+    if (!amount) return 'N/A'
+    return `${currency || 'USD'} ${parseFloat(amount).toLocaleString()}`
   }
 
   return (
@@ -297,7 +332,7 @@ export default function AdminDashboard() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <input
                 type="text"
-                placeholder="Search by country or policy name..."
+                placeholder="Search by country, policy name, or policy ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -312,9 +347,10 @@ export default function AdminDashboard() {
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
-                <option value="partially_approved">Partially Approved</option>
-                <option value="fully_approved">Fully Approved</option>
-                <option value="fully_processed">Fully Processed</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="needs_revision">Needs Revision</option>
+                <option value="active">Active (Master)</option>
               </select>
             </div>
           </div>
@@ -354,6 +390,9 @@ export default function AdminDashboard() {
                       Policies
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Budget
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -372,19 +411,33 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
-                          {submission.policyInitiatives.map((policy, index) => (
+                          {submission.policyInitiatives?.map((policy, index) => (
                             <div
                               key={index}
                               className="flex items-center justify-between p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
                               onClick={() => openPolicyModal(submission, policy, index)}
                             >
-                              <div>
+                              <div className="flex-1">
                                 <div className="text-sm font-medium text-gray-900">{policy.policyName}</div>
-                                <div className="text-xs text-gray-500">{policy.policyArea}</div>
+                                <div className="text-xs text-gray-500">
+                                  ID: {policy.policyId} | Area: {policy.policyArea}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Deployment: {policy.implementation?.deploymentYear || 'TBD'}
+                                </div>
                               </div>
                               <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(policy.status)}`}>
                                 {policy.status || 'pending'}
                               </span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {submission.policyInitiatives?.map((policy, index) => (
+                            <div key={index} className="mb-1">
+                              {formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}
                             </div>
                           ))}
                         </div>
@@ -401,7 +454,6 @@ export default function AdminDashboard() {
                         <button
                           onClick={() => {
                             setSelectedSubmission(submission)
-                            // Could open a submission details modal here
                           }}
                           className="text-blue-600 hover:text-blue-900 mr-3"
                         >
@@ -444,7 +496,7 @@ export default function AdminDashboard() {
         {/* Policy Detail Modal */}
         {showPolicyModal && selectedPolicy && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
               <div className="mt-3">
                 {/* Modal Header */}
                 <div className="flex justify-between items-center pb-4 border-b">
@@ -465,88 +517,329 @@ export default function AdminDashboard() {
                 <div className="mt-4 max-h-96 overflow-y-auto">
                   {editMode ? (
                     // Edit Mode
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Policy Name</label>
-                        <input
-                          type="text"
-                          value={editedPolicy.policyName}
-                          onChange={(e) => setEditedPolicy({ ...editedPolicy, policyName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Policy Name</label>
+                          <input
+                            type="text"
+                            value={editedPolicy.policyName || ''}
+                            onChange={(e) => setEditedPolicy({ ...editedPolicy, policyName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Policy ID</label>
+                          <input
+                            type="text"
+                            value={editedPolicy.policyId || ''}
+                            onChange={(e) => setEditedPolicy({ ...editedPolicy, policyId: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Policy Area</label>
+                          <input
+                            type="text"
+                            value={editedPolicy.policyArea || ''}
+                            onChange={(e) => setEditedPolicy({ ...editedPolicy, policyArea: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                          <textarea
+                            value={editedPolicy.policyDescription || ''}
+                            onChange={(e) => setEditedPolicy({ ...editedPolicy, policyDescription: e.target.value })}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Policy Area</label>
-                        <input
-                          type="text"
-                          value={editedPolicy.policyArea}
-                          onChange={(e) => setEditedPolicy({ ...editedPolicy, policyArea: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <textarea
-                          value={editedPolicy.policyDescription}
-                          onChange={(e) => setEditedPolicy({ ...editedPolicy, policyDescription: e.target.value })}
-                          rows={4}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Yearly Budget</label>
+                          <input
+                            type="text"
+                            value={editedPolicy.implementation?.yearlyBudget || ''}
+                            onChange={(e) => setEditedPolicy({
+                              ...editedPolicy,
+                              implementation: { ...editedPolicy.implementation, yearlyBudget: e.target.value }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                          <input
+                            type="text"
+                            value={editedPolicy.implementation?.budgetCurrency || ''}
+                            onChange={(e) => setEditedPolicy({
+                              ...editedPolicy,
+                              implementation: { ...editedPolicy.implementation, budgetCurrency: e.target.value }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Deployment Year</label>
+                          <input
+                            type="number"
+                            value={editedPolicy.implementation?.deploymentYear || ''}
+                            onChange={(e) => setEditedPolicy({
+                              ...editedPolicy,
+                              implementation: { ...editedPolicy.implementation, deploymentYear: parseInt(e.target.value) }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
                       </div>
                     </div>
                   ) : (
                     // View Mode
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium text-gray-900">Policy Information</h4>
-                        <div className="mt-2 grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-600">Policy Name</p>
-                            <p className="text-sm font-medium">{selectedPolicy.policyName}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">Policy Area</p>
-                            <p className="text-sm font-medium">{selectedPolicy.policyArea || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">Status</p>
-                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedPolicy.status)}`}>
-                              {selectedPolicy.status || 'pending'}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">Country</p>
-                            <p className="text-sm font-medium">{selectedSubmission.country}</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-3">Basic Information</h4>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm text-gray-600">Policy Name</p>
+                                <p className="text-sm font-medium">{selectedPolicy.policyName}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Policy ID</p>
+                                <p className="text-sm font-medium">{selectedPolicy.policyId || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Policy Area</p>
+                                <p className="text-sm font-medium">{selectedPolicy.policyArea || 'N/A'}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Country</p>
+                                <p className="text-sm font-medium">{selectedSubmission.country}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Status</p>
+                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedPolicy.status)}`}>
+                                  {selectedPolicy.status || 'pending'}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Master Status</p>
+                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedPolicy.master_status)}`}>
+                                  {selectedPolicy.master_status || 'N/A'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        {selectedPolicy.policyDescription && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+                            <p className="text-sm text-gray-700">{selectedPolicy.policyDescription}</p>
+                          </div>
+                        )}
+
+                        {selectedPolicy.targetGroups && selectedPolicy.targetGroups.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Target Groups</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedPolicy.targetGroups.map((group, index) => (
+                                <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                                  {group}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedPolicy.policyFile && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Policy File</h4>
+                            <div className="bg-gray-50 p-3 rounded">
+                              <p className="text-sm"><strong>Name:</strong> {selectedPolicy.policyFile.name}</p>
+                              <p className="text-sm"><strong>Type:</strong> {selectedPolicy.policyFile.type}</p>
+                              <p className="text-sm"><strong>Size:</strong> {(selectedPolicy.policyFile.size / 1024).toFixed(2)} KB</p>
+                              <p className="text-sm"><strong>Upload Date:</strong> {formatDate(selectedPolicy.policyFile.upload_date)}</p>
+                              <button onClick={() => handleOpenFile(selectedPolicy.policyFile)} className="mt-2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Open File</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {selectedPolicy.policyLink && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Policy Link</h4>
+                            <div className="flex items-center gap-2"> {/* ADD flex container */}
+                              <a href={selectedPolicy.policyLink} target="_blank" rel="noopener noreferrer" 
+                                className="text-blue-600 hover:text-blue-800 text-sm">
+                                {selectedPolicy.policyLink}
+                              </a>
+                              <button
+                                onClick={() => window.open(selectedPolicy.policyLink, '_blank')}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                              >
+                                Open Link
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {selectedPolicy.policyDescription && (
-                        <div>
-                          <h4 className="font-medium text-gray-900">Description</h4>
-                          <p className="mt-1 text-sm text-gray-700">{selectedPolicy.policyDescription}</p>
-                        </div>
-                      )}
+                      <div className="space-y-6">
+                        {/* Implementation Details */}
+                        {selectedPolicy.implementation && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-3">Implementation Details</h4>
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm text-gray-600">Yearly Budget</p>
+                                  <p className="text-sm font-medium">
+                                    {formatCurrency(selectedPolicy.implementation.yearlyBudget, selectedPolicy.implementation.budgetCurrency)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Private Sector Funding</p>
+                                  <p className="text-sm font-medium">
+                                    {selectedPolicy.implementation.privateSecFunding ? 'Yes' : 'No'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Deployment Year</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.implementation.deploymentYear || 'TBD'}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
-                      {selectedPolicy.targetGroups && selectedPolicy.targetGroups.length > 0 && (
+                        {/* Evaluation Details */}
+                        {selectedPolicy.evaluation && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-3">Evaluation & Assessment</h4>
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm text-gray-600">Is Evaluated</p>
+                                  <p className="text-sm font-medium">
+                                    {selectedPolicy.evaluation.isEvaluated ? 'Yes' : 'No'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Evaluation Type</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.evaluationType || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Risk Assessment</p>
+                                  <p className="text-sm font-medium">
+                                    {selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-4">
+                                <h5 className="text-sm font-medium text-gray-700 mb-2">Scores</h5>
+                                <div className="grid grid-cols-3 gap-4">
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600">Transparency</p>
+                                    <p className="text-lg font-semibold text-blue-600">
+                                      {selectedPolicy.evaluation.transparencyScore || 0}/10
+                                    </p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600">Explainability</p>
+                                    <p className="text-lg font-semibold text-green-600">
+                                      {selectedPolicy.evaluation.explainabilityScore || 0}/10
+                                    </p>
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-gray-600">Accountability</p>
+                                    <p className="text-lg font-semibold text-purple-600">
+                                      {selectedPolicy.evaluation.accountabilityScore || 0}/10
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Participation Details */}
+                        {selectedPolicy.participation && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-3">Public Participation</h4>
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-sm text-gray-600">Has Consultation</p>
+                                  <p className="text-sm font-medium">
+                                    {selectedPolicy.participation.hasConsultation ? 'Yes' : 'No'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Comments Public</p>
+                                  <p className="text-sm font-medium">
+                                    {selectedPolicy.participation.commentsPublic ? 'Yes' : 'No'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">Stakeholder Score</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.participation.stakeholderScore || 0}/10</p>
+                                </div>
+                              </div>
+                              
+                              {selectedPolicy.participation.consultationStartDate && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <p className="text-sm text-gray-600">Consultation Start</p>
+                                    <p className="text-sm font-medium">
+                                      {formatDate(selectedPolicy.participation.consultationStartDate)}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm text-gray-600">Consultation End</p>
+                                    <p className="text-sm font-medium">
+                                      {formatDate(selectedPolicy.participation.consultationEndDate)}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Dates and Tracking */}
                         <div>
-                          <h4 className="font-medium text-gray-900">Target Groups</h4>
-                          <div className="mt-1 flex flex-wrap gap-2">
-                            {selectedPolicy.targetGroups.map((group, index) => (
-                              <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                {group}
-                              </span>
-                            ))}
+                          <h4 className="font-medium text-gray-900 mb-3">Tracking Information</h4>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              {selectedPolicy.original_submission_id && (
+                                <div>
+                                  <p className="text-sm text-gray-600">Original Submission ID</p>
+                                  <p className="text-sm font-medium font-mono">{selectedPolicy.original_submission_id}</p>
+                                </div>
+                              )}
+                              {selectedPolicy.moved_to_master_at && (
+                                <div>
+                                  <p className="text-sm text-gray-600">Moved to Master</p>
+                                  <p className="text-sm font-medium">{formatDate(selectedPolicy.moved_to_master_at)}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
 
-                      {selectedPolicy.admin_notes && (
-                        <div>
-                          <h4 className="font-medium text-gray-900">Admin Notes</h4>
-                          <p className="mt-1 text-sm text-gray-700">{selectedPolicy.admin_notes}</p>
-                        </div>
-                      )}
+                        {selectedPolicy.admin_notes && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Admin Notes</h4>
+                            <div className="bg-yellow-50 p-3 rounded">
+                              <p className="text-sm text-gray-700">{selectedPolicy.admin_notes}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
