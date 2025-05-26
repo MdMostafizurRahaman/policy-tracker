@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   const [statistics, setStatistics] = useState({})
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false)
+  const [selectedSubmissionDetails, setSelectedSubmissionDetails] = useState(null)
 
   // Fetch all submissions on component mount
   useEffect(() => {
@@ -46,6 +48,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
+  }
+
+    const handleOpenSubmissionDetails = (submission) => {
+    setSelectedSubmissionDetails(submission)
+    setShowSubmissionModal(true)
   }
 
   const handleOpenFile = async (fileInfo) => {
@@ -233,11 +240,11 @@ export default function AdminDashboard() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'approved': return 'text-green-600 bg-green-100'
-      case 'rejected': return 'text-red-600 bg-red-100'
-      case 'needs_revision': return 'text-yellow-600 bg-yellow-100'
-      case 'active': return 'text-blue-600 bg-blue-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'approved': return 'text-emerald-700 bg-emerald-50 border-emerald-200'
+      case 'rejected': return 'text-red-700 bg-red-50 border-red-200'
+      case 'needs_revision': return 'text-amber-700 bg-amber-50 border-amber-200'
+      case 'active': return 'text-blue-700 bg-blue-50 border-blue-200'
+      default: return 'text-slate-700 bg-slate-50 border-slate-200'
     }
   }
 
@@ -258,92 +265,94 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage AI policy submissions and approvals</p>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent mb-3">
+            Admin Dashboard
+          </h1>
+          <p className="text-slate-600 text-lg">Manage AI policy submissions and approvals</p>
         </div>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-semibold text-gray-900">{statistics.pending_submissions || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Pending</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.pending_submissions || 0}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Partially Approved</p>
-                <p className="text-2xl font-semibold text-gray-900">{statistics.partially_approved || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Partially Approved</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.partially_approved || 0}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Fully Approved</p>
-                <p className="text-2xl font-semibold text-gray-900">{statistics.fully_approved || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Fully Approved</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.fully_approved || 0}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Master Policies</p>
-                <p className="text-2xl font-semibold text-gray-900">{statistics.total_approved_policies || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Master Policies</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.total_approved_policies || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-lg shadow mb-6 p-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 mb-6 p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
               <input
                 type="text"
                 placeholder="Search by country, policy name, or policy ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Filter by Status</label>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -358,20 +367,30 @@ export default function AdminDashboard() {
 
         {/* Messages */}
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-800 px-6 py-4 rounded-xl mb-4 shadow-sm">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              {error}
+            </div>
           </div>
         )}
         {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {success}
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-6 py-4 rounded-xl mb-4 shadow-sm">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              {success}
+            </div>
           </div>
         )}
 
         {/* Submissions Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Policy Submissions</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-200">
+            <h2 className="text-xl font-bold text-slate-900">Policy Submissions</h2>
           </div>
 
           {loading ? (
@@ -380,53 +399,53 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-slate-50/80">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Country
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Policies
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Budget
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Submitted
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white/50 divide-y divide-slate-200">
                   {filteredSubmissions.map((submission) => (
-                    <tr key={submission._id}>
+                    <tr key={submission._id} className="hover:bg-slate-50/50 transition-colors duration-150">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{submission.country}</div>
+                        <div className="text-sm font-semibold text-slate-900">{submission.country}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {submission.policyInitiatives?.map((policy, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100"
+                              className="flex items-center justify-between p-3 bg-white/80 rounded-lg border border-slate-200 cursor-pointer hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-200 shadow-sm"
                               onClick={() => openPolicyModal(submission, policy, index)}
                             >
                               <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-900">{policy.policyName}</div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-sm font-semibold text-slate-900">{policy.policyName}</div>
+                                <div className="text-xs text-slate-600 mt-1">
                                   ID: {policy.policyId} | Area: {policy.policyArea}
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-slate-500 mt-1">
                                   Deployment: {policy.implementation?.deploymentYear || 'TBD'}
                                 </div>
                               </div>
-                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(policy.status)}`}>
+                              <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
                                 {policy.status || 'pending'}
                               </span>
                             </div>
@@ -434,28 +453,26 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-slate-700">
                           {submission.policyInitiatives?.map((policy, index) => (
-                            <div key={index} className="mb-1">
+                            <div key={index} className="mb-1 font-medium">
                               {formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}
                             </div>
                           ))}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(submission.submission_status)}`}>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.submission_status)}`}>
                           {submission.submission_status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {formatDate(submission.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
-                          onClick={() => {
-                            setSelectedSubmission(submission)
-                          }}
-                          className="text-blue-600 hover:text-blue-900 mr-3"
+                          onClick={() => handleOpenSubmissionDetails(submission)}
+                          className="text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-150"
                         >
                           View Details
                         </button>
@@ -466,25 +483,58 @@ export default function AdminDashboard() {
               </table>
             </div>
           )}
+          {showSubmissionModal && selectedSubmissionDetails && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+              <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8 overflow-hidden">
+                {/* Modal Header */}
+                <div className="p-6 flex justify-between items-center border-b border-slate-200">
+                  <h3 className="text-2xl font-bold text-slate-900">Submission Details</h3>
+                  <button
+                    onClick={() => setShowSubmissionModal(false)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Submission Details Content */}
+                <div className="p-6 max-h-[80vh] overflow-y-auto">
+                  {/* Display selected submission info - customize as needed */}
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-700 mb-2">Country: {selectedSubmissionDetails.country}</h4>
+                    <p><strong>Submitted At:</strong> {formatDate(selectedSubmissionDetails.created_at)}</p>
+                    {/* List policies or other details as needed */}
+                    {selectedSubmissionDetails.policyInitiatives?.map((policy, index) => (
+                      <div key={index} className="border rounded p-3 mb-2 bg-gray-50">
+                        <p><strong>Policy Name:</strong> {policy.policyName}</p>
+                        <p><strong>Status:</strong> {policy.status}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
+            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50/50">
+              <div className="text-sm text-slate-700 font-medium">
                 Page {currentPage} of {totalPages}
               </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50"
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                 >
                   Next
                 </button>
@@ -495,17 +545,20 @@ export default function AdminDashboard() {
 
         {/* Policy Detail Modal */}
         {showPolicyModal && selectedPolicy && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
-              <div className="mt-3">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8">
+              <div className="p-8">
                 {/* Modal Header */}
-                <div className="flex justify-between items-center pb-4 border-b">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Policy Details: {selectedPolicy.policyName}
-                  </h3>
+                <div className="flex justify-between items-center pb-6 border-b border-slate-200">
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900">
+                      {selectedPolicy.policyName}
+                    </h3>
+                    <p className="text-slate-600 mt-1">Policy Details & Management</p>
+                  </div>
                   <button
                     onClick={() => setShowPolicyModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
