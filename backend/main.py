@@ -140,6 +140,20 @@ def convert_objectid(obj):
         return [convert_objectid(item) for item in obj]
     return obj
 
+# Helper function to convert Pydantic models to dict for MongoDB storage
+def pydantic_to_dict(obj):
+    """Convert Pydantic models and other objects to MongoDB-compatible dict"""
+    if hasattr(obj, 'dict'):  # Pydantic model
+        return obj.dict()
+    elif isinstance(obj, dict):
+        return {key: pydantic_to_dict(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [pydantic_to_dict(item) for item in obj]
+    elif isinstance(obj, datetime):
+        return obj
+    else:
+        return obj
+
 # Helper function to save file to database
 async def save_file_to_db(file: UploadFile, metadata: Dict = None) -> str:
     """Save file to database and return file ID"""
@@ -248,9 +262,9 @@ async def submit_form(submission: FormSubmission):
         if not non_empty_policies:
             raise HTTPException(status_code=400, detail="At least one policy must be provided")
         
-        # Add timestamps and initial status
-        submission_dict = submission.dict()
-        submission_dict["policyInitiatives"] = non_empty_policies
+        # Convert Pydantic models to dict for MongoDB storage
+        submission_dict = pydantic_to_dict(submission)
+        submission_dict["policyInitiatives"] = [pydantic_to_dict(policy) for policy in non_empty_policies]
         submission_dict["created_at"] = datetime.utcnow()
         submission_dict["updated_at"] = datetime.utcnow()
         submission_dict["submission_status"] = "pending"
@@ -469,7 +483,7 @@ async def edit_policy(policy_update: PolicyUpdate):
     try:
         submission_id = policy_update.submission_id
         policy_index = policy_update.policy_index
-        updated_policy = policy_update.updated_policy.dict()
+        updated_policy = pydantic_to_dict(policy_update.updated_policy)
         
         # Find the submission
         submission = await temp_policies_collection.find_one({"_id": ObjectId(submission_id)})
