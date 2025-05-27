@@ -23,7 +23,7 @@ const PRINCIPLES = [
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "Local"]
 
 // API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.production.NEXT_PUBLIC_API_URL;
 
 // Generate unique submission ID
 const generateSubmissionId = () => {
