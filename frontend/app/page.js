@@ -253,11 +253,6 @@ export default function Page() {
         backgroundColor: view === "home" ? "#f8fafc" : "#ffffff"
       }}
     >
-      <div className="theme-toggle" onClick={cycleTheme}>
-        <PaletteIcon />
-        <span>Change Theme</span>
-      </div>
-      
       <nav 
         className={`navbar ${view === "home" ? "navbar-transparent" : ""}`}
         style={{
@@ -338,6 +333,18 @@ export default function Page() {
           >
             <AdminIcon />
             <span>Admin</span>
+          </button>
+          
+          <button
+            className={`navbar-link theme-toggle${view === "theme" ? " active" : ""}`}
+            onClick={cycleTheme}
+            style={{
+              backgroundColor: "transparent",
+              color: themes[theme].text
+            }}
+          >
+            <PaletteIcon />
+            <span>Theme</span>
           </button>
         </div>
       </nav>
