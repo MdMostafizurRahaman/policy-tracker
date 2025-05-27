@@ -28,7 +28,7 @@ app = FastAPI(title="AI Policy Database API with Admin Workflow", version="1.0.0
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*","https://policy-tracker-f.onrender.com"],  # Adjust this in production
+    allow_origins=["https://policy-tracker-f.onrender.com"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

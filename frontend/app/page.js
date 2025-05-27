@@ -253,11 +253,11 @@ export default function Page() {
         backgroundColor: view === "home" ? "#f8fafc" : "#ffffff"
       }}
     >
-      {/* <div className="theme-toggle" onClick={cycleTheme}>
+      <div className="theme-toggle" onClick={cycleTheme}>
         <PaletteIcon />
         <span>Change Theme</span>
       </div>
-       */}
+      
       <nav 
         className={`navbar ${view === "home" ? "navbar-transparent" : ""}`}
         style={{
