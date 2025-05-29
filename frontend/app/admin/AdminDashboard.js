@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import './admin-dashboard.css'
 
 // API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -270,15 +271,13 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent mb-3">
-            Admin Dashboard
-          </h1>
-          <p className="text-slate-600 text-lg">Manage AI policy submissions and approvals</p>
+          <h1 className="admin-header">Admin Dashboard</h1>
+          <p className="admin-subheader">Manage AI policy submissions and approvals</p>
         </div>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="admin-card">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,7 +291,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="admin-card">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +305,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="admin-card">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -320,7 +319,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6 hover:shadow-lg transition-all duration-300">
+          <div className="admin-card">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -400,7 +399,7 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
+              <table className="admin-table">
                 <thead className="bg-slate-50/80">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
