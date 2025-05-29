@@ -483,39 +483,93 @@ export default function AdminDashboard() {
               </table>
             </div>
           )}
-          {showSubmissionModal && selectedSubmissionDetails && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-              <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8 overflow-hidden">
-                {/* Modal Header */}
-                <div className="p-6 flex justify-between items-center border-b border-slate-200">
-                  <h3 className="text-2xl font-bold text-slate-900">Submission Details</h3>
-                  <button
-                    onClick={() => setShowSubmissionModal(false)}
-                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+        {showSubmissionModal && selectedSubmissionDetails && (
+          <div className="admin-modal">
+            <div className="admin-modal-content max-w-3xl">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center border-b pb-4 mb-4">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  Submission Details
+                </h3>
+                <button
+                  onClick={() => setShowSubmissionModal(false)}
+                  className="admin-close-btn"
+                  aria-label="Close"
+                >
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {/* Submission Details Content */}
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h4 className="text-lg font-semibold text-blue-900 mb-1">
+                      <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-lg mr-2">
+                        {selectedSubmissionDetails.country}
+                      </span>
+                    </h4>
+                    <p className="text-sm text-slate-600">
+                      <strong>Submitted At:</strong> {formatDate(selectedSubmissionDetails.created_at)}
+                    </p>
+                  </div>
+                  <div>
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border shadow-sm ${getStatusColor(selectedSubmissionDetails.submission_status)}`}>
+                      {selectedSubmissionDetails.submission_status}
+                    </span>
+                  </div>
                 </div>
-                {/* Submission Details Content */}
-                <div className="p-6 max-h-[80vh] overflow-y-auto">
-                  {/* Display selected submission info - customize as needed */}
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-700 mb-2">Country: {selectedSubmissionDetails.country}</h4>
-                    <p><strong>Submitted At:</strong> {formatDate(selectedSubmissionDetails.created_at)}</p>
-                    {/* List policies or other details as needed */}
+                <div>
+                  <h5 className="text-base font-semibold text-indigo-700 mb-3">Policies</h5>
+                  <div className="grid gap-4">
                     {selectedSubmissionDetails.policyInitiatives?.map((policy, index) => (
-                      <div key={index} className="border rounded p-3 mb-2 bg-gray-50">
-                        <p><strong>Policy Name:</strong> {policy.policyName}</p>
-                        <p><strong>Status:</strong> {policy.status}</p>
+                      <div
+                        key={index}
+                        className="border-l-4 border-blue-400 bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-xl p-4 shadow transition hover:shadow-lg"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-slate-900 text-lg mb-1">{policy.policyName}</p>
+                            <p className="text-xs text-slate-500 mb-1">
+                              <span className="mr-2">ID: <span className="font-mono">{policy.policyId || 'N/A'}</span></span>
+                              <span>Area: <span className="font-semibold">{policy.policyArea || 'N/A'}</span></span>
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              Deployment: <span className="font-semibold">{policy.implementation?.deploymentYear || 'TBD'}</span>
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
+                              {policy.status || 'pending'}
+                            </span>
+                            <span className="text-xs text-slate-700">
+                              Budget: <span className="font-semibold">{formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}</span>
+                            </span>
+                          </div>
+                        </div>
+                        {policy.policyDescription && (
+                          <div className="mt-2 text-sm text-slate-700 italic">
+                            {policy.policyDescription}
+                          </div>
+                        )}
+                        {policy.targetGroups && policy.targetGroups.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {policy.targetGroups.map((group, i) => (
+                              <span key={i} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
+                                {group}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
           {/* Pagination */}
           {totalPages > 1 && (
