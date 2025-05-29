@@ -483,6 +483,7 @@ export default function AdminDashboard() {
               </table>
             </div>
           )}
+          
         {showSubmissionModal && selectedSubmissionDetails && (
           <div className="admin-modal">
             <div className="admin-modal-content max-w-3xl">
