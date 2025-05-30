@@ -67,12 +67,13 @@ export default function CountryPolicyPopup({ country, onClose }) {
     const timer = setTimeout(() => setVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL|| 'https://policy-tracker-5.onrender.com/api';
 
   useEffect(() => {
     if (country && country.name) {
       setLoading(true)
       // Fetch policy data for this country
-      fetch(`http://localhost:8000/api/country-policies/${encodeURIComponent(country.name)}`)
+      fetch(`${API_BASE_URL}/api/country-policies/${encodeURIComponent(country.name)}`)
         .then(res => res.json())
         .then(data => {
           // Transform the data into a more usable format
