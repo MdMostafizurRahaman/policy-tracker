@@ -21,8 +21,7 @@ export default function Worldmap() {
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [showPolicyPopup, setShowPolicyPopup] = useState(false)
 
-  
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL|| 'https://policy-tracker-5.onrender.com/api';
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/countries`)
