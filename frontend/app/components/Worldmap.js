@@ -22,8 +22,10 @@ export default function Worldmap() {
   const [showPolicyPopup, setShowPolicyPopup] = useState(false)
 
   
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
   useEffect(() => {
-    fetch("http://localhost:8000/api/countries")
+    fetch(`${API_BASE_URL}/countries`)
       .then(res => res.json())
       .then(setCountries)
   }, [])
