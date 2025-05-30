@@ -73,7 +73,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     if (country && country.name) {
       setLoading(true)
       // Fetch policy data for this country
-      fetch(`${API_BASE_URL}/api/country-policies/${encodeURIComponent(country.name)}`)
+      fetch(`${API_BASE_URL}/country-policies/${encodeURIComponent(country.name)}`)
         .then(res => res.json())
         .then(data => {
           // Transform the data into a more usable format
