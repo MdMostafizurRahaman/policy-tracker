@@ -717,6 +717,307 @@ async def delete_master_policy(policy_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting policy: {str(e)}")
 
+# Add these new endpoints to your FastAPI application (main.py)
+
+import csv
+import io
+from collections import defaultdict
+
+# Add this new endpoint to generate country policy data
+@app.get("/api/generate-country-data")
+async def generate_country_data():
+    """Generate country policy data from approved policies in master database"""
+    try:
+        # Define all policy types
+        policy_types = [
+            "AI Safety",
+            "CyberSafety", 
+            "Digital Education",
+            "Digital Inclusion",
+            "Digital Leisure",
+            "(Dis)Information",
+            "Digital Work",
+            "Mental Health",
+            "Physical Health",
+            "Social Media/Gaming Regulation"
+        ]
+        
+        # Get all approved policies from master database
+        cursor = master_policies_collection.find({"master_status": {"$ne": "deleted"}})
+        
+        # Initialize country data structure
+        country_data = defaultdict(lambda: {
+            "policies": [{"status": "not_approved"} for _ in range(10)],
+            "total_policies": 0,
+            "color": "#EEE"
+        })
+        
+        # Process each policy
+        async for policy in cursor:
+            country = policy.get("country")
+            policy_area = policy.get("policyArea")
+            
+            if country and policy_area and policy_area in policy_types:
+                policy_index = policy_types.index(policy_area)
+                
+                # Mark this policy as approved and store policy data
+                country_data[country]["policies"][policy_index] = {
+                    "status": "approved",
+                    "file": policy.get("policyFile", {}).get("file_id") if policy.get("policyFile") else None,
+                    "text": policy.get("policyDescription", ""),
+                    "year": policy.get("implementation", {}).get("deploymentYear", "N/A"),
+                    "description": policy.get("policyDescription", ""),
+                    "metrics": [
+                        f"Budget: {policy.get('implementation', {}).get('yearlyBudget', 'N/A')} {policy.get('implementation', {}).get('budgetCurrency', 'USD')}",
+                        f"Transparency Score: {policy.get('evaluation', {}).get('transparencyScore', 0)}/10",
+                        f"Accountability Score: {policy.get('evaluation', {}).get('accountabilityScore', 0)}/10",
+                        f"Stakeholder Score: {policy.get('participation', {}).get('stakeholderScore', 0)}/10"
+                    ] if policy.get("implementation") or policy.get("evaluation") or policy.get("participation") else []
+                }
+        
+        # Calculate totals and assign colors
+        for country, data in country_data.items():
+            # Count approved policies
+            approved_count = sum(1 for p in data["policies"] if p["status"] == "approved")
+            data["total_policies"] = approved_count
+            
+            # Assign color based on policy count
+            if approved_count >= 8:
+                data["color"] = "#22c55e"  # Green
+            elif approved_count >= 4:
+                data["color"] = "#eab308"  # Yellow  
+            elif approved_count >= 1:
+                data["color"] = "#ef4444"  # Red
+            else:
+                data["color"] = "#EEE"     # Gray (no policies)
+        
+        # Generate CSV data in memory
+        csv_data = generate_csv_data(country_data, policy_types)
+        
+        return {
+            "success": True,
+            "countries": dict(country_data),
+            "csv_data": csv_data,
+            "total_countries": len(country_data),
+            "policy_types": policy_types
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating country data: {str(e)}")
+
+def generate_csv_data(country_data, policy_types):
+    """Generate CSV data in memory"""
+    try:
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        header = ["Country", "Total_Policies", "Color"] + policy_types
+        writer.writerow(header)
+        
+        # Write data for each country
+        for country, data in country_data.items():
+            row = [
+                country,
+                data["total_policies"],
+                data["color"]
+            ]
+            
+            # Add policy status for each type (1 for approved, 0 for not approved)
+            for policy in data["policies"]:
+                row.append(1 if policy["status"] == "approved" else 0)
+            
+            writer.writerow(row)
+        
+        csv_content = output.getvalue()
+        output.close()
+        
+        return csv_content
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating CSV: {str(e)}")
+
+@app.get("/api/countries")
+async def get_countries():
+    """Get country data for the world map"""
+    try:
+        # Generate fresh country data
+        country_data_response = await generate_country_data()
+        
+        if country_data_response["success"]:
+            return country_data_response["countries"]
+        else:
+            return {}
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching country data: {str(e)}")
+
+@app.get("/api/country-policies/{country_name}")
+async def get_country_policies(country_name: str):
+    """Get detailed policy information for a specific country"""
+    try:
+        # Define policy types
+        policy_types = [
+            "AI Safety",
+            "CyberSafety", 
+            "Digital Education",
+            "Digital Inclusion",
+            "Digital Leisure",
+            "(Dis)Information",
+            "Digital Work",
+            "Mental Health",
+            "Physical Health",
+            "Social Media/Gaming Regulation"
+        ]
+        
+        # Initialize policy data
+        policies = [{"status": "not_approved"} for _ in range(10)]
+        
+        # Get approved policies for this country
+        cursor = master_policies_collection.find({
+            "country": country_name,
+            "master_status": {"$ne": "deleted"}
+        })
+        
+        async for policy in cursor:
+            policy_area = policy.get("policyArea")
+            
+            if policy_area and policy_area in policy_types:
+                policy_index = policy_types.index(policy_area)
+                
+                policies[policy_index] = {
+                    "status": "approved",
+                    "file": policy.get("policyFile", {}).get("file_id") if policy.get("policyFile") else None,
+                    "text": policy.get("policyDescription", ""),
+                    "year": policy.get("implementation", {}).get("deploymentYear", "N/A"),
+                    "description": policy.get("policyDescription", ""),
+                    "metrics": [
+                        f"Budget: {policy.get('implementation', {}).get('yearlyBudget', 'N/A')} {policy.get('implementation', {}).get('budgetCurrency', 'USD')}",
+                        f"Transparency Score: {policy.get('evaluation', {}).get('transparencyScore', 0)}/10",
+                        f"Accountability Score: {policy.get('evaluation', {}).get('accountabilityScore', 0)}/10",
+                        f"Stakeholder Score: {policy.get('participation', {}).get('stakeholderScore', 0)}/10"
+                    ] if policy.get("implementation") or policy.get("evaluation") or policy.get("participation") else [],
+                    "policy_name": policy.get("policyName", ""),
+                    "target_groups": policy.get("targetGroups", []),
+                    "policy_link": policy.get("policyLink", ""),
+                    "ai_principles": policy.get("alignment", {}).get("aiPrinciples", []),
+                    "human_rights_alignment": policy.get("alignment", {}).get("humanRightsAlignment", False),
+                    "environmental_considerations": policy.get("alignment", {}).get("environmentalConsiderations", False),
+                    "international_cooperation": policy.get("alignment", {}).get("internationalCooperation", False),
+                    "has_consultation": policy.get("participation", {}).get("hasConsultation", False),
+                    "is_evaluated": policy.get("evaluation", {}).get("isEvaluated", False),
+                    "risk_assessment": policy.get("evaluation", {}).get("riskAssessment", False)
+                }
+        
+        return {
+            "country": country_name,
+            "policies": policies,
+            "policy_types": policy_types
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching country policies: {str(e)}")
+
+@app.get("/api/policy-file/{file_id}")
+async def get_policy_file(file_id: str):
+    """Get policy file for download"""
+    try:
+        file_doc = await get_file_from_db(file_id)
+        
+        # Determine content type
+        content_type = file_doc.get("content_type") or mimetypes.guess_type(file_doc["filename"])[0] or "application/octet-stream"
+        
+        # Create file stream
+        file_data = file_doc["file_data"]
+        
+        def iterfile():
+            yield file_data
+        
+        return StreamingResponse(
+            iterfile(),
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={file_doc['filename']}"}
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"File not found: {str(e)}")
+
+@app.get("/api/export-csv")
+async def export_country_csv():
+    """Export country policy data as CSV file"""
+    try:
+        # Generate country data
+        country_data_response = await generate_country_data()
+        
+        if country_data_response["success"]:
+            csv_content = country_data_response["csv_data"]
+            
+            # Return CSV as downloadable file
+            return StreamingResponse(
+                io.StringIO(csv_content),
+                media_type="text/csv",
+                headers={"Content-Disposition": "attachment; filename=country_policies.csv"}
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Failed to generate CSV data")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting CSV: {str(e)}")
+
+# Add this endpoint to get statistics about policy distribution
+@app.get("/api/policy-statistics")
+async def get_policy_statistics():
+    """Get statistics about policy distribution across countries"""
+    try:
+        # Generate country data
+        country_data_response = await generate_country_data()
+        
+        if not country_data_response["success"]:
+            return {"error": "Failed to generate statistics"}
+        
+        countries = country_data_response["countries"]
+        
+        # Calculate statistics
+        total_countries = len(countries)
+        countries_with_policies = sum(1 for data in countries.values() if data["total_policies"] > 0)
+        
+        # Color distribution
+        color_distribution = {
+            "green": sum(1 for data in countries.values() if data["color"] == "#22c55e"),
+            "yellow": sum(1 for data in countries.values() if data["color"] == "#eab308"), 
+            "red": sum(1 for data in countries.values() if data["color"] == "#ef4444"),
+            "gray": sum(1 for data in countries.values() if data["color"] == "#EEE")
+        }
+        
+        # Policy type distribution
+        policy_types = [
+            "AI Safety", "CyberSafety", "Digital Education", "Digital Inclusion",
+            "Digital Leisure", "(Dis)Information", "Digital Work", "Mental Health",
+            "Physical Health", "Social Media/Gaming Regulation"
+        ]
+        
+        policy_type_counts = {}
+        for policy_type in policy_types:
+            count = 0
+            for data in countries.values():
+                policy_index = policy_types.index(policy_type)
+                if data["policies"][policy_index]["status"] == "approved":
+                    count += 1
+            policy_type_counts[policy_type] = count
+        
+        return {
+            "total_countries": total_countries,
+            "countries_with_policies": countries_with_policies,
+            "color_distribution": color_distribution,
+            "policy_type_counts": policy_type_counts,
+            "most_common_policy": max(policy_type_counts, key=policy_type_counts.get) if policy_type_counts else None,
+            "least_common_policy": min(policy_type_counts, key=policy_type_counts.get) if policy_type_counts else None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
