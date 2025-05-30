@@ -3,7 +3,7 @@ import './admin-dashboard.css'
 
 // API base URL
 //update env when live the server
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/';
 
 
 export default function AdminDashboard() {
