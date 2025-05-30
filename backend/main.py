@@ -26,13 +26,16 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 app = FastAPI(title="AI Policy Database API with Admin Workflow", version="1.0.0")
 
 # Add CORS middleware
+from fastapi.middleware.cors import CORSMiddleware
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://policy-tracker-f.onrender.com","http://localhost:3000"], 
+    allow_origins=["https://policy-tracker-f.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # MongoDB connection
 MONGODB_URL = os.getenv("MONGO_URI")
