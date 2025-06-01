@@ -10,6 +10,11 @@
     color: #333;
   }
   
+  .app-container, .app-container * {
+    color: inherit;
+    box-sizing: border-box;
+  }
+  
   .app-container {
     display: flex;
     flex-direction: column;

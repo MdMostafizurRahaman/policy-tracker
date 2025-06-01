@@ -250,7 +250,10 @@ export default function Page() {
     <div 
       className="app-container"
       style={{
-        backgroundColor: view === "home" ? "#f8fafc" : "#ffffff"
+        background: themes[theme].background,
+        color: themes[theme].text,
+        minHeight: "100vh",
+        transition: "background 0.5s, color 0.5s"
       }}
     >
       <nav 
@@ -297,18 +300,6 @@ export default function Page() {
           >
             <MapIcon />
             <span>World Map</span>
-          </button>
-          
-          <button 
-            className={`navbar-link ${view === "globeview" ? "active" : ""}`} 
-            onClick={() => setView("globeview")}
-            style={{
-              backgroundColor: view === "globeview" ? themes[theme].primary : "transparent",
-              color: view === "globeview" ? "white" : themes[theme].text
-            }}
-          >
-            <GlobeIcon />
-            <span>3D Globe</span>
           </button>
           
           <button 
@@ -367,7 +358,7 @@ export default function Page() {
         {renderContent()}
       </main>
       
-      <footer className="app-footer" style={{backgroundColor: themes[theme].primary}}>
+      <footer className="app-footer" style={{backgroundColor: themes[theme].primary, color: "#fff"}}>
         <div className="footer-content">
           <div className="footer-logo">
             <span style={{color: "white"}}>Global Policy Tracker</span>
