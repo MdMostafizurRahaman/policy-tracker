@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://policy-tracker-f.onrender.com"],
+    allow_origins=["https://policy-tracker-f.onrender.com", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
