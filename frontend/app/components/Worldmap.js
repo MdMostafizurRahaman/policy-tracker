@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ComposableMap, Geographies, Geography } from "react-simple-maps"
 import dynamic from "next/dynamic"
 import { MessageCircle, X, Maximize2, Minimize2 } from "lucide-react"
@@ -30,6 +30,8 @@ export default function Worldmap() {
   const [chatWidth, setChatWidth] = useState(50) // Percentage width for chat panel
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL|| 'https://policy-tracker-5.onrender.com/api';
+
+  const mapRef = useRef(null);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/countries`)
@@ -111,6 +113,32 @@ export default function Worldmap() {
     setChatFullscreen(false)
   }
 
+  function getTooltipPosition(mouseX, mouseY) {
+    const tooltipWidth = 180;  
+    const tooltipHeight = 60;   
+    const offset = 12;
+
+    if (!mapRef.current) return { top: mouseY + offset, left: mouseX + offset };
+
+    const rect = mapRef.current.getBoundingClientRect();
+    let left = mouseX - rect.left + offset;
+    let top = mouseY - rect.top + offset;
+
+    // Prevent overflow right
+    if (left + tooltipWidth > rect.width) {
+      left = rect.width - tooltipWidth - 8;
+    }
+    // Prevent overflow bottom
+    if (top + tooltipHeight > rect.height) {
+      top = mouseY - rect.top - tooltipHeight - offset;
+      if (top < 0) top = rect.height - tooltipHeight - 8;
+    }
+    // Prevent overflow left
+    if (left < 0) left = 8;
+
+    return { top, left, position: "absolute" };
+  }
+
   return (
     <div className={`worldmap-container ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
       {/* Header Controls */}
@@ -123,8 +151,8 @@ export default function Worldmap() {
         </button>
         
         <div className="header-title">
-          <h1>AI Policy World Map</h1>
-          <p>Explore AI policies and governance frameworks worldwide</p>
+          <h1>Policy World Map</h1>
+          <p>Explore All policies and governance frameworks worldwide</p>
         </div>
 
         <button 
@@ -139,7 +167,7 @@ export default function Worldmap() {
       {/* Main Content */}
       <div className={`worldmap-content ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
         {/* Map Section */}
-        <div className={`map-section ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
+        <div className={`map-section ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`} ref={mapRef}>
           {viewMode === "map" && (
             <div className="map-container">
               <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
@@ -156,7 +184,7 @@ export default function Worldmap() {
                           key={geo.rsmKey}
                           geography={geo}
                           fill={isHighlighted ? "#FFD700" : fillColor}
-                          stroke="#FFF"
+                          stroke="FFF"
                           strokeWidth={0.5}
                           onMouseEnter={(event) => handleMouseEnter(geo, event)}
                           onMouseLeave={handleMouseLeave}
@@ -185,10 +213,7 @@ export default function Worldmap() {
               {tooltipContent && (
                 <div 
                   className="tooltip-floating"
-                  style={{
-                    top: mousePosition.y + 12,
-                    left: mousePosition.x + 12,
-                  }}
+                  style={getTooltipPosition(mousePosition.x, mousePosition.y)}
                 >
                   <strong>{tooltipContent.name}</strong><br />
                   Policies: {tooltipContent.total}
@@ -218,7 +243,7 @@ export default function Worldmap() {
           {/* Chat Header */}
           {showChat && (
             <div className="chat-panel-header">
-              <h3>AI Policy Assistant</h3>
+              <h3>Policy Assistant</h3>
               <div className="chat-header-controls">
                 <button 
                   onClick={handleChatFullscreen}

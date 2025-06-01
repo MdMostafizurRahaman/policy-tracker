@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Search, MessageCircle, Trash2, Plus, FileText, Globe, Shield, Brain, Loader2, ChevronDown, X } from 'lucide-react';
+import { Send, Bot, User, Search, MessageCircle, Trash2, Plus, FileText, Globe, Shield, Brain, Loader2, ChevronDown, X, Menu, EyeOff, Eye } from 'lucide-react';
 
 const PolicyChatAssistant = () => {
   const [messages, setMessages] = useState([]);
@@ -8,6 +8,7 @@ const PolicyChatAssistant = () => {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [showHistory, setShowHistory] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -123,9 +124,15 @@ const PolicyChatAssistant = () => {
     setCurrentConversationId(null);
   };
 
-  const deleteConversation = async (conversationId) => {
+  const deleteConversation = async (conversationId, event) => {
+    event.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this conversation?')) {
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/conversation/${conversationId}`, {
+      const response = await fetch(`${API_BASE_URL}/chat/conversation/${conversationId}`, {
         method: 'DELETE',
       });
       
@@ -134,9 +141,13 @@ const PolicyChatAssistant = () => {
           startNewConversation();
         }
         loadConversations();
+      } else {
+        console.error('Failed to delete conversation');
+        alert('Failed to delete conversation. Please try again.');
       }
     } catch (error) {
       console.error('Error deleting conversation:', error);
+      alert('Error deleting conversation. Please try again.');
     }
   };
 
@@ -175,19 +186,28 @@ const PolicyChatAssistant = () => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar);
+  };
+
+  const toggleHistory = () => {
+    setShowHistory(!showHistory);
+  };
+
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="flex h-full bg-gradient-to-br from-slate-50 to-blue-50 overflow-hidden">
       {/* Sidebar */}
       <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white border-r border-gray-200 flex flex-col overflow-hidden shadow-lg`}>
         <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Bot className="w-6 h-6 text-blue-600" />
-              AI Policy Assistant
+              Policy Assistant
             </h2>
             <button
-              onClick={() => setShowSidebar(false)}
-              className="p-1 hover:bg-gray-100 rounded-md transition-colors lg:hidden"
+              onClick={toggleSidebar}
+              className="p-1 hover:bg-gray-100 rounded-md transition-colors"
+              title="Hide Sidebar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -211,12 +231,13 @@ const PolicyChatAssistant = () => {
               value={searchQuery}
               onChange={handleSearchChange}
               onFocus={() => setShowSearch(true)}
+              onBlur={() => setTimeout(() => setShowSearch(false), 200)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           
           {showSearch && searchResults.length > 0 && (
-            <div className="mt-2 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+            <div className="mt-2 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg absolute z-10 left-4 right-4">
               {searchResults.map((policy, index) => (
                 <div
                   key={index}
@@ -232,73 +253,88 @@ const PolicyChatAssistant = () => {
           )}
         </div>
 
-        {/* Conversations */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">Recent Conversations</h3>
-            {conversations.length === 0 ? (
-              <div className="text-sm text-gray-500 text-center py-8">
-                No conversations yet.<br />Start a new chat to begin!
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {conversations.map((conv) => (
-                  <div
-                    key={conv.conversation_id}
-                    onClick={() => loadConversation(conv.conversation_id)}
-                    className={`p-3 rounded-lg cursor-pointer transition-all group ${
-                      currentConversationId === conv.conversation_id
-                        ? 'bg-blue-100 border-blue-200'
-                        : 'hover:bg-gray-50 border-transparent'
-                    } border`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-gray-500 mb-1">
-                          {new Date(conv.updated_at).toLocaleDateString()}
-                        </div>
-                        <div className="text-sm text-gray-800 truncate">
-                          {conv.last_message || 'New conversation'}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {conv.message_count} messages
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteConversation(conv.conversation_id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        {/* History Toggle */}
+        <div className="p-4 border-b border-gray-100">
+          <button
+            onClick={toggleHistory}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              {showHistory ? <Eye className="w-4 h-4 text-gray-600" /> : <EyeOff className="w-4 h-4 text-gray-600" />}
+              <span className="text-sm font-medium text-gray-700">Conversation History</span>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+          </button>
         </div>
+
+        {/* Conversations */}
+        {showHistory && (
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4">
+              <h3 className="text-sm font-semibold text-gray-600 mb-3">Recent Conversations</h3>
+              {conversations.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center py-8">
+                  No conversations yet.<br />Start a new chat to begin!
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {conversations.map((conv) => (
+                    <div
+                      key={conv.conversation_id}
+                      onClick={() => loadConversation(conv.conversation_id)}
+                      className={`p-3 rounded-lg cursor-pointer transition-all group relative ${
+                        currentConversationId === conv.conversation_id
+                          ? 'bg-blue-100 border-blue-200'
+                          : 'hover:bg-gray-50 border-transparent'
+                      } border`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <div className="text-xs text-gray-500 mb-1">
+                            {new Date(conv.updated_at).toLocaleDateString()}
+                          </div>
+                          <div className="text-sm text-gray-800 truncate">
+                            {conv.last_message || 'New conversation'}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {conv.message_count} messages
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => deleteConversation(conv.conversation_id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all absolute top-2 right-2"
+                          title="Delete conversation"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 shadow-sm">
+        <div className="bg-white border-b border-gray-200 p-4 shadow-sm flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               {!showSidebar && (
                 <button
-                  onClick={() => setShowSidebar(true)}
+                  onClick={toggleSidebar}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Show Sidebar"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <Menu className="w-5 h-5" />
                 </button>
               )}
               <div>
-                <h1 className="text-xl font-bold text-gray-800">AI Policy Expert</h1>
-                <p className="text-sm text-gray-600">Ask me about AI governance, policies, and regulations worldwide</p>
+                <h1 className="text-xl font-bold text-gray-800">Policy Expert</h1>
+                <p className="text-sm text-gray-600">Ask me about All policies and regulations worldwide</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -313,16 +349,16 @@ const PolicyChatAssistant = () => {
         {/* Messages */}
         <div 
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
+          className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0"
         >
           {messages.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Bot className="w-10 h-10 text-blue-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to AI Policy Assistant</h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                I'm here to help you understand AI policies, governance frameworks, and regulations from around the world.
+                I'm here to help you understand All policies, governance frameworks, and regulations from around the world.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
@@ -408,7 +444,7 @@ const PolicyChatAssistant = () => {
         </div>
 
         {/* Input */}
-        <div className="bg-white border-t border-gray-200 p-4">
+        <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
           <div className="max-w-4xl mx-auto">
             <div className="flex gap-3 items-end">
               <div className="flex-1 relative">
