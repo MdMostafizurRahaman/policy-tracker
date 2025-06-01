@@ -327,11 +327,11 @@ export default function Page() {
           </button>
           
           <button
-            className={`navbar-link theme-toggle${view === "theme" ? " active" : ""}`}
+            className={`navbar-link ${view === "theme" ? "active" : ""}`}
             onClick={cycleTheme}
             style={{
-              backgroundColor: "transparent",
-              color: themes[theme].text
+              backgroundColor: view === "theme" ? themes[theme].primary : "transparent",
+              color: view === "theme" ? "white" : themes[theme].text
             }}
           >
             <PaletteIcon />
