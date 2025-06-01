@@ -14,6 +14,14 @@ from dotenv import load_dotenv
 import mimetypes
 import io
 import json
+from chatbot import (
+    init_chatbot, 
+    chat_endpoint, 
+    get_conversation_endpoint, 
+    delete_conversation_endpoint, 
+    get_conversations_endpoint,
+    ChatRequest
+)
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +55,8 @@ temp_policies_collection = db.temp_policies  # For pending submissions
 master_policies_collection = db.master_policies  # For approved policies
 admin_actions_collection = db.admin_actions  # For tracking admin actions
 files_collection = db.files  # For file storage
+
+chatbot = init_chatbot(client)
 
 # Pydantic Models
 class PolicyFile(BaseModel):
@@ -1020,6 +1030,70 @@ async def get_policy_statistics():
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    """Chat with the AI Policy Assistant"""
+    return await chat_endpoint(request)
+
+@app.get("/api/chat/conversations")
+async def get_conversations(limit: int = Query(20, ge=1, le=100)):
+    """Get list of conversations"""
+    return await get_conversations_endpoint(limit)
+
+@app.get("/api/chat/conversation/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Get specific conversation history"""
+    return await get_conversation_endpoint(conversation_id)
+
+@app.delete("/api/chat/conversation/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation"""
+    return await delete_conversation_endpoint(conversation_id)
+
+@app.get("/api/chat/policy-search")
+async def search_policies_for_chat(q: str = Query(..., min_length=1)):
+    """Search policies for chatbot context"""
+    try:
+        # Simple search implementation
+        search_terms = q.lower().split()
+        search_conditions = []
+        
+        for term in search_terms:
+            search_conditions.extend([
+                {"policyName": {"$regex": term, "$options": "i"}},
+                {"policyDescription": {"$regex": term, "$options": "i"}},
+                {"country": {"$regex": term, "$options": "i"}},
+                {"policyArea": {"$regex": term, "$options": "i"}}
+            ])
+        
+        if search_conditions:
+            cursor = master_policies_collection.find(
+                {
+                    "$and": [
+                        {"master_status": {"$ne": "deleted"}},
+                        {"$or": search_conditions}
+                    ]
+                }
+            ).limit(10)
+            
+            policies = []
+            async for policy in cursor:
+                policies.append({
+                    "id": str(policy["_id"]),
+                    "country": policy.get("country", ""),
+                    "name": policy.get("policyName", ""),
+                    "area": policy.get("policyArea", ""),
+                    "description": policy.get("policyDescription", "")[:200] + "..." if len(policy.get("policyDescription", "")) > 200 else policy.get("policyDescription", ""),
+                    "year": policy.get("implementation", {}).get("deploymentYear", "N/A")
+                })
+            
+            return {"policies": policies, "total": len(policies)}
+        
+        return {"policies": [], "total": 0}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
