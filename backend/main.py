@@ -796,9 +796,9 @@ async def generate_country_data():
             
             # Assign color based on policy count
             if approved_count >= 8:
-                data["color"] = "#22c55e"  # Green
+                data["color"] = "#139f60"  # Green
             elif approved_count >= 4:
-                data["color"] = "#eab308"  # Yellow  
+                data["color"] = "#fbef0b"  # Yellow  
             elif approved_count >= 1:
                 data["color"] = "#ef4444"  # Red
             else:
