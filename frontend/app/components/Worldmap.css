@@ -317,8 +317,8 @@
   position: fixed;
   top: 20px;
   left: 20px;
-  background: rgba(243, 239, 239, 0.9);
-  color: white;
+  background: #fff !important;
+  color: #000 !important;
   padding: 12px 16px;
   border-radius: 8px;
   font-size: 0.875rem;
@@ -329,8 +329,8 @@
 
 .tooltip-floating {
   position: fixed;
-  background: rgba(246, 242, 242, 0.9);
-  color: white;
+  background: #fff !important;
+  color: #000 !important;
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 0.75rem;

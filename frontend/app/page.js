@@ -211,14 +211,14 @@ export default function Page() {
                     <span>View World Map</span>
                   </button>
                   
-                  <button
+                  {/* <button
                     onClick={() => setView("globeview")}
                     className="nav-button globe-button"
                     style={{backgroundColor: themes[theme].accent}}
                   >
                     <GlobeIcon />
                     <span>Explore 3D Globe</span>
-                  </button>
+                  </button> */}
                   
                   <button
                     onClick={() => setView("submission")}
@@ -250,10 +250,7 @@ export default function Page() {
     <div 
       className="app-container"
       style={{
-        background: themes[theme].background,
-        color: themes[theme].text,
-        minHeight: "100vh",
-        transition: "background 0.5s, color 0.5s"
+        backgroundColor: view === "home" ? "#f8fafc" : "#ffffff"
       }}
     >
       <nav 
