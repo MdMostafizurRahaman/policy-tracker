@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Search, MessageCircle, Trash2, Plus, FileText, Globe, Shield, Brain, Loader2, ChevronDown, X, Menu, EyeOff, Eye } from 'lucide-react';
+import { Send, Bot, User, Search, MessageCircle, Trash2, Plus, FileText, Globe, Shield, Brain, Loader2, ChevronDown, X, Menu, EyeOff, Eye, MapPin, Calendar, Tag } from 'lucide-react';
 
 const PolicyChatAssistant = () => {
   const [messages, setMessages] = useState([]);
@@ -12,6 +12,8 @@ const PolicyChatAssistant = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState([
     "What are the latest AI governance frameworks?",
     "Compare AI policies between USA and EU",
@@ -23,9 +25,10 @@ const PolicyChatAssistant = () => {
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
+  const searchTimeoutRef = useRef(null);
 
   // Mock API base URL - replace with your actual API URL
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL|| 'https://policy-tracker-5.onrender.com/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,7 +67,7 @@ const PolicyChatAssistant = () => {
     }
   };
 
-  const sendMessage = async (messageText = inputMessage) => {
+  const sendMessage = async (messageText = inputMessage, policyContext = null) => {
     if (!messageText.trim() || isLoading) return;
 
     const userMessage = {
@@ -78,15 +81,22 @@ const PolicyChatAssistant = () => {
     setIsLoading(true);
 
     try {
+      const requestBody = {
+        message: messageText,
+        conversation_id: currentConversationId
+      };
+
+      // Add policy context if provided (when user clicks on a search result)
+      if (policyContext) {
+        requestBody.context = `Based on the following policy information: ${JSON.stringify(policyContext)}`;
+      }
+
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: messageText,
-          conversation_id: currentConversationId
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -122,6 +132,7 @@ const PolicyChatAssistant = () => {
   const startNewConversation = () => {
     setMessages([]);
     setCurrentConversationId(null);
+    setSelectedPolicy(null);
   };
 
   const deleteConversation = async (conversationId, event) => {
@@ -154,32 +165,54 @@ const PolicyChatAssistant = () => {
   const searchPolicies = async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
+    setIsSearching(true);
+
     try {
-      const response = await fetch(`${API_BASE_URL}/policy-search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/chat/policy-search?q=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.policies || []);
+      } else {
+        setSearchResults([]);
       }
     } catch (error) {
       console.error('Error searching policies:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
 
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    searchPolicies(query);
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Debounce search
+    searchTimeoutRef.current = setTimeout(() => {
+      searchPolicies(query);
+    }, 300);
   };
 
-  const askAboutPolicy = (policy) => {
-    const question = `Tell me about the ${policy.name} policy from ${policy.country}. What are its key features and implementation details?`;
-    setInputMessage(question);
+  const selectPolicy = async (policy) => {
+    setSelectedPolicy(policy);
     setShowSearch(false);
     setSearchQuery('');
     setSearchResults([]);
+    
+    // Create a comprehensive question about the selected policy
+    const question = `Please provide comprehensive information about the "${policy.name}" policy from ${policy.country}. Include details about its key features, implementation strategies, objectives, governance framework, and any other relevant information available in the database.`;
+    
+    // Send message with policy context for better AI response
+    await sendMessage(question, policy);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -192,6 +225,15 @@ const PolicyChatAssistant = () => {
 
   const toggleHistory = () => {
     setShowHistory(!showHistory);
+  };
+
+  const handleSearchFocus = () => {
+    setShowSearch(true);
+  };
+
+  const handleSearchBlur = () => {
+    // Delay hiding to allow clicking on results
+    setTimeout(() => setShowSearch(false), 200);
   };
 
   return (
@@ -221,37 +263,87 @@ const PolicyChatAssistant = () => {
           </button>
         </div>
 
-        {/* Policy Search */}
+        {/* Global Policy Search */}
         <div className="p-4 border-b border-gray-100">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search policies..."
+              placeholder="Search countries, policies, or areas..."
               value={searchQuery}
               onChange={handleSearchChange}
-              onFocus={() => setShowSearch(true)}
-              onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+            )}
           </div>
           
-          {showSearch && searchResults.length > 0 && (
-            <div className="mt-2 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg absolute z-10 left-4 right-4">
-              {searchResults.map((policy, index) => (
-                <div
-                  key={index}
-                  onClick={() => askAboutPolicy(policy)}
-                  className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="font-medium text-sm text-gray-800">{policy.country}</div>
-                  <div className="text-sm text-gray-600 truncate">{policy.name}</div>
-                  <div className="text-xs text-gray-500">{policy.area} • {policy.year}</div>
+          {showSearch && (
+            <div className="mt-2 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg absolute z-20 left-4 right-4">
+              {searchResults.length > 0 ? (
+                <div className="py-2">
+                  <div className="px-3 py-1 text-xs font-semibold text-gray-500 border-b border-gray-100">
+                    Found {searchResults.length} policies
+                  </div>
+                  {searchResults.map((policy, index) => (
+                    <div
+                      key={policy.id || index}
+                      onClick={() => selectPolicy(policy)}
+                      className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Globe className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm text-gray-800 truncate">{policy.country}</span>
+                            <span className="text-xs text-gray-500">•</span>
+                            <span className="text-xs text-gray-500">{policy.year}</span>
+                          </div>
+                          <div className="text-sm text-gray-700 font-medium truncate mb-1">{policy.name}</div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Tag className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-500">{policy.area}</span>
+                          </div>
+                          <div className="text-xs text-gray-600 line-clamp-2">{policy.description}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : searchQuery.trim() && !isSearching ? (
+                <div className="p-4 text-center text-sm text-gray-500">
+                  No policies found for "{searchQuery}"
+                </div>
+              ) : searchQuery.trim() && isSearching ? (
+                <div className="p-4 text-center text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                  Searching...
+                </div>
+              ) : null}
             </div>
           )}
         </div>
+
+        {/* Selected Policy Info */}
+        {selectedPolicy && (
+          <div className="p-4 border-b border-gray-100 bg-blue-50">
+            <div className="text-xs font-semibold text-blue-600 mb-2">CURRENTLY DISCUSSING</div>
+            <div className="bg-white p-3 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2">
+                <Globe className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm text-gray-800">{selectedPolicy.country}</div>
+                  <div className="text-xs text-gray-600 truncate">{selectedPolicy.name}</div>
+                  <div className="text-xs text-blue-600 mt-1">{selectedPolicy.area}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* History Toggle */}
         <div className="p-4 border-b border-gray-100">
@@ -333,8 +425,13 @@ const PolicyChatAssistant = () => {
                 </button>
               )}
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Policy Expert</h1>
-                <p className="text-sm text-gray-600">Ask me about All policies and regulations worldwide</p>
+                <h1 className="text-xl font-bold text-gray-800">AI Policy Expert</h1>
+                <p className="text-sm text-gray-600">
+                  {selectedPolicy 
+                    ? `Discussing ${selectedPolicy.country} - ${selectedPolicy.name}`
+                    : "Ask me about AI policies and regulations worldwide"
+                  }
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -358,7 +455,7 @@ const PolicyChatAssistant = () => {
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Welcome to AI Policy Assistant</h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                I'm here to help you understand All policies, governance frameworks, and regulations from around the world.
+                Search for any country or policy in the sidebar, or ask me about AI governance frameworks and regulations worldwide.
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
@@ -434,7 +531,7 @@ const PolicyChatAssistant = () => {
               <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 mr-12">
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-                  <span className="text-sm text-gray-600">Thinking...</span>
+                  <span className="text-sm text-gray-600">Analyzing policy data...</span>
                 </div>
               </div>
             </div>
@@ -457,7 +554,11 @@ const PolicyChatAssistant = () => {
                       sendMessage();
                     }
                   }}
-                  placeholder="Ask me about AI policies, governance frameworks, or any related topic..."
+                  placeholder={
+                    selectedPolicy 
+                      ? `Ask more about ${selectedPolicy.name} or any other policy question...`
+                      : "Ask me about AI policies, governance frameworks, or search for specific policies in the sidebar..."
+                  }
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   rows="1"
                   style={{ minHeight: '48px', maxHeight: '120px' }}
@@ -472,7 +573,7 @@ const PolicyChatAssistant = () => {
               </button>
             </div>
             <div className="text-xs text-gray-500 mt-2 text-center">
-              Press Enter to send, Shift+Enter for new line
+              Press Enter to send, Shift+Enter for new line • Search policies in the sidebar
             </div>
           </div>
         </div>
