@@ -246,57 +246,90 @@ export default function Page() {
     }
   };
   
-  // Set data-theme attribute for CSS variable theming
   return (
     <div 
       className="app-container"
-      data-theme={theme}
+      style={{
+        backgroundColor: view === "home" ? "#f8fafc" : "#ffffff"
+      }}
     >
-      {/* Animated Blobs for background */}
-      <div className="bg-blob bg-blob1"></div>
-      <div className="bg-blob bg-blob2"></div>
-      <div className="bg-blob bg-blob3"></div>
-
-      <nav className={`navbar ${view === "home" ? "navbar-transparent" : ""}`}>
+      <nav 
+        className={`navbar ${view === "home" ? "navbar-transparent" : ""}`}
+        style={{
+          background: view === "home" ? "transparent" : themes[theme].background,
+          boxShadow: view === "home" ? "none" : "0 4px 6px rgba(0, 0, 0, 0.1)"
+        }}
+      >
         <div 
           className="navbar-logo" 
           onClick={() => setView("home")}
+          style={{color: themes[theme].text}}
         >
-          {/* ...SVG... */}
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" 
+            stroke={themes[theme].primary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a4.5 4.5 0 0 0 0 9 4.5 4.5 0 0 1 0 9 4.5 4.5 0 1 0 0-9 4.5 4.5 0 1 1 0-9z" />
+            <line x1="2" y1="12" x2="22" y2="12"/>
+          </svg>
           <span>Global Policy Tracker</span>
         </div>
+        
         <div className="navbar-links">
           <button 
             className={`navbar-link ${view === "home" ? "active" : ""}`} 
             onClick={() => setView("home")}
+            style={{
+              backgroundColor: view === "home" ? themes[theme].primary : "transparent",
+              color: view === "home" ? "white" : themes[theme].text
+            }}
           >
             <HomeIcon />
             <span>Home</span>
           </button>
+          
           <button 
             className={`navbar-link ${view === "worldmap" ? "active" : ""}`} 
             onClick={() => setView("worldmap")}
+            style={{
+              backgroundColor: view === "worldmap" ? themes[theme].primary : "transparent",
+              color: view === "worldmap" ? "white" : themes[theme].text
+            }}
           >
             <MapIcon />
             <span>World Map</span>
           </button>
+          
           <button 
             className={`navbar-link ${view === "submission" ? "active" : ""}`} 
             onClick={() => setView("submission")}
+            style={{
+              backgroundColor: view === "submission" ? themes[theme].primary : "transparent",
+              color: view === "submission" ? "white" : themes[theme].text
+            }}
           >
             <FileIcon />
             <span>Submit</span>
           </button>
+          
           <button 
             className={`navbar-link ${view === "admin" ? "active" : ""}`} 
             onClick={() => setView("admin")}
+            style={{
+              backgroundColor: view === "admin" ? themes[theme].primary : "transparent",
+              color: view === "admin" ? "white" : themes[theme].text
+            }}
           >
             <AdminIcon />
             <span>Admin</span>
           </button>
+          
           <button
-            className={`navbar-link`}
+            className={`navbar-link ${view === "theme" ? "active" : ""}`}
             onClick={cycleTheme}
+            style={{
+              backgroundColor: view === "theme" ? themes[theme].primary : "transparent",
+              color: view === "theme" ? "white" : themes[theme].text
+            }}
           >
             <PaletteIcon />
             <span>Theme</span>
@@ -309,18 +342,23 @@ export default function Page() {
           <button 
             className="back-button" 
             onClick={navigateBack}
+            style={{
+              backgroundColor: "#f3f4f6",
+              color: themes[theme].text
+            }}
           >
             <BackIcon />
             <span>Back to Home</span>
           </button>
         )}
+        
         {renderContent()}
       </main>
       
-      <footer className="app-footer">
+      <footer className="app-footer" style={{backgroundColor: themes[theme].primary, color: "#fff"}}>
         <div className="footer-content">
           <div className="footer-logo">
-            <span>Global Policy Tracker</span>
+            <span style={{color: "white"}}>Global Policy Tracker</span>
           </div>
           <div className="footer-links">
             <a href="#" className="footer-link">About</a>
