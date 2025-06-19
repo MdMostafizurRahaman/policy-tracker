@@ -539,14 +539,18 @@ async def register_user(user_data: UserRegistration):
         if existing_otp:
             otp = existing_otp["otp"]
         else:
-            # Generate and save OTP
+            # Always generate a new OTP and remove previous ones
+            await otp_collection.delete_many({
+                "email": user_data.email,
+                "type": "email_verification"
+            })
             otp = generate_otp()
             otp_doc = {
                 "email": user_data.email,
                 "otp": otp,
                 "type": "email_verification",
                 "created_at": datetime.utcnow(),
-                "expires_at": datetime.utcnow() + timedelta(minutes=2)  # 2 minutes validity
+                "expires_at": datetime.utcnow() + timedelta(minutes=10)  # 10 minutes validity
             }
             await otp_collection.insert_one(otp_doc)
         
