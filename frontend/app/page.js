@@ -37,6 +37,12 @@ export default function Page() {
     setView("home")
   }
   
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('userData');
+    setView('home');
+  };
+
   const renderContent = () => {
     switch (view) {
       case "worldmap":
@@ -233,6 +239,16 @@ export default function Page() {
                   <span className="hidden sm:inline">{item.label}</span>
                 </button>
               ))}
+              
+              {user && (
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-2 rounded-lg text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-all"
+                  title="Logout"
+                >
+                  Logout
+                </button>
+              )}
               
               <button
                 onClick={() => setDarkMode(!darkMode)}

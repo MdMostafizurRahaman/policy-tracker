@@ -550,7 +550,7 @@ async def register_user(user_data: UserRegistration):
                 "otp": otp,
                 "type": "email_verification",
                 "created_at": datetime.utcnow(),
-                "expires_at": datetime.utcnow() + timedelta(minutes=10)  # 10 minutes validity
+                "expires_at": datetime.utcnow() + timedelta(minutes=2)  # 2 minutes validity
             }
             await otp_collection.insert_one(otp_doc)
         
