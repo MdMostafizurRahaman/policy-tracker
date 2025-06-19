@@ -4,6 +4,7 @@ import dynamic from "next/dynamic"
 import WorldMap from "./components/Worldmap.js"
 import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
 import AdminPanel from "./admin/AdminDashboard.js"
+import AuthSystem from "./AuthSystem.js"
 
 const GlobeView = dynamic(() => import("./components/GlobeView.js"), { ssr: false })
 
@@ -11,7 +12,8 @@ export default function Page() {
   const [view, setView] = useState("home")
   const [darkMode, setDarkMode] = useState(false)
   const [animate, setAnimate] = useState(false)
-  
+  const [user, setUser] = useState(null);
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -25,7 +27,12 @@ export default function Page() {
     const timeoutId = setTimeout(() => setAnimate(false), 600)
     return () => clearTimeout(timeoutId)
   }, [view])
-  
+
+  useEffect(() => {
+    const userData = localStorage.getItem('userData');
+    if (userData) setUser(JSON.parse(userData));
+  }, []);
+
   const navigateBack = () => {
     setView("home")
   }
@@ -38,13 +45,48 @@ export default function Page() {
             <WorldMap />
           </div>
         );
+      case "login":
+      case "signup":
+      case "forgot":
+        return (
+          <AuthSystem setView={setView} setUser={setUser} initialView={view} />
+        );
       case "submission":
+        if (!user) {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[40vh]">
+              <div className="bg-white/90 border border-blue-200 rounded-2xl shadow-lg px-8 py-10 max-w-md text-center">
+                <svg className="mx-auto mb-4 w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <h2 className="text-2xl font-bold text-blue-700 mb-2">Sign in Required</h2>
+                <p className="text-gray-600 mb-6">
+                  Please <button
+                    className="text-blue-600 hover:underline font-semibold"
+                    onClick={() => setView("login")}
+                  >login</button> or <button
+                    className="text-purple-600 hover:underline font-semibold"
+                    onClick={() => setView("signup")}
+                  >sign up</button> to submit a policy.
+                </p>
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xl overflow-auto">
             <PolicySubmissionForm />
           </div>
         );
       case "admin":
+        // Only allow admin users
+        if (!user || !user.is_admin) {
+          return (
+            <div className="text-center text-red-600 font-bold p-8">
+              Admin access required.
+            </div>
+          );
+        }
         return (
           <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xl overflow-auto">
             <AdminPanel />
@@ -170,7 +212,7 @@ export default function Page() {
             </div>
 
             <div className="flex items-center gap-2">
-              {[
+             ={[
 
                 { key: "worldmap", label: "Map", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
                 { key: "submission", label: "Submit", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
