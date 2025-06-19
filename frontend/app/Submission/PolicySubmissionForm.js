@@ -367,8 +367,7 @@ export default function PolicySubmissionForm() {
       </div>
       
       <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
             Country Name *
           </label>
           <input
@@ -379,26 +378,6 @@ export default function PolicySubmissionForm() {
             className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
             placeholder="Enter country name"
           />
-        </div>
-        
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-semibold text-slate-800 dark:text-white mb-2">Submission Information</h4>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-                <strong>Submission ID:</strong> <span className="font-mono bg-white dark:bg-slate-800 px-2 py-1 rounded">{submissionId}</span>
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                This ID will be used to track your submission through the admin review process.
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -989,7 +968,7 @@ export default function PolicySubmissionForm() {
 
   // Main render
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-8">
+    <div className="min-h-screen max-w-6xl mx-auto p-6 space-y-8">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
           Policy Submission Form
