@@ -377,7 +377,7 @@ export default function PolicySubmissionForm() {
             required
             className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
             placeholder="Enter country name"
-          />
+          />    
       </div>
     </div>
   )
