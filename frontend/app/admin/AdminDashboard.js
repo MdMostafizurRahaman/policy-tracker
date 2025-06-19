@@ -31,14 +31,20 @@ export default function AdminDashboard() {
     fetchStatistics()
   }, [currentPage, filterStatus])
 
+  const token = localStorage.getItem('access_token');
+
   const fetchSubmissions = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      let url = `${API_BASE_URL}/admin/submissions?page=${currentPage}&limit=10`
+      let url = `${API_BASE_URL}/admin/submissions?page=${currentPage}&limit=10`;
       if (filterStatus !== "all") {
-        url += `&status=${filterStatus}`
+        url += `&status=${filterStatus}`;
       }
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch submissions')
       }
@@ -48,7 +54,7 @@ export default function AdminDashboard() {
     } catch (error) {
       setError(`Error fetching submissions: ${error.message}`)
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -86,7 +92,11 @@ export default function AdminDashboard() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/statistics`)
+      const response = await fetch(`${API_BASE_URL}/admin/statistics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setStatistics(data)
