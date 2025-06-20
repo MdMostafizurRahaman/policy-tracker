@@ -5,6 +5,7 @@ import WorldMap from "./components/Worldmap.js"
 import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
 import AdminPanel from "./admin/AdminDashboard.js"
 import AuthSystem from "./AuthSystem.js"
+import AdminLogin from "./components/AdminLogin.js"; // Make sure this exists
 
 const GlobeView = dynamic(() => import("./components/GlobeView.js"), { ssr: false })
 
@@ -45,6 +46,31 @@ export default function Page() {
 
   const renderContent = () => {
     switch (view) {
+      case "admin-login":
+        return <AdminLogin setUser={setUser} setView={setView} />;
+      case "admin":
+        // Check if user is logged in and is admin
+        if (!user) {
+          return <AdminLogin setUser={setUser} setView={setView} />;
+        }
+        if (!user.is_admin && !user.is_super_admin) {
+          return (
+            <div className="text-center text-red-600 font-bold p-8">
+              <h2>Admin access required</h2>
+              <button 
+                onClick={() => setView("admin-login")} 
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded"
+              >
+                Login as Admin
+              </button>
+            </div>
+          );
+        }
+        return (
+          <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xl overflow-auto">
+            <AdminPanel />
+          </div>
+        );
       case "worldmap":
         return (
           <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-auto">
@@ -82,20 +108,6 @@ export default function Page() {
         return (
           <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xl overflow-auto">
             <PolicySubmissionForm />
-          </div>
-        );
-      case "admin":
-        // Only allow admin users
-        if (!user || !user.is_admin) {
-          return (
-            <div className="text-center text-red-600 font-bold p-8">
-              Admin access required.
-            </div>
-          );
-        }
-        return (
-          <div className="w-full h-full bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-xl overflow-auto">
-            <AdminPanel />
           </div>
         );
       default:
@@ -218,8 +230,9 @@ export default function Page() {
             </div>
 
             <div className="flex items-center gap-2">
-             ={[
-
+              {/* Your existing navigation buttons */}
+              {/* ...map, submit, admin, etc... */}
+              {[ // Navigation buttons
                 { key: "worldmap", label: "Map", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
                 { key: "submission", label: "Submit", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
                 { key: "admin", label: "Admin", icon: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" }
@@ -240,6 +253,7 @@ export default function Page() {
                 </button>
               ))}
               
+              {/* Logout and dark mode toggle */}
               {user && (
                 <button
                   onClick={handleLogout}
