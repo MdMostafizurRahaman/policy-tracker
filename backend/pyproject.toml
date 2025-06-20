@@ -1,10 +1,9 @@
 [tool.poetry]
 name = "backend"
 version = "0.1.0"
-description = "FastAPI backend for the Policy Tracker project"
+description = ""
 authors = ["Rakib <bsse1320@iit.du.ac.bd>"]
-readme = "README.md"         # optional — ensure this file exists or remove this line
-package-mode = false         # ✅ disables packaging/installing your own code
+readme = "README.md"  # Optional — remove if file doesn't exist
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
