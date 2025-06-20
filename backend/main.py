@@ -25,6 +25,7 @@ import string
 import requests
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
+import uvicorn
 
 # Load environment variables
 load_dotenv()
@@ -1506,5 +1507,4 @@ async def test_email():
     return {"sent": result}
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
