@@ -1,5 +1,6 @@
 annotated-types==0.7.0
 anyio==4.8.0
+bcrypt
 click==8.1.8
 colorama==0.4.6
 dnspython==2.7.0
@@ -7,6 +8,7 @@ fastapi==0.115.12
 h11==0.16.0
 idna==3.10
 joblib==1.4.2
+motor
 numpy==2.2.2
 packaging==24.2
 pandas==2.2.3
