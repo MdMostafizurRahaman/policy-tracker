@@ -4,14 +4,89 @@ import './admin-dashboard.css'
 // API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
 
+// Policy Areas Configuration (same as in submission form)
+const POLICY_AREAS = [
+  {
+    id: "ai-safety",
+    name: "AI Safety",
+    icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
+    color: "from-red-500 to-pink-600",
+    description: "Policies ensuring AI systems are safe and beneficial"
+  },
+  {
+    id: "cyber-safety",
+    name: "CyberSafety",
+    icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+    color: "from-blue-500 to-cyan-600",
+    description: "Cybersecurity and digital safety policies"
+  },
+  {
+    id: "digital-education",
+    name: "Digital Education",
+    icon: "M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z",
+    color: "from-green-500 to-emerald-600",
+    description: "Educational technology and digital literacy policies"
+  },
+  {
+    id: "digital-inclusion",
+    name: "Digital Inclusion",
+    icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+    color: "from-purple-500 to-indigo-600",
+    description: "Bridging the digital divide and ensuring equal access"
+  },
+  {
+    id: "digital-leisure",
+    name: "Digital Leisure",
+    icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    color: "from-yellow-500 to-orange-600",
+    description: "Gaming, entertainment, and digital recreation policies"
+  },
+  {
+    id: "disinformation",
+    name: "(Dis)Information",
+    icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+    color: "from-gray-500 to-slate-600",
+    description: "Combating misinformation and promoting truth"
+  },
+  {
+    id: "digital-work",
+    name: "Digital Work",
+    icon: "M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 6V9a2 2 0 00-2-2H8a2 2 0 00-2 2v3.1M16 6h2a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V8a2 2 0 012-2h2",
+    color: "from-teal-500 to-blue-600",
+    description: "Future of work and digital employment policies"
+  },
+  {
+    id: "mental-health",
+    name: "Mental Health",
+    icon: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
+    color: "from-pink-500 to-rose-600",
+    description: "Digital wellness and mental health policies"
+  },
+  {
+    id: "physical-health",
+    name: "Physical Health",
+    icon: "M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z",
+    color: "from-emerald-500 to-green-600",
+    description: "Healthcare technology and physical wellness policies"
+  },
+  {
+    id: "social-media-gaming",
+    name: "Social Media/Gaming Regulation",
+    icon: "M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2M7 4h10M7 4l-2 16h14l-2-16M11 9h2M9 13h6M10 17h4",
+    color: "from-indigo-500 to-purple-600",
+    description: "Social media platforms and gaming regulation"
+  }
+];
 
 export default function AdminDashboard() {
+  // State management
   const [submissions, setSubmissions] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [selectedPolicy, setSelectedPolicy] = useState(null)
+  const [selectedPolicyArea, setSelectedPolicyArea] = useState(null)
   const [selectedPolicyIndex, setSelectedPolicyIndex] = useState(null)
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [editMode, setEditMode] = useState(false)
@@ -24,15 +99,19 @@ export default function AdminDashboard() {
   const [totalPages, setTotalPages] = useState(1)
   const [showSubmissionModal, setShowSubmissionModal] = useState(false)
   const [selectedSubmissionDetails, setSelectedSubmissionDetails] = useState(null)
+  const [view, setView] = useState("dashboard")
+  const [user, setUser] = useState(null)
 
-  // Fetch all submissions on component mount
+  // Get token for authenticated requests
+  const token = localStorage.getItem('access_token');
+
+  // Fetch data on component mount and dependencies
   useEffect(() => {
     fetchSubmissions()
     fetchStatistics()
   }, [currentPage, filterStatus])
 
-  const token = localStorage.getItem('access_token');
-
+  // API Functions
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
@@ -58,38 +137,6 @@ export default function AdminDashboard() {
     }
   }
 
-    const handleOpenSubmissionDetails = (submission) => {
-    setSelectedSubmissionDetails(submission)
-    setShowSubmissionModal(true)
-  }
-
-  const handleOpenFile = async (fileInfo) => {
-  try {
-    if (fileInfo.file_path) {
-      // For server-stored files
-      const response = await fetch(`${API_BASE_URL}/files/${fileInfo.file_path}`)
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = URL.createObjectURL(blob)
-        window.open(url, '_blank')
-      }
-    } else if (fileInfo.data) {
-      // For base64 stored files  
-      const byteCharacters = atob(fileInfo.data)
-      const byteNumbers = new Array(byteCharacters.length)
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i)
-      }
-      const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: fileInfo.type })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-    }
-  } catch (error) {
-    setError(`Error opening file: ${error.message}`)
-  }
-}
-
   const fetchStatistics = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/statistics`, {
@@ -106,16 +153,18 @@ export default function AdminDashboard() {
     }
   }
 
-  // Handle policy status update
-  const updatePolicyStatus = async (submissionId, policyIndex, status, notes = "") => {
+  // Policy Management Functions
+  const updatePolicyStatus = async (submissionId, policyArea, policyIndex, status, notes = "") => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/update-policy-status`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           submission_id: submissionId,
+          policy_area: policyArea,
           policy_index: policyIndex,
           status: status,
           admin_notes: notes
@@ -133,7 +182,7 @@ export default function AdminDashboard() {
         
         // If approved, move to master DB
         if (status === 'approved') {
-          await movePolicyToMaster(submissionId, policyIndex)
+          await movePolicyToMaster(submissionId, policyArea, policyIndex)
         }
       }
     } catch (error) {
@@ -141,16 +190,17 @@ export default function AdminDashboard() {
     }
   }
 
-  // Move approved policy to master database
-  const movePolicyToMaster = async (submissionId, policyIndex) => {
+  const movePolicyToMaster = async (submissionId, policyArea, policyIndex) => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/move-to-master`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           submission_id: submissionId,
+          policy_area: policyArea,
           policy_index: policyIndex
         })
       })
@@ -163,17 +213,18 @@ export default function AdminDashboard() {
     }
   }
 
-  // Delete policy
-  const deletePolicy = async (submissionId, policyIndex) => {
+  const deletePolicy = async (submissionId, policyArea, policyIndex) => {
     if (window.confirm('Are you sure you want to delete this policy?')) {
       try {
         const response = await fetch(`${API_BASE_URL}/admin/delete-policy`, {
           method: 'DELETE',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             submission_id: submissionId,
+            policy_area: policyArea,
             policy_index: policyIndex
           })
         })
@@ -192,16 +243,17 @@ export default function AdminDashboard() {
     }
   }
 
-  // Edit policy
   const saveEditedPolicy = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/admin/edit-policy`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           submission_id: selectedSubmission._id,
+          policy_area: selectedPolicyArea,
           policy_index: selectedPolicyIndex,
           updated_policy: editedPolicy
         })
@@ -219,10 +271,43 @@ export default function AdminDashboard() {
     }
   }
 
-  // Open policy modal
-  const openPolicyModal = (submission, policy, index) => {
+  // File Handling
+  const handleOpenFile = async (fileInfo) => {
+    try {
+      if (fileInfo.file_path) {
+        // For server-stored files
+        const response = await fetch(`${API_BASE_URL}/files/${fileInfo.file_path}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (response.ok) {
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          window.open(url, '_blank')
+        }
+      } else if (fileInfo.data) {
+        // For base64 stored files  
+        const byteCharacters = atob(fileInfo.data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: fileInfo.type })
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+      }
+    } catch (error) {
+      setError(`Error opening file: ${error.message}`)
+    }
+  }
+
+  // Modal Management
+  const openPolicyModal = (submission, policy, policyArea, index) => {
     setSelectedSubmission(submission)
     setSelectedPolicy(policy)
+    setSelectedPolicyArea(policyArea)
     setSelectedPolicyIndex(index)
     setEditedPolicy({ ...policy })
     setAdminNotes(policy.admin_notes || "")
@@ -230,25 +315,67 @@ export default function AdminDashboard() {
     setEditMode(false)
   }
 
-  // Filter submissions based on search term
-  const filteredSubmissions = submissions.filter(submission =>
-    submission.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    submission.policyInitiatives?.some(policy =>
-      policy.policyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      policy.policyId?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  )
+  const handleOpenSubmissionDetails = (submission) => {
+    setSelectedSubmissionDetails(submission)
+    setShowSubmissionModal(true)
+  }
 
-  // Clear messages after 5 seconds
-  useEffect(() => {
-    if (error || success) {
-      const timer = setTimeout(() => {
-        setError("")
-        setSuccess("")
-      }, 5000)
-      return () => clearTimeout(timer)
+  // Helper Functions
+  const getPolicyAreaInfo = (areaId) => {
+    return POLICY_AREAS.find(area => area.id === areaId) || { 
+      name: areaId, 
+      color: "from-gray-500 to-gray-600",
+      icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
     }
-  }, [error, success])
+  }
+
+  const getAllPoliciesFromSubmission = (submission) => {
+    const allPolicies = [];
+
+    // New format: policyAreas is an array of { area_id, area_name, policies }
+    if (Array.isArray(submission.policyAreas)) {
+      submission.policyAreas.forEach(area => {
+        if (Array.isArray(area.policies) && area.policies.length > 0) {
+          area.policies.forEach((policy, index) => {
+            allPolicies.push({
+              ...policy,
+              policyArea: area.area_id,
+              areaInfo: getPolicyAreaInfo(area.area_id),
+              areaIndex: index
+            });
+          });
+        }
+      });
+    }
+    // Old format: policyAreas is an object
+    else if (submission.policyAreas && typeof submission.policyAreas === "object") {
+      Object.keys(submission.policyAreas).forEach(areaId => {
+        if (Array.isArray(submission.policyAreas[areaId]) && submission.policyAreas[areaId].length > 0) {
+          submission.policyAreas[areaId].forEach((policy, index) => {
+            allPolicies.push({
+              ...policy,
+              policyArea: areaId,
+              areaInfo: getPolicyAreaInfo(areaId),
+              areaIndex: index
+            });
+          });
+        }
+      });
+    }
+    // Old fallback
+    else if (Array.isArray(submission.policyInitiatives)) {
+      submission.policyInitiatives.forEach((policy, index) => {
+        allPolicies.push({
+          ...policy,
+          policyArea: policy.policyArea || 'unknown',
+          areaInfo: getPolicyAreaInfo(policy.policyArea || 'unknown'),
+          areaIndex: index
+        });
+      });
+    }
+
+    return allPolicies;
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -276,18 +403,120 @@ export default function AdminDashboard() {
     return `${currency || 'USD'} ${parseFloat(amount).toLocaleString()}`
   }
 
+  // Filter submissions based on search term
+  const filteredSubmissions = submissions.filter(submission =>
+    submission.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getAllPoliciesFromSubmission(submission).some(policy =>
+      policy.policyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      policy.policyId?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  )
+
+  // Clear messages after 5 seconds
+  useEffect(() => {
+    if (error || success) {
+      const timer = setTimeout(() => {
+        setError("")
+        setSuccess("")
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [error, success])
+
+  // Admin Login Component
+  const AdminLogin = ({ setUser, setView }) => {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loginError, setLoginError] = useState("");
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const response = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!response.ok) {
+          throw new Error("Invalid credentials");
+        }
+        const data = await response.json();
+        if (data.access_token) {
+          localStorage.setItem("access_token", data.access_token);
+          setUser({ email });
+          setView("dashboard");
+        } else {
+          setLoginError("Login failed");
+        }
+      } catch (err) {
+        setLoginError(err.message);
+      }
+    };
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+          <h2 className="text-2xl font-bold mb-6 text-center">Admin Login</h2>
+          {loginError && <div className="mb-4 text-red-600">{loginError}</div>}
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
+              placeholder="admin@gmail.com"
+            />
+          </div>
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition"
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("dashboard")}
+            className="w-full mt-3 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition"
+          >
+            Cancel
+          </button>
+        </form>
+      </div>
+    );
+  };
+
+  // Render admin login if needed
+  if (view === "admin-login") {
+    return <AdminLogin setUser={setUser} setView={setView} />;
+  }
+
+  // Main dashboard render
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="admin-header">Admin Dashboard</h1>
-          <p className="admin-subheader">Manage AI policy submissions and approvals</p>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+            Admin Dashboard
+          </h1>
+          <p className="text-xl text-slate-600">Manage AI policy submissions and approvals</p>
         </div>
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="admin-card">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +530,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="admin-card">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,7 +544,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="admin-card">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -329,7 +558,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="admin-card">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -409,185 +638,271 @@ export default function AdminDashboard() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="admin-table">
+              <table className="w-full">
                 <thead className="bg-slate-50/80">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Country
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Policies
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Budget
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Submitted
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Country</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">User Info</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Policies</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Budget</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Submitted</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white/50 divide-y divide-slate-200">
-                  {filteredSubmissions.map((submission) => (
-                    <tr key={submission._id} className="hover:bg-slate-50/50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-slate-900">{submission.country}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-3">
-                          {submission.policyInitiatives?.map((policy, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-3 bg-white/80 rounded-lg border border-slate-200 cursor-pointer hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-200 shadow-sm"
-                              onClick={() => openPolicyModal(submission, policy, index)}
-                            >
-                              <div className="flex-1">
-                                <div className="text-sm font-semibold text-slate-900">{policy.policyName}</div>
-                                <div className="text-xs text-slate-600 mt-1">
-                                  ID: {policy.policyId} | Area: {policy.policyArea}
+                  {filteredSubmissions.map((submission) => {
+                    const allPolicies = getAllPoliciesFromSubmission(submission);
+                    
+                    return (
+                      <tr key={submission._id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-slate-900">{submission.country}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm">
+                            <div className="font-semibold text-slate-900">{submission.user_name || 'N/A'}</div>
+                            <div className="text-slate-600">{submission.user_email || 'N/A'}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-3">
+                            {allPolicies.map((policy, index) => (
+                              <div
+                                key={`${policy.policyArea}-${policy.areaIndex}`}
+                                className="flex items-center justify-between p-3 bg-white/80 rounded-lg border border-slate-200 cursor-pointer hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-200 shadow-sm"
+                                onClick={() => openPolicyModal(submission, policy, policy.policyArea, policy.areaIndex)}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${policy.areaInfo.color}`}></div>
+                                    <span className="text-xs font-medium text-slate-600">{policy.areaInfo.name}</span>
+                                  </div>
+                                  <div className="text-sm font-semibold text-slate-900">{policy.policyName || 'Unnamed Policy'}</div>
+                                  <div className="text-xs text-slate-600 mt-1">ID: {policy.policyId || 'N/A'}</div>
+                                  <div className="text-xs text-slate-500 mt-1">Deployment: {policy.implementation?.deploymentYear || 'TBD'}</div>
                                 </div>
-                                <div className="text-xs text-slate-500 mt-1">
-                                  Deployment: {policy.implementation?.deploymentYear || 'TBD'}
-                                </div>
+                                <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
+                                  {policy.status || 'pending'}
+                                </span>
                               </div>
-                              <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
-                                {policy.status || 'pending'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-700">
-                          {submission.policyInitiatives?.map((policy, index) => (
-                            <div key={index} className="mb-1 font-medium">
-                              {formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.submission_status)}`}>
-                          {submission.submission_status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {formatDate(submission.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleOpenSubmissionDetails(submission)}
-                          className="text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-150"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                            ))}
+                            {allPolicies.length === 0 && (
+                              <div className="text-sm text-slate-500 italic">No policies submitted</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-slate-700">
+                            {allPolicies.map((policy, index) => (
+                              <div key={index} className="mb-1 font-medium">
+                                {formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.submission_status)}`}>
+                            {submission.submission_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                          {formatDate(submission.submitted_at || submission.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => handleOpenSubmissionDetails(submission)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold transition-colors duration-150"
+                          >
+                            View Details
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
           
-        {showSubmissionModal && selectedSubmissionDetails && (
-          <div className="admin-modal">
-            <div className="admin-modal-content max-w-3xl">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center border-b pb-4 mb-4">
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Submission Details
-                </h3>
-                <button
-                  onClick={() => setShowSubmissionModal(false)}
-                  className="admin-close-btn"
-                  aria-label="Close"
-                >
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              {/* Submission Details Content */}
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <h4 className="text-lg font-semibold text-blue-900 mb-1">
-                      <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded-lg mr-2">
-                        {selectedSubmissionDetails.country}
-                      </span>
-                    </h4>
-                    <p className="text-sm text-slate-600">
-                      <strong>Submitted At:</strong> {formatDate(selectedSubmissionDetails.created_at)}
-                    </p>
+          {/* Submission Details Modal */}
+          {showSubmissionModal && selectedSubmissionDetails && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+              <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8">
+                <div className="p-8">
+                  <div className="flex justify-between items-center border-b pb-4 mb-4">
+                    <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                      Submission Details
+                    </h3>
+                    <button
+                      onClick={() => setShowSubmissionModal(false)}
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                      aria-label="Close"
+                    >
+                      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
-                  <div>
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full border shadow-sm ${getStatusColor(selectedSubmissionDetails.submission_status)}`}>
-                      {selectedSubmissionDetails.submission_status}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="text-base font-semibold text-indigo-700 mb-3">Policies</h5>
-                  <div className="grid gap-4">
-                    {selectedSubmissionDetails.policyInitiatives?.map((policy, index) => (
-                      <div
-                        key={index}
-                        className="border-l-4 border-blue-400 bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-xl p-4 shadow transition hover:shadow-lg"
-                      >
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg">
+                        <h4 className="text-lg font-semibold text-blue-900 mb-3">Country & User Information</h4>
+                        <div className="space-y-2">
                           <div>
-                            <p className="font-bold text-slate-900 text-lg mb-1">{policy.policyName}</p>
-                            <p className="text-xs text-slate-500 mb-1">
-                              <span className="mr-2">ID: <span className="font-mono">{policy.policyId || 'N/A'}</span></span>
-                              <span>Area: <span className="font-semibold">{policy.policyArea || 'N/A'}</span></span>
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Deployment: <span className="font-semibold">{policy.implementation?.deploymentYear || 'TBD'}</span>
-                            </p>
+                            <span className="text-sm font-medium text-blue-700">Country:</span>
+                            <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-semibold">
+                              {selectedSubmissionDetails.country}
+                            </span>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
-                              {policy.status || 'pending'}
-                            </span>
-                            <span className="text-xs text-slate-700">
-                              Budget: <span className="font-semibold">{formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}</span>
-                            </span>
+                          <div>
+                            <span className="text-sm font-medium text-blue-700">User Name:</span>
+                            <span className="ml-2 text-sm text-gray-700">{selectedSubmissionDetails.user_name || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-blue-700">Email:</span>
+                            <span className="ml-2 text-sm text-gray-700">{selectedSubmissionDetails.user_email || 'N/A'}</span>
                           </div>
                         </div>
-                        {policy.policyDescription && (
-                          <div className="mt-2 text-sm text-slate-700 italic">
-                            {policy.policyDescription}
-                          </div>
-                        )}
-                        {policy.targetGroups && policy.targetGroups.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {policy.targetGroups.map((group, i) => (
-                              <span key={i} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
-                                {group}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
-                    ))}
+                      
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-lg">
+                        <h4 className="text-lg font-semibold text-green-900 mb-3">Submission Status</h4>
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-sm font-medium text-green-700">Status:</span>
+                            <span className={`ml-2 px-3 py-1 text-xs font-semibold rounded-full border ${getStatusColor(selectedSubmissionDetails.submission_status)}`}>
+                              {selectedSubmissionDetails.submission_status}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-sm font-medium text-green-700">Submitted At:</span>
+                            <span className="ml-2 text-sm text-gray-700">{formatDate(selectedSubmissionDetails.submitted_at || selectedSubmissionDetails.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="text-xl font-semibold text-indigo-700 mb-4">Policy Areas & Policies</h5>
+                      
+                      {selectedSubmissionDetails.policyAreas ? (
+                        <div className="space-y-6">
+                          {Object.keys(selectedSubmissionDetails.policyAreas).map(areaId => {
+                            const policies = selectedSubmissionDetails.policyAreas[areaId];
+                            const areaInfo = getPolicyAreaInfo(areaId);
+                            
+                            if (!Array.isArray(policies) || policies.length === 0) return null;
+
+                            return (
+                              <div key={areaId} className="border border-gray-200 rounded-xl overflow-hidden">
+                                <div className={`p-4 bg-gradient-to-r ${areaInfo.color} text-white`}>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={areaInfo.icon} />
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <h6 className="text-lg font-bold">{areaInfo.name}</h6>
+                                      <p className="text-sm opacity-90">{policies.length} policies</p>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="p-4 bg-white">
+                                  <div className="grid gap-4">
+                                    {policies.map((policy, policyIndex) => (
+                                      <div key={policyIndex} className="border-l-4 border-blue-400 bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-xl p-4 shadow transition hover:shadow-lg">
+                                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                                          <div className="flex-1">
+                                            <h6 className="font-bold text-slate-900 text-lg mb-1">{policy.policyName || 'Unnamed Policy'}</h6>
+                                            <div className="text-xs text-slate-500 mb-2 space-y-1">
+                                              <div><span className="font-medium">Policy ID:</span> {policy.policyId || 'N/A'}</div>
+                                              <div><span className="font-medium">Deployment Year:</span> {policy.implementation?.deploymentYear || 'TBD'}</div>
+                                              <div><span className="font-medium">Budget:</span> {formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}</div>
+                                            </div>
+                                            {policy.policyDescription && (
+                                              <p className="text-sm text-slate-700 italic mb-2">{policy.policyDescription}</p>
+                                            )}
+                                            {policy.targetGroups && policy.targetGroups.length > 0 && (
+                                              <div className="flex flex-wrap gap-1 mb-2">
+                                                {policy.targetGroups.map((group, i) => (
+                                                  <span key={i} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">{group}</span>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-col items-end gap-2">
+                                            <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
+                                              {policy.status || 'pending'}
+                                            </span>
+                                            <button
+                                              onClick={() => openPolicyModal(selectedSubmissionDetails, policy, areaId, policyIndex)}
+                                              className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
+                                            >
+                                              View Details
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : selectedSubmissionDetails.policyInitiatives ? (
+                        <div className="grid gap-4">
+                          {selectedSubmissionDetails.policyInitiatives.map((policy, index) => (
+                            <div key={index} className="border-l-4 border-blue-400 bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-xl p-4 shadow transition hover:shadow-lg">
+                              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                                <div>
+                                  <p className="font-bold text-slate-900 text-lg mb-1">{policy.policyName}</p>
+                                  <p className="text-xs text-slate-500 mb-1">
+                                    <span className="mr-2">ID: <span className="font-mono">{policy.policyId || 'N/A'}</span></span>
+                                    <span>Area: <span className="font-semibold">{policy.policyArea || 'N/A'}</span></span>
+                                  </p>
+                                  <p className="text-xs text-slate-500">Deployment: <span className="font-semibold">{policy.implementation?.deploymentYear || 'TBD'}</span></p>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(policy.status)}`}>
+                                    {policy.status || 'pending'}
+                                  </span>
+                                  <span className="text-xs text-slate-700">
+                                    Budget: <span className="font-semibold">{formatCurrency(policy.implementation?.yearlyBudget, policy.implementation?.budgetCurrency)}</span>
+                                  </span>
+                                </div>
+                              </div>
+                              {policy.policyDescription && (
+                                <div className="mt-2 text-sm text-slate-700 italic">{policy.policyDescription}</div>
+                              )}
+                              {policy.targetGroups && policy.targetGroups.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {policy.targetGroups.map((group, i) => (
+                                    <span key={i} className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">{group}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">No policies found in this submission.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50/50">
-              <div className="text-sm text-slate-700 font-medium">
-                Page {currentPage} of {totalPages}
-              </div>
+              <div className="text-sm text-slate-700 font-medium">Page {currentPage} of {totalPages}</div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -613,13 +928,10 @@ export default function AdminDashboard() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
             <div className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8">
               <div className="p-8">
-                {/* Modal Header */}
                 <div className="flex justify-between items-center pb-6 border-b border-slate-200">
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900">
-                      {selectedPolicy.policyName}
-                    </h3>
-                    <p className="text-slate-600 mt-1">Policy Details & Management</p>
+                    <h3 className="text-2xl font-bold text-slate-900">{selectedPolicy.policyName || 'Unnamed Policy'}</h3>
+                    <p className="text-slate-600 mt-1">{getPolicyAreaInfo(selectedPolicyArea).name} - Policy Details & Management</p>
                   </div>
                   <button
                     onClick={() => setShowPolicyModal(false)}
@@ -631,10 +943,8 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                {/* Modal Content */}
                 <div className="mt-4 max-h-96 overflow-y-auto">
                   {editMode ? (
-                    // Edit Mode
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-4">
                         <div>
@@ -652,15 +962,6 @@ export default function AdminDashboard() {
                             type="text"
                             value={editedPolicy.policyId || ''}
                             onChange={(e) => setEditedPolicy({ ...editedPolicy, policyId: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Policy Area</label>
-                          <input
-                            type="text"
-                            value={editedPolicy.policyArea || ''}
-                            onChange={(e) => setEditedPolicy({ ...editedPolicy, policyArea: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
@@ -714,7 +1015,6 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   ) : (
-                    // View Mode
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-6">
                         <div>
@@ -723,7 +1023,7 @@ export default function AdminDashboard() {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-sm text-gray-600">Policy Name</p>
-                                <p className="text-sm font-medium">{selectedPolicy.policyName}</p>
+                                <p className="text-sm font-medium">{selectedPolicy.policyName || 'N/A'}</p>
                               </div>
                               <div>
                                 <p className="text-sm text-gray-600">Policy ID</p>
@@ -731,7 +1031,7 @@ export default function AdminDashboard() {
                               </div>
                               <div>
                                 <p className="text-sm text-gray-600">Policy Area</p>
-                                <p className="text-sm font-medium">{selectedPolicy.policyArea || 'N/A'}</p>
+                                <p className="text-sm font-medium">{getPolicyAreaInfo(selectedPolicyArea).name}</p>
                               </div>
                               <div>
                                 <p className="text-sm text-gray-600">Country</p>
@@ -741,12 +1041,6 @@ export default function AdminDashboard() {
                                 <p className="text-sm text-gray-600">Status</p>
                                 <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedPolicy.status)}`}>
                                   {selectedPolicy.status || 'pending'}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="text-sm text-gray-600">Master Status</p>
-                                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(selectedPolicy.master_status)}`}>
-                                  {selectedPolicy.master_status || 'N/A'}
                                 </span>
                               </div>
                             </div>
@@ -765,9 +1059,7 @@ export default function AdminDashboard() {
                             <h4 className="font-medium text-gray-900 mb-2">Target Groups</h4>
                             <div className="flex flex-wrap gap-2">
                               {selectedPolicy.targetGroups.map((group, index) => (
-                                <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                                  {group}
-                                </span>
+                                <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">{group}</span>
                               ))}
                             </div>
                           </div>
@@ -789,11 +1081,9 @@ export default function AdminDashboard() {
                         {selectedPolicy.policyLink && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-2">Policy Link</h4>
-                            <div className="flex items-center gap-2"> {/* ADD flex container */}
+                            <div className="flex items-center gap-2">
                               <a href={selectedPolicy.policyLink} target="_blank" rel="noopener noreferrer" 
-                                className="text-blue-600 hover:text-blue-800 text-sm">
-                                {selectedPolicy.policyLink}
-                              </a>
+                                className="text-blue-600 hover:text-blue-800 text-sm truncate">{selectedPolicy.policyLink}</a>
                               <button
                                 onClick={() => window.open(selectedPolicy.policyLink, '_blank')}
                                 className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
@@ -806,7 +1096,6 @@ export default function AdminDashboard() {
                       </div>
 
                       <div className="space-y-6">
-                        {/* Implementation Details */}
                         {selectedPolicy.implementation && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-3">Implementation Details</h4>
@@ -814,15 +1103,11 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Yearly Budget</p>
-                                  <p className="text-sm font-medium">
-                                    {formatCurrency(selectedPolicy.implementation.yearlyBudget, selectedPolicy.implementation.budgetCurrency)}
-                                  </p>
+                                  <p className="text-sm font-medium">{formatCurrency(selectedPolicy.implementation.yearlyBudget, selectedPolicy.implementation.budgetCurrency)}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Private Sector Funding</p>
-                                  <p className="text-sm font-medium">
-                                    {selectedPolicy.implementation.privateSecFunding ? 'Yes' : 'No'}
-                                  </p>
+                                  <p className="text-sm font-medium">{selectedPolicy.implementation.privateSecFunding ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Deployment Year</p>
@@ -833,7 +1118,6 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        {/* Evaluation Details */}
                         {selectedPolicy.evaluation && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-3">Evaluation & Assessment</h4>
@@ -841,9 +1125,7 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Is Evaluated</p>
-                                  <p className="text-sm font-medium">
-                                    {selectedPolicy.evaluation.isEvaluated ? 'Yes' : 'No'}
-                                  </p>
+                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.isEvaluated ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Evaluation Type</p>
@@ -851,9 +1133,7 @@ export default function AdminDashboard() {
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Risk Assessment</p>
-                                  <p className="text-sm font-medium">
-                                    {selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}
-                                  </p>
+                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}</p>
                                 </div>
                               </div>
                               
@@ -862,21 +1142,15 @@ export default function AdminDashboard() {
                                 <div className="grid grid-cols-3 gap-4">
                                   <div className="text-center">
                                     <p className="text-xs text-gray-600">Transparency</p>
-                                    <p className="text-lg font-semibold text-blue-600">
-                                      {selectedPolicy.evaluation.transparencyScore || 0}/10
-                                    </p>
+                                    <p className="text-lg font-semibold text-blue-600">{selectedPolicy.evaluation.transparencyScore || 0}/10</p>
                                   </div>
                                   <div className="text-center">
                                     <p className="text-xs text-gray-600">Explainability</p>
-                                    <p className="text-lg font-semibold text-green-600">
-                                      {selectedPolicy.evaluation.explainabilityScore || 0}/10
-                                    </p>
+                                    <p className="text-lg font-semibold text-green-600">{selectedPolicy.evaluation.explainabilityScore || 0}/10</p>
                                   </div>
                                   <div className="text-center">
                                     <p className="text-xs text-gray-600">Accountability</p>
-                                    <p className="text-lg font-semibold text-purple-600">
-                                      {selectedPolicy.evaluation.accountabilityScore || 0}/10
-                                    </p>
+                                    <p className="text-lg font-semibold text-purple-600">{selectedPolicy.evaluation.accountabilityScore || 0}/10</p>
                                   </div>
                                 </div>
                               </div>
@@ -884,7 +1158,6 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        {/* Participation Details */}
                         {selectedPolicy.participation && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-3">Public Participation</h4>
@@ -892,15 +1165,11 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Has Consultation</p>
-                                  <p className="text-sm font-medium">
-                                    {selectedPolicy.participation.hasConsultation ? 'Yes' : 'No'}
-                                  </p>
+                                  <p className="text-sm font-medium">{selectedPolicy.participation.hasConsultation ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Comments Public</p>
-                                  <p className="text-sm font-medium">
-                                    {selectedPolicy.participation.commentsPublic ? 'Yes' : 'No'}
-                                  </p>
+                                  <p className="text-sm font-medium">{selectedPolicy.participation.commentsPublic ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Stakeholder Score</p>
@@ -912,15 +1181,11 @@ export default function AdminDashboard() {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <p className="text-sm text-gray-600">Consultation Start</p>
-                                    <p className="text-sm font-medium">
-                                      {formatDate(selectedPolicy.participation.consultationStartDate)}
-                                    </p>
+                                    <p className="text-sm font-medium">{formatDate(selectedPolicy.participation.consultationStartDate)}</p>
                                   </div>
                                   <div>
                                     <p className="text-sm text-gray-600">Consultation End</p>
-                                    <p className="text-sm font-medium">
-                                      {formatDate(selectedPolicy.participation.consultationEndDate)}
-                                    </p>
+                                    <p className="text-sm font-medium">{formatDate(selectedPolicy.participation.consultationEndDate)}</p>
                                   </div>
                                 </div>
                               )}
@@ -928,26 +1193,38 @@ export default function AdminDashboard() {
                           </div>
                         )}
 
-                        {/* Dates and Tracking */}
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-3">Tracking Information</h4>
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                              {selectedPolicy.original_submission_id && (
+                        {selectedPolicy.alignment && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-3">Alignment & Principles</h4>
+                            <div className="space-y-3">
+                              {selectedPolicy.alignment.aiPrinciples && selectedPolicy.alignment.aiPrinciples.length > 0 && (
                                 <div>
-                                  <p className="text-sm text-gray-600">Original Submission ID</p>
-                                  <p className="text-sm font-medium font-mono">{selectedPolicy.original_submission_id}</p>
+                                  <p className="text-sm font-medium text-gray-700 mb-2">AI Principles</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedPolicy.alignment.aiPrinciples.map((principle, index) => (
+                                      <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">{principle}</span>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
-                              {selectedPolicy.moved_to_master_at && (
+                              
+                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <p className="text-sm text-gray-600">Moved to Master</p>
-                                  <p className="text-sm font-medium">{formatDate(selectedPolicy.moved_to_master_at)}</p>
+                                  <p className="text-sm text-gray-600">Human Rights Alignment</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.alignment.humanRightsAlignment ? 'Yes' : 'No'}</p>
                                 </div>
-                              )}
+                                <div>
+                                  <p className="text-sm text-gray-600">Environmental Considerations</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.alignment.environmentalConsiderations ? 'Yes' : 'No'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">International Cooperation</p>
+                                  <p className="text-sm font-medium">{selectedPolicy.alignment.internationalCooperation ? 'Yes' : 'No'}</p>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {selectedPolicy.admin_notes && (
                           <div>
@@ -962,7 +1239,6 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
-                {/* Admin Notes Section */}
                 <div className="mt-6 pt-4 border-t">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
                   <textarea
@@ -974,7 +1250,6 @@ export default function AdminDashboard() {
                   />
                 </div>
 
-                {/* Modal Actions */}
                 <div className="mt-6 flex flex-wrap gap-2 justify-end">
                   {editMode ? (
                     <>
@@ -1000,25 +1275,25 @@ export default function AdminDashboard() {
                         Edit Policy
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyIndex, 'needs_revision', adminNotes)}
+                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'needs_revision', adminNotes)}
                         className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
                       >
                         Needs Revision
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyIndex, 'rejected', adminNotes)}
+                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'rejected', adminNotes)}
                         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                       >
                         Reject
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyIndex, 'approved', adminNotes)}
+                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'approved', adminNotes)}
                         className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                       >
                         Approve
                       </button>
                       <button
-                        onClick={() => deletePolicy(selectedSubmission._id, selectedPolicyIndex)}
+                        onClick={() => deletePolicy(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex)}
                         className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-900"
                       >
                         Delete Policy
