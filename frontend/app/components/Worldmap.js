@@ -92,7 +92,7 @@ export default function Worldmap() {
     Object.keys(stats).forEach(country => {
       const count = stats[country].approvedAreas.size
       if (count >= 8) stats[country].color = "#22c55e" // green
-      else if (count >= 4) stats[country].color = "#eab308" // yellow
+      else if (count >= 4) stats[country].color = "#FFE600" // yellow
       else stats[country].color = "#ef4444" // red
       stats[country].count = count
     })
@@ -116,7 +116,7 @@ export default function Worldmap() {
   const handleMouseEnter = (geo, event) => {
     clearTimeout(tooltipTimeout.current)
     const countryName = geo.properties.name
-    const stat = countryStats[countryName] || { count: 0, color: "#e5e7eb" }
+    const stat = countryStats[countryName] || { count: 0, color: "#4B0082" }
     setTooltipContent({
       name: countryName,
       count: stat.count || 0,
@@ -247,7 +247,7 @@ export default function Worldmap() {
                   {({ geographies }) =>
                     geographies.map(geo => {
                       const countryName = geo.properties.name
-                      const stat = countryStats[countryName] || { color: "#e5e7eb", count: 0 }
+                      const stat = countryStats[countryName] || { color: "#F5DEB3", count: 0 }
                       const isHighlighted = highlightedCountry === countryName || filteredCountry === countryName
                       return (
                         <Geography
