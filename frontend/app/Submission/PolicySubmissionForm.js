@@ -166,16 +166,27 @@ const createEmptyPolicy = () => ({
   admin_notes: ""
 });
 
-const PolicySubmissionForm = () => {
-  const [user, setUser] = useState({
-    id: '1',
-    email: 'user@example.com',
-    firstName: 'John',
-    lastName: 'Doe',
-    country: 'United States'
-  });
+// Add user card display
+const UserSubmissionCard = ({ user }) => (
+  <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
+    <div className="flex items-center gap-3">
+      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-gray-600">Submitting as</p>
+        <p className="text-lg font-bold text-gray-900">{user.firstName} {user.lastName}</p>
+        <p className="text-sm text-gray-500">{user.email}</p>
+      </div>
+    </div>
+  </div>
+);
 
-  // Form data structure: each policy area can have multiple policies
+const PolicySubmissionForm = () => {
+  // All hooks at the top!
+  const [user, setUser] = useState(null);
   const [policyAreas, setPolicyAreas] = useState(() => {
     const areas = {};
     POLICY_AREAS.forEach(area => {
@@ -183,11 +194,9 @@ const PolicySubmissionForm = () => {
     });
     return areas;
   });
-
   const [formData, setFormData] = useState({
     country: "",
   });
-
   const [filteredCountries, setFilteredCountries] = useState([]);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [selectedPolicyArea, setSelectedPolicyArea] = useState(null);
@@ -197,6 +206,25 @@ const PolicySubmissionForm = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [fileUploading, setFileUploading] = useState({});
+
+  useEffect(() => {
+    // Get actual logged-in user
+    const token = localStorage.getItem('access_token');
+    const userData = localStorage.getItem('userData');
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Redirect to login if user data is invalid
+        window.location.href = '/login';
+      }
+    } else {
+      // No user data, redirect to login
+      window.location.href = '/login';
+    }
+  }, []);
 
   // Country autocomplete
   useEffect(() => {
@@ -988,6 +1016,18 @@ const PolicySubmissionForm = () => {
     );
   };
 
+  // Move this check **after all hooks**
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p>Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -1001,8 +1041,12 @@ const PolicySubmissionForm = () => {
           </p>
         </div>
 
+        {/* User Info Card */}
+        <UserSubmissionCard user={user} />
+
         {/* User Info and Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Remove the first user info card here if you want to avoid duplicate user info */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -1013,6 +1057,7 @@ const PolicySubmissionForm = () => {
               <div>
                 <p className="text-sm font-medium text-gray-600">Submitting as</p>
                 <p className="text-lg font-bold text-gray-900">{user.firstName} {user.lastName}</p>
+                <p className="text-sm text-gray-500">{user.email}</p>
               </div>
             </div>
           </div>
@@ -1049,7 +1094,7 @@ const PolicySubmissionForm = () => {
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div>

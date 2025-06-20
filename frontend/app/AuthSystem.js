@@ -37,6 +37,7 @@ const COUNTRIES = [
 ];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'your_google_client_id_here';
 
 const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
   const [currentView, setCurrentView] = useState(initialView);
@@ -56,6 +57,35 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [user, setUserState] = useState(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Load Google Sign-In script
+  useEffect(() => {
+    const loadGoogleScript = () => {
+      if (window.google) return;
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleSignIn;
+      document.head.appendChild(script);
+    };
+
+    const initializeGoogleSignIn = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      }
+    };
+
+    loadGoogleScript();
+    // eslint-disable-next-line
+  }, []);
 
   // Country autocomplete
   useEffect(() => {
@@ -71,7 +101,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
 
   // Check if user is logged in
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('access_token');
     const userData = localStorage.getItem('userData');
     if (token && userData) {
       setUserState(JSON.parse(userData));
@@ -94,6 +124,65 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
 
   const validatePassword = (password) => {
     return password.length >= 8;
+  };
+
+  // Google Sign-In Handler
+  const handleGoogleResponse = async (response) => {
+    setGoogleLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: response.credential
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Google sign-in failed');
+      }
+
+      // Store token and user info
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('userData', JSON.stringify(data.user));
+      setUser(data.user);
+      setSuccess('Google sign-in successful!');
+      if (setView) {
+        setView('home');
+      }
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = () => {
+    setError('');
+    if (window.google && window.google.accounts) {
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Fallback to popup
+          window.google.accounts.id.renderButton(
+            document.getElementById('google-signin-button'),
+            {
+              theme: 'outline',
+              size: 'large',
+              width: '100%',
+              text: 'continue_with',
+              shape: 'rectangular',
+            }
+          );
+        }
+      });
+    } else {
+      setError('Google Sign-In is not available. Please try again.');
+    }
   };
 
   const handleSignup = async () => {
@@ -155,7 +244,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
 
     setLoading(true);
     try {
-      // Replace mock with real API call
       const res = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -169,7 +257,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       localStorage.setItem('userData', JSON.stringify(data.user));
       setUser(data.user);
       setSuccess('Login successful!');
-      if (setView) setView("submission"); // Go to submission after login
+      if (setView) setView("home");
     } catch (err) {
       setError('Invalid credentials. Please try again.');
     } finally {
@@ -192,7 +280,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       setSuccess('Password reset code sent to your email!');
       setCurrentView('reset');
     } catch (err) {
@@ -249,7 +336,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       setSuccess('Password reset successfully!');
       setCurrentView('login');
     } catch (err) {
@@ -260,7 +346,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('access_token');
     localStorage.removeItem('userData');
     setUserState(null);
     setFormData({
@@ -275,11 +361,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     });
   };
 
-  const handleGoogleAuth = () => {
-    // Simulate Google OAuth
-    setSuccess('Google authentication would be implemented here');
-  };
-
+  // If user is logged in, show profile
   if (user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
@@ -293,25 +375,33 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
             <h2 className="text-2xl font-bold text-gray-800">Welcome Back!</h2>
             <p className="text-gray-600 mt-2">{user.firstName} {user.lastName}</p>
             <p className="text-sm text-gray-500">{user.email}</p>
+            {user.google_auth && (
+              <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                Google Account
+              </span>
+            )}
             {user.isAdmin && (
               <span className="inline-block mt-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
                 Admin
               </span>
             )}
           </div>
-          
           <div className="space-y-4">
-            <button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all">
+            <button
+              onClick={() => setView && setView("submission")}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all"
+            >
               Go to Policy Submission
             </button>
-            
             {user.isAdmin && (
-              <button className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold py-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all">
+              <button
+                onClick={() => setView && setView("admin")}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold py-3 rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all"
+              >
                 Admin Dashboard
               </button>
             )}
-            
-            <button 
+            <button
               onClick={handleLogout}
               className="w-full bg-gray-100 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-200 transition-all"
             >
@@ -400,20 +490,26 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   <span className="px-2 bg-white text-gray-500">or</span>
                 </div>
               </div>
-
-              <button
-                onClick={handleGoogleAuth}
-                className="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Continue with Google
-              </button>
-
+              {/* Google Sign-In Button */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={googleLoading}
+                  className="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                >
+                  {googleLoading ? (
+                    <div className="animate-spin w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full"></div>
+                  ) : (
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                  )}
+                  {googleLoading ? 'Signing in...' : 'Continue with Google'}
+                </button>
+              </div>
               <div className="text-center">
                 <span className="text-gray-600">Don't have an account? </span>
                 <button
@@ -451,7 +547,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                 <input
@@ -462,7 +557,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   placeholder="Enter your email"
                 />
               </div>
-
               <div className="relative">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Country</label>
                 <input
@@ -476,7 +570,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   placeholder="Type to search countries..."
                 />
-                
                 {showCountryDropdown && filteredCountries.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {filteredCountries.slice(0, 10).map((country) => (
@@ -490,12 +583,10 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                     ))}
                   </div>
                 )}
-                
                 {formData.country && !COUNTRIES.includes(formData.country) && filteredCountries.length === 0 && (
                   <p className="text-sm text-red-600 mt-1">Country not found. Please select from the list.</p>
                 )}
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                 <input
@@ -507,7 +598,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 />
                 <p className="text-xs text-gray-500 mt-1">Must be at least 8 characters long</p>
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
                 <input
@@ -518,7 +608,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   placeholder="Confirm your password"
                 />
               </div>
-
               <button
                 onClick={handleSignup}
                 disabled={loading}
@@ -526,7 +615,32 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>
-
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">or</span>
+                </div>
+              </div>
+              {/* Google Sign-In for Signup */}
+              <button
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
+                className="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {googleLoading ? (
+                  <div className="animate-spin w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full"></div>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                )}
+                {googleLoading ? 'Signing up...' : 'Sign up with Google'}
+              </button>
               <div className="text-center">
                 <span className="text-gray-600">Already have an account? </span>
                 <button
@@ -552,7 +666,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   placeholder="Enter your email"
                 />
               </div>
-
               <button
                 onClick={handleForgotPassword}
                 disabled={loading}
@@ -560,7 +673,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
               >
                 {loading ? 'Sending...' : 'Send Reset Code'}
               </button>
-
               <div className="text-center">
                 <button
                   onClick={() => setCurrentView('login')}
@@ -579,7 +691,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 <p>We've sent a 6-digit verification code to</p>
                 <p className="font-semibold">{formData.email}</p>
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Verification Code</label>
                 <input
@@ -591,7 +702,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   maxLength={6}
                 />
               </div>
-
               <button
                 onClick={handleVerifyOTP}
                 disabled={loading}
@@ -599,7 +709,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
               >
                 {loading ? 'Verifying...' : 'Verify Email'}
               </button>
-
               <div className="text-center">
                 <button className="text-blue-600 hover:text-blue-800 font-semibold">
                   Resend code
@@ -622,7 +731,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   maxLength={6}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
                 <input
@@ -633,7 +741,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   placeholder="Enter new password"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm New Password</label>
                 <input
@@ -644,7 +751,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   placeholder="Confirm new password"
                 />
               </div>
-
               <button
                 onClick={handleResetPassword}
                 disabled={loading}
@@ -652,7 +758,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
               </button>
-
               <div className="text-center">
                 <button
                   onClick={() => setCurrentView('login')}

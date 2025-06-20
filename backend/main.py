@@ -654,17 +654,25 @@ async def login_user(login_data: UserLogin):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
+# Update the Google auth endpoint to handle missing client ID gracefully
 @app.post("/api/auth/google")
 async def google_auth(auth_request: GoogleAuthRequest):
     try:
+        if not GOOGLE_CLIENT_ID:
+            raise HTTPException(status_code=400, detail="Google authentication not configured")
+            
         # Verify Google token
         idinfo = id_token.verify_oauth2_token(
             auth_request.token, google_requests.Request(), GOOGLE_CLIENT_ID
         )
         
+        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+            raise ValueError('Wrong issuer.')
+            
         email = idinfo['email']
         firstName = idinfo.get('given_name', '')
         lastName = idinfo.get('family_name', '')
+        google_id = idinfo.get('sub')
         
         # Check if user exists
         user = await users_collection.find_one({"email": email})
@@ -676,18 +684,32 @@ async def google_auth(auth_request: GoogleAuthRequest):
                 "lastName": lastName,
                 "email": email,
                 "password": hash_password(str(uuid.uuid4())),  # Random password for Google users
-                "country": "Unknown",
+                "country": "Unknown",  # Can be updated later
                 "is_admin": False,
                 "is_verified": True,  # Google accounts are pre-verified
                 "google_auth": True,
+                "google_id": google_id,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }
             
             result = await users_collection.insert_one(user_doc)
             user_id = str(result.inserted_id)
+            user = user_doc
+            user["_id"] = result.inserted_id
         else:
             user_id = str(user["_id"])
+            # Update Google info if not present
+            if not user.get("google_id"):
+                await users_collection.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {
+                        "google_id": google_id,
+                        "google_auth": True,
+                        "is_verified": True,
+                        "updated_at": datetime.utcnow()
+                    }}
+                )
         
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -704,14 +726,16 @@ async def google_auth(auth_request: GoogleAuthRequest):
                 "firstName": firstName,
                 "lastName": lastName,
                 "email": email,
-                "country": user.get("country", "Unknown") if user else "Unknown",
-                "is_admin": user.get("is_admin", False) if user else False
+                "country": user.get("country", "Unknown"),
+                "is_admin": user.get("is_admin", False),
+                "google_auth": True
             }
         }
     
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}")
-
 @app.post("/api/auth/forgot-password")
 async def forgot_password(email_data: dict):
     try:
@@ -932,45 +956,62 @@ async def get_enhanced_submissions(
 ):
     try:
         skip = (page - 1) * limit
-        
+
         # Build filter
         filter_dict = {}
         if status:
             filter_dict["submission_status"] = status
         if area_id:
             filter_dict["policyAreas.area_id"] = area_id
-        
-        # Get submissions with user data
+
+        # Enhanced aggregation pipeline with user info and submitter fallback
         pipeline = [
             {"$match": filter_dict},
             {"$lookup": {
                 "from": "users",
                 "let": {"user_id": {"$toObjectId": "$user_id"}},
                 "pipeline": [{"$match": {"$expr": {"$eq": ["$_id", "$$user_id"]}}}],
-                "as": "user_data"
+                "as": "user_info"
+            }},
+            {"$addFields": {
+                "submitter_name": {
+                    "$cond": {
+                        "if": {"$eq": [{"$size": "$user_info"}, 0]},
+                        "then": "Admin Pushed",
+                        "else": {
+                            "$concat": [
+                                {"$arrayElemAt": ["$user_info.firstName", 0]},
+                                " ",
+                                {"$arrayElemAt": ["$user_info.lastName", 0]}
+                            ]
+                        }
+                    }
+                },
+                "submitter_email": {
+                    "$cond": {
+                        "if": {"$eq": [{"$size": "$user_info"}, 0]},
+                        "then": SUPER_ADMIN_EMAIL,
+                        "else": {"$arrayElemAt": ["$user_info.email", 0]}
+                    }
+                }
             }},
             {"$sort": {"created_at": -1}},
             {"$skip": skip},
             {"$limit": limit}
         ]
-        
+
         cursor = temp_submissions_collection.aggregate(pipeline)
         submissions = []
-        
+
         async for doc in cursor:
             doc = convert_objectid(doc)
-            # Add user data to submission
-            if doc.get("user_data") and len(doc["user_data"]) > 0:
-                user = doc["user_data"][0]
-                doc["user_name"] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
-                doc["user_email"] = user.get("email", "")
-                doc["user_country"] = user.get("country", "")
-            doc.pop("user_data", None)  # Remove the lookup data
+            # Remove user_info field to keep response clean
+            doc.pop("user_info", None)
             submissions.append(doc)
-        
+
         # Get total count
         total_count = await temp_submissions_collection.count_documents(filter_dict)
-        
+
         return {
             "submissions": submissions,
             "total_count": total_count,
@@ -978,7 +1019,7 @@ async def get_enhanced_submissions(
             "limit": limit,
             "total_pages": (total_count + limit - 1) // limit
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching submissions: {str(e)}")
 
@@ -1198,19 +1239,18 @@ async def get_master_policies(
     limit: int = Query(10, ge=1, le=100),
     country: Optional[str] = Query(None),
     policy_area: Optional[str] = Query(None),
-    admin_user: dict = Depends(get_admin_user)
 ):
     """Get approved policies from master database with filtering"""
     try:
         skip = (page - 1) * limit
-        
+
         # Build filter
         filter_dict = {"master_status": {"$ne": "deleted"}}
         if country:
             filter_dict["country"] = {"$regex": country, "$options": "i"}
         if policy_area:
             filter_dict["policyArea"] = policy_area
-        
+
         # Get policies with user data
         pipeline = [
             {"$match": filter_dict},
@@ -1224,10 +1264,10 @@ async def get_master_policies(
             {"$skip": skip},
             {"$limit": limit}
         ]
-        
+
         cursor = master_policies_collection.aggregate(pipeline)
         policies = []
-        
+
         async for doc in cursor:
             doc = convert_objectid(doc)
             # Add user data to policy
@@ -1237,10 +1277,10 @@ async def get_master_policies(
                 doc["user_email"] = user.get("email", "")
             doc.pop("user_data", None)  # Remove the lookup data
             policies.append(doc)
-        
+
         # Get total count
         total_count = await master_policies_collection.count_documents(filter_dict)
-        
+
         return {
             "policies": policies,
             "total_count": total_count,
@@ -1248,7 +1288,7 @@ async def get_master_policies(
             "limit": limit,
             "total_pages": (total_count + limit - 1) // limit
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching master policies: {str(e)}")
 
@@ -1501,10 +1541,79 @@ async def move_policy_to_master(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Move to master failed: {str(e)}")
 
-@app.get("/api/test-email")
-async def test_email():
-    result = await send_email("ai.signup003@gmail.com", "Test Email", "This is a test.")
-    return {"sent": result}
+@app.post("/api/auth/admin-login")
+async def admin_login(login_data: UserLogin):
+    try:
+        # Check against hardcoded admin credentials
+        if (login_data.email == SUPER_ADMIN_EMAIL and 
+            verify_password(login_data.password, hash_password(SUPER_ADMIN_PASSWORD))):
+            
+            # Create access token
+            access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            access_token = create_access_token(
+                data={"sub": login_data.email}, expires_delta=access_token_expires
+            )
+            
+            return {
+                "success": True,
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "email": SUPER_ADMIN_EMAIL,
+                    "firstName": "Super",
+                    "lastName": "Admin",
+                    "is_admin": True,
+                    "is_super_admin": True
+                }
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Admin login failed: {str(e)}")
+    
 
+# Add migration for legacy data without user info
+async def migrate_orphaned_policies():
+    """Set admin as submitter for policies without user data"""
+    try:
+        # Find policies without user_id or with missing user
+        orphaned_policies = await temp_submissions_collection.find({
+            "$or": [
+                {"user_id": {"$exists": False}},
+                {"user_id": ""},
+                {"user_name": {"$exists": False}},
+                {"user_name": ""}
+            ]
+        }).to_list(None)
+        
+        admin_user = await users_collection.find_one({"email": SUPER_ADMIN_EMAIL})
+        admin_id = str(admin_user["_id"])
+        
+        for policy in orphaned_policies:
+            await temp_submissions_collection.update_one(
+                {"_id": policy["_id"]},
+                {"$set": {
+                    "user_id": admin_id,
+                    "user_email": SUPER_ADMIN_EMAIL,
+                    "user_name": "Admin Pushed",
+                    "is_admin_pushed": True
+                }}
+            )
+            
+        # Same for master policies
+        await master_policies_collection.update_many(
+            {"$or": [{"user_id": {"$exists": False}}, {"user_id": ""}]},
+            {"$set": {
+                "user_id": admin_id,
+                "user_email": SUPER_ADMIN_EMAIL,
+                "user_name": "Admin Pushed",
+                "is_admin_pushed": True
+            }}
+        )
+    except Exception as e:
+        print(f"Orphaned policy migration error: {e}")
+
+        
+            
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
