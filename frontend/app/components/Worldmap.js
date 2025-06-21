@@ -81,7 +81,7 @@ export default function Worldmap() {
       });
   }, [API_BASE_URL])
 
-  // Build country stats for coloring - UPDATED COLOR SCHEME
+  // Build country stats for coloring - ENHANCED LOGIC
   useEffect(() => {
     console.log("Building country stats from policies:", masterPolicies.length);
     
@@ -102,7 +102,7 @@ export default function Worldmap() {
         return;
       }
       
-      console.log(`Processing policy for ${country}, area: ${area}, status: ${policy.master_status}`);
+      console.log(`Processing policy: "${policy.policyName || policy.name}" for ${country}, area: ${area}`);
       
       if (!stats[country]) {
         stats[country] = { 
@@ -112,7 +112,7 @@ export default function Worldmap() {
         }
       }
       
-      // Count ALL approved policies from master DB (they should all be active)
+      // Count ALL policies from the endpoint (they should all be approved)
       if (area) {
         stats[country].approvedAreas.add(area)
       }
@@ -121,8 +121,9 @@ export default function Worldmap() {
     })
     
     console.log("Countries found in policies:", Object.keys(stats));
+    console.log("Country stats detail:", stats);
     
-    // Calculate color and display values with NEW COLOR SCHEME
+    // Calculate color and display values
     Object.keys(stats).forEach(country => {
       const approvedAreasCount = stats[country].approvedAreas.size
       const totalPolicies = stats[country].totalPolicies
@@ -133,15 +134,15 @@ export default function Worldmap() {
       stats[country].count = approvedAreasCount
       stats[country].totalPolicies = totalPolicies
       
-      // NEW COLOR SCHEME: 0-3 red, 4-7 yellow, 8-10 green
+      // Color coding
       if (approvedAreasCount >= 8) {
-        stats[country].color = "#22CE5e" // Green - Excellent (8-10 areas)
+        stats[country].color = "#22c55e" // Green - Excellent
       } else if (approvedAreasCount >= 4) {
-        stats[country].color = "#eab308" // Yellow - Moderate (4-7 areas)  
+        stats[country].color = "#eab308" // Yellow - Moderate  
       } else if (approvedAreasCount >= 1) {
-        stats[country].color = "#ef4444" // Red - Needs Improvement (1-3 areas)
+        stats[country].color = "#ef4444" // Red - Basic
       } else {
-        stats[country].color = "#d1d5db" // Light Gray - No policies (0 areas)
+        stats[country].color = "#d1d5db" // Gray - No policies
       }
     })
     
