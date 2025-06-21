@@ -1187,7 +1187,7 @@ async def move_policy_to_master_internal(submission: dict, area_id: str, policy_
             "approved_by": str(admin_user["_id"]),
             "approved_by_email": admin_user["email"],
             "master_status": "active",
-            # Remove the visibility field restriction - all approved policies should be visible
+            # FIXED: Don't set visibility field - all approved policies are public by default
             "policy_score": calculate_policy_score(policy),
             "completeness_score": calculate_completeness_score(policy)
         }
@@ -1200,7 +1200,7 @@ async def move_policy_to_master_internal(submission: dict, area_id: str, policy_
     
     except Exception as e:
         logger.error(f"Error moving policy to master: {str(e)}")
-        
+
 def calculate_policy_score(policy: dict) -> int:
     """Calculate policy completeness score (0-100)"""
     score = 0
@@ -1315,67 +1315,105 @@ async def get_public_master_policies(
     country: str = None,
     area: str = None
 ):
-    """Enhanced public endpoint for master policies with better country stats"""
+    """Enhanced public endpoint - shows ALL approved policies with better deduplication"""
     try:
-        # Remove the visibility filter - all active master policies should be public
-        filter_dict = {"master_status": "active"}
+        # FIXED: Remove ALL visibility filters - just get active master policies
+        master_filter = {"master_status": "active"}
         
         if country:
-            filter_dict["country"] = country
+            master_filter["country"] = country
         if area:
-            filter_dict["policyArea"] = area
+            master_filter["policyArea"] = area
         
-        # Get policies with enhanced information
-        projection = {
-            "country": 1,
-            "policyArea": 1,
-            "area_name": 1,
-            "area_icon": 1,
-            "area_color": 1,
-            "policyName": 1,
-            "policyId": 1,
-            "policyDescription": 1,
-            "status": 1,
-            "master_status": 1,
-            "policy_score": 1,
-            "completeness_score": 1,
-            "moved_to_master_at": 1,
-            "user_email": 1,
-            "user_name": 1,
-            "implementation": 1,
-            "evaluation": 1,
-            "participation": 1,
-            "alignment": 1,
-            "targetGroups": 1,
-            "visibility": 1
-        }
-        
-        policies_cursor = master_policies_collection.find(
-            filter_dict, 
-            projection
-        ).limit(limit).sort("moved_to_master_at", -1)
-        
-        policies = []
-        async for doc in policies_cursor:
+        # Get policies from master collection with ALL fields
+        master_policies = []
+        async for doc in master_policies_collection.find(master_filter).limit(limit).sort("moved_to_master_at", -1):
             policy_dict = convert_objectid(doc)
-            # Ensure consistent field names
+            # Ensure consistent field names for frontend compatibility
             policy_dict["name"] = policy_dict.get("policyName", "Unnamed Policy")
             policy_dict["area_id"] = policy_dict.get("policyArea")
-            
-            # Debug logging for each policy
-            logger.info(f"Policy: {policy_dict.get('policyName')} | Country: {policy_dict.get('country')} | Area: {policy_dict.get('policyArea')}")
-            
-            policies.append(policy_dict)
+            master_policies.append(policy_dict)
         
-        # Get total count
-        total_count = await master_policies_collection.count_documents(filter_dict)
+        # ALSO check temp_submissions for approved policies that might not be migrated yet
+        temp_filter = {}
+        if country:
+            temp_filter["country"] = country
         
-        logger.info(f"Public master policies fetched: {len(policies)} policies for {len(set(p.get('country') for p in policies if p.get('country')))} countries")
+        temp_policies = []
+        async for submission in temp_submissions_collection.find(temp_filter):
+            country_name = submission.get("country")
+            if country and country_name != country:
+                continue
+                
+            # Handle different data formats
+            if "policyAreas" in submission:
+                policy_areas = submission["policyAreas"]
+                
+                if isinstance(policy_areas, list):
+                    # New format: list of {area_id, area_name, policies}
+                    for area in policy_areas:
+                        area_id = area.get("area_id")
+                        if not area or (area and area_id == area):
+                            policies = area.get("policies", [])
+                            for policy_index, policy in enumerate(policies):
+                                if policy.get("status") == "approved":
+                                    # Check if already in master
+                                    exists = await master_policies_collection.find_one({
+                                        "original_submission_id": str(submission["_id"]),
+                                        "policyArea": area_id,
+                                        "policy_index": policy_index
+                                    })
+                                    if not exists:
+                                        area_info = next((a for a in POLICY_AREAS if a["id"] == area_id), None)
+                                        temp_policy = {
+                                            **convert_objectid(policy),
+                                            "country": country_name,
+                                            "policyArea": area_id,
+                                            "area_name": area_info["name"] if area_info else area_id,
+                                            "area_icon": area_info["icon"] if area_info else "📄",
+                                            "name": policy.get("policyName", "Unnamed Policy"),
+                                            "area_id": area_id,
+                                            "master_status": "active"
+                                        }
+                                        temp_policies.append(temp_policy)
+        
+        # Combine both sources
+        all_policies = master_policies + temp_policies
+        
+        # FIXED: Use MongoDB _id as the primary deduplication key (most reliable)
+        unique_policies = []
+        seen_ids = set()
+        
+        for policy in all_policies:
+            # Use the MongoDB _id as the primary key (most reliable)
+            policy_id = str(policy.get('_id', ''))
+            
+            if policy_id and policy_id not in seen_ids:
+                seen_ids.add(policy_id)
+                unique_policies.append(policy)
+            elif not policy_id:
+                # For policies without _id, use a fallback key
+                fallback_key = f"{policy.get('country', '')}-{policy.get('policyArea', '')}-{policy.get('policyName', policy.get('name', ''))}-{policy.get('moved_to_master_at', '')}"
+                if fallback_key not in seen_ids:
+                    seen_ids.add(fallback_key)
+                    unique_policies.append(policy)
+        
+        # Apply limit
+        final_policies = unique_policies[:limit]
+        
+        logger.info(f"Public master policies: {len(master_policies)} from master + {len(temp_policies)} from temp = {len(final_policies)} total unique (removed {len(all_policies) - len(final_policies)} duplicates)")
         
         return {
             "success": True,
-            "policies": policies,
-            "total_count": total_count
+            "policies": final_policies,
+            "total_count": len(final_policies),
+            "sources": {
+                "master_db": len(master_policies),
+                "temp_approved": len(temp_policies),
+                "total_unique": len(final_policies),
+                "duplicates_removed": len(all_policies) - len(final_policies),
+                "deduplication_method": "mongodb_id_primary"
+            }
         }
     
     except Exception as e:
@@ -1386,6 +1424,7 @@ async def get_public_master_policies(
             "total_count": 0,
             "error": str(e)
         }
+
 async def get_master_policy_statistics():
     """Get statistics for master policies"""
     try:
@@ -1421,6 +1460,263 @@ async def get_master_policy_statistics():
         logger.error(f"Error getting master policy statistics: {str(e)}")
         return {}
 
+@app.post("/api/admin/remove-real-duplicates")
+async def remove_real_duplicates(admin_user: dict = Depends(get_admin_user)):
+    """Remove actual duplicate policies from master database"""
+    try:
+        # Find real duplicates based on multiple fields
+        pipeline = [
+            {"$match": {"master_status": "active"}},
+            {"$group": {
+                "_id": {
+                    "country": "$country",
+                    "policyArea": "$policyArea", 
+                    "policyName": "$policyName",
+                    "original_submission_id": "$original_submission_id",
+                    "policy_index": "$policy_index"
+                },
+                "count": {"$sum": 1},
+                "docs": {"$push": {"id": "$_id", "moved_at": "$moved_to_master_at"}}
+            }},
+            {"$match": {"count": {"$gt": 1}}}
+        ]
+        
+        duplicates_found = 0
+        duplicates_removed = 0
+        
+        async for group in master_policies_collection.aggregate(pipeline):
+            duplicates_found += group["count"] - 1
+            
+            # Sort by moved_to_master_at and keep the first one (oldest)
+            docs = sorted(group["docs"], key=lambda x: x.get("moved_at", datetime.min))
+            
+            # Remove all but the first document
+            for doc in docs[1:]:
+                await master_policies_collection.delete_one({"_id": doc["id"]})
+                duplicates_removed += 1
+        
+        return {
+            "success": True,
+            "duplicates_found": duplicates_found,
+            "duplicates_removed": duplicates_removed,
+            "message": f"Removed {duplicates_removed} duplicate policies"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error removing duplicates: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "duplicates_removed": 0
+        }
+
+@app.get("/api/debug/policy-counts")
+async def debug_policy_counts():
+    """Debug endpoint to see exact policy counts"""
+    try:
+        # Count all master policies
+        total_master = await master_policies_collection.count_documents({})
+        active_master = await master_policies_collection.count_documents({"master_status": "active"})
+        
+        # Count by country
+        country_pipeline = [
+            {"$match": {"master_status": "active"}},
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
+        
+        country_counts = []
+        async for doc in master_policies_collection.aggregate(country_pipeline):
+            country_counts.append({"country": doc["_id"], "count": doc["count"]})
+        
+        # Sample policies for inspection
+        sample_policies = []
+        async for doc in master_policies_collection.find({"master_status": "active"}).limit(5):
+            sample = convert_objectid(doc)
+            sample_policies.append({
+                "id": sample.get("_id"),
+                "country": sample.get("country"),
+                "policyArea": sample.get("policyArea"),
+                "policyName": sample.get("policyName"),
+                "moved_at": sample.get("moved_to_master_at")
+            })
+        
+        return {
+            "total_master_policies": total_master,
+            "active_master_policies": active_master,
+            "inactive_master_policies": total_master - active_master,
+            "country_counts": country_counts,
+            "sample_policies": sample_policies
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting policy counts: {str(e)}")
+        return {"error": str(e)}
+
+@app.get("/api/public/master-policies-no-dedup")
+async def get_master_policies_no_deduplication(
+    limit: int = Query(1000, ge=1, le=1000),
+    country: str = None,
+    area: str = None
+):
+    """Temporary endpoint with NO deduplication - shows all policies"""
+    try:
+        master_filter = {"master_status": "active"}
+        
+        if country:
+            master_filter["country"] = country
+        if area:
+            master_filter["policyArea"] = area
+        
+        # Get ALL policies without any deduplication
+        all_policies = []
+        async for doc in master_policies_collection.find(master_filter).limit(limit):
+            policy_dict = convert_objectid(doc)
+            policy_dict["name"] = policy_dict.get("policyName", "Unnamed Policy")
+            policy_dict["area_id"] = policy_dict.get("policyArea")
+            all_policies.append(policy_dict)
+        
+        logger.info(f"Master policies (no dedup): {len(all_policies)} total")
+        
+        return {
+            "success": True,
+            "policies": all_policies,
+            "total_count": len(all_policies),
+            "message": "No deduplication applied"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error fetching policies: {str(e)}")
+        return {
+            "success": False,
+            "policies": [],
+            "total_count": 0,
+            "error": str(e)
+        }
+
+@app.get("/api/debug/policy-data-analysis")
+async def debug_policy_data_analysis():
+    """Comprehensive analysis of policy data in database"""
+    try:
+        # Check master policies
+        master_total = await master_policies_collection.count_documents({})
+        master_active = await master_policies_collection.count_documents({"master_status": "active"})
+        
+        # Check for different field variations in master
+        master_samples = []
+        async for doc in master_policies_collection.find({}).limit(5):
+            sample = convert_objectid(doc)
+            master_samples.append({
+                "country": sample.get("country"),
+                "policyArea": sample.get("policyArea"),
+                "policyName": sample.get("policyName"),
+                "name": sample.get("name"),
+                "master_status": sample.get("master_status"),
+                "visibility": sample.get("visibility"),
+                "moved_to_master_at": sample.get("moved_to_master_at"),
+                "has_visibility_field": "visibility" in sample
+            })
+        
+        # Check temp submissions
+        temp_total = await temp_submissions_collection.count_documents({})
+        temp_approved = 0
+        temp_samples = []
+        
+        async for submission in temp_submissions_collection.find({}).limit(3):
+            sample = convert_objectid(submission)
+            temp_samples.append({
+                "country": sample.get("country"),
+                "submission_status": sample.get("submission_status"),
+                "policyAreas_type": type(sample.get("policyAreas", {})).__name__,
+                "has_policyInitiatives": "policyInitiatives" in sample,
+                "created_at": sample.get("created_at")
+            })
+            
+            # Count approved policies in this submission
+            if "policyAreas" in sample:
+                policy_areas = sample["policyAreas"]
+                if isinstance(policy_areas, list):
+                    for area in policy_areas:
+                        for policy in area.get("policies", []):
+                            if policy.get("status") == "approved":
+                                temp_approved += 1
+                elif isinstance(policy_areas, dict):
+                    for area_id, policies in policy_areas.items():
+                        if isinstance(policies, list):
+                            for policy in policies:
+                                if policy.get("status") == "approved":
+                                    temp_approved += 1
+        
+        # Check field variations
+        field_analysis = {}
+        async for doc in master_policies_collection.find({}).limit(100):
+            for field in ["visibility", "master_status", "policyArea", "country", "policyName"]:
+                if field not in field_analysis:
+                    field_analysis[field] = {"present": 0, "missing": 0, "values": set()}
+                
+                if field in doc:
+                    field_analysis[field]["present"] += 1
+                    if doc[field]:
+                        field_analysis[field]["values"].add(str(doc[field])[:50])  # Limit string length
+                else:
+                    field_analysis[field]["missing"] += 1
+        
+        # Convert sets to lists for JSON serialization
+        for field in field_analysis:
+            field_analysis[field]["unique_values"] = list(field_analysis[field]["values"])[:10]  # Limit to 10 values
+            del field_analysis[field]["values"]
+        
+        return {
+            "master_policies": {
+                "total": master_total,
+                "active": master_active,
+                "inactive": master_total - master_active,
+                "samples": master_samples
+            },
+            "temp_submissions": {
+                "total": temp_total,
+                "approved_policies_count": temp_approved,
+                "samples": temp_samples
+            },
+            "field_analysis": field_analysis,
+            "recommendations": [
+                "Remove visibility filter completely" if any(f["missing"] > 0 for f in field_analysis.values()) else "All fields present",
+                "Check data migration" if temp_approved > 0 else "No unmigrated approved policies",
+                "Update deduplication logic" if master_total != master_active else "All master policies are active"
+            ]
+        }
+    
+    except Exception as e:
+        logger.error(f"Debug analysis error: {str(e)}")
+        return {"error": str(e)}
+
+@app.post("/api/admin/fix-visibility")
+async def fix_visibility_issue(admin_user: dict = Depends(get_admin_user)):
+    """Remove visibility restrictions from all active master policies"""
+    try:
+        # Remove visibility field from all active policies
+        result = await master_policies_collection.update_many(
+            {"master_status": "active"},
+            {"$unset": {"visibility": ""}}
+        )
+        
+        # Also ensure all are marked as active
+        result2 = await master_policies_collection.update_many(
+            {"master_status": {"$exists": False}},
+            {"$set": {"master_status": "active"}}
+        )
+        
+        return {
+            "success": True,
+            "removed_visibility_from": result.modified_count,
+            "set_active_status": result2.modified_count,
+            "message": "Fixed visibility restrictions"
+        }
+    
+    except Exception as e:
+        logger.error(f"Fix visibility error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 # Enhanced utility endpoints
 @app.get("/api/countries")
 async def get_countries():
@@ -1431,6 +1727,290 @@ async def get_countries():
 async def get_policy_areas():
     """Get list of all policy areas with enhanced metadata"""
     return {"policy_areas": POLICY_AREAS, "total": len(POLICY_AREAS)}
+
+# for debug historical data
+@app.get("/api/debug/master-policies-timeline")
+async def debug_master_policies_timeline():
+    """Debug endpoint to check policies by date"""
+    try:
+        # Get policies grouped by date
+        date_pipeline = [
+            {"$match": {"master_status": "active"}},
+            {"$group": {
+                "_id": {
+                    "$dateToString": {
+                        "format": "%Y-%m-%d",
+                        "date": "$moved_to_master_at"
+                    }
+                },
+                "count": {"$sum": 1},
+                "countries": {"$addToSet": "$country"},
+                "sample_policies": {"$push": "$policyName"}
+            }},
+            {"$sort": {"_id": -1}},
+            {"$limit": 10}
+        ]
+        
+        timeline = []
+        async for doc in master_policies_collection.aggregate(date_pipeline):
+            timeline.append({
+                "date": doc["_id"],
+                "policy_count": doc["count"],
+                "countries": doc["countries"],
+                "sample_policies": doc["sample_policies"][:3]  # First 3 policies
+            })
+        
+        # Get total stats
+        total_active = await master_policies_collection.count_documents({"master_status": "active"})
+        
+        # Check for policies without visibility field
+        no_visibility = await master_policies_collection.count_documents({
+            "master_status": "active",
+            "visibility": {"$exists": False}
+        })
+        
+        # Check for policies with different visibility values
+        visibility_stats = {}
+        async for doc in master_policies_collection.aggregate([
+            {"$match": {"master_status": "active"}},
+            {"$group": {"_id": "$visibility", "count": {"$sum": 1}}}
+        ]):
+            visibility_stats[doc["_id"] or "null"] = doc["count"]
+        
+        return {
+            "total_active_policies": total_active,
+            "policies_without_visibility": no_visibility,
+            "visibility_distribution": visibility_stats,
+            "recent_timeline": timeline
+        }
+    
+    except Exception as e:
+        logger.error(f"Debug timeline error: {str(e)}")
+        return {"error": str(e)}
+
+#see db
+@app.get("/api/debug/database-content")
+async def debug_database_content():
+    """Debug endpoint to see all database content"""
+    try:
+        # Check all collections
+        collections_info = {}
+        
+        # Check users
+        users_count = await users_collection.count_documents({})
+        collections_info["users_collection"] = {
+            "count": users_count,
+            "sample": await users_collection.find_one({}) if users_count > 0 else None
+        }
+        
+        # Check temp_submissions
+        temp_count = await temp_submissions_collection.count_documents({})
+        collections_info["temp_submissions_collection"] = {
+            "count": temp_count,
+            "sample": await temp_submissions_collection.find_one({}) if temp_count > 0 else None
+        }
+        
+        # Check master_policies
+        master_count = await master_policies_collection.count_documents({})
+        collections_info["master_policies_collection"] = {
+            "count": master_count,
+            "sample": await master_policies_collection.find_one({}) if master_count > 0 else None
+        }
+        
+        # Check for any other collections that might contain policies
+        all_collections = await db.list_collection_names()
+        collections_info["all_collections"] = all_collections
+        
+        # Check for any documents with policy-like fields
+        policy_like_docs = []
+        for collection_name in all_collections:
+            if collection_name not in ["users", "temp_submissions", "master_policies", "admin_actions", "files", "otp_codes"]:
+                collection = db[collection_name]
+                count = await collection.count_documents({})
+                if count > 0:
+                    sample = await collection.find_one({})
+                    policy_like_docs.append({
+                        "collection": collection_name,
+                        "count": count,
+                        "sample": convert_objectid(sample)
+                    })
+        
+        collections_info["other_collections"] = policy_like_docs
+        
+        return {
+            "database_name": "ai_policy_database",
+            "collections": collections_info,
+            "total_collections": len(all_collections)
+        }
+    
+    except Exception as e:
+        logger.error(f"Error checking database content: {str(e)}")
+        return {"error": str(e)}
+    
+# format conversion
+@app.post("/api/admin/migrate-old-data")
+async def migrate_old_data(admin_user: dict = Depends(get_admin_user)):
+    """Migrate old policy data to new master format"""
+    try:
+        migrated_count = 0
+        
+        # Check for old format submissions in temp_submissions
+        async for submission in temp_submissions_collection.find({}):
+            logger.info(f"Processing submission: {submission.get('_id')}")
+            
+            # Handle different data formats
+            if "policyAreas" in submission:
+                # New format
+                policy_areas = submission["policyAreas"]
+                if isinstance(policy_areas, list):
+                    # Current format: list of {area_id, area_name, policies}
+                    for area in policy_areas:
+                        area_id = area.get("area_id")
+                        policies = area.get("policies", [])
+                        
+                        for policy_index, policy in enumerate(policies):
+                            if policy.get("status") == "approved":
+                                await migrate_policy_to_master(submission, area_id, policy_index, policy)
+                                migrated_count += 1
+                
+                elif isinstance(policy_areas, dict):
+                    # Old format: {area_id: [policies]}
+                    for area_id, policies in policy_areas.items():
+                        if isinstance(policies, list):
+                            for policy_index, policy in enumerate(policies):
+                                if policy.get("status") == "approved":
+                                    await migrate_policy_to_master(submission, area_id, policy_index, policy)
+                                    migrated_count += 1
+            
+            # Handle even older formats
+            elif "policyInitiatives" in submission:
+                policies = submission["policyInitiatives"]
+                if isinstance(policies, list):
+                    for policy_index, policy in enumerate(policies):
+                        area_id = policy.get("policyArea", "unknown")
+                        if policy.get("status") == "approved":
+                            await migrate_policy_to_master(submission, area_id, policy_index, policy)
+                            migrated_count += 1
+        
+        return {
+            "success": True,
+            "migrated_policies": migrated_count,
+            "message": f"Successfully migrated {migrated_count} policies to master database"
+        }
+    
+    except Exception as e:
+        logger.error(f"Migration error: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "migrated_policies": 0
+        }
+
+@app.post("/api/admin/repair-historical-data")
+async def repair_historical_data(admin_user: dict = Depends(get_admin_user)):
+    """Repair historical data that might be missing primary keys"""
+    try:
+        repaired_count = 0
+        
+        # Find policies without proper primary keys
+        async for policy in master_policies_collection.find({
+            "master_status": "active",
+            "$or": [
+                {"original_submission_id": {"$exists": False}},
+                {"policy_index": {"$exists": False}},
+                {"policyArea": {"$exists": False}}
+            ]
+        }):
+            policy_id = policy["_id"]
+            updates = {}
+            
+            # Generate missing fields
+            if not policy.get("original_submission_id"):
+                # Create a synthetic submission ID based on policy content
+                synthetic_id = f"legacy_{policy.get('country', 'unknown')}_{policy.get('policyArea', 'unknown')}"
+                updates["original_submission_id"] = synthetic_id
+            
+            if policy.get("policy_index") is None:
+                # Use a timestamp-based index for ordering
+                created_time = policy.get("moved_to_master_at", datetime.utcnow())
+                updates["policy_index"] = int(created_time.timestamp())
+            
+            if not policy.get("policyArea"):
+                # Try to infer from area_name or set as unknown
+                area_name = policy.get("area_name", "")
+                inferred_area = next((area["id"] for area in POLICY_AREAS if area["name"] == area_name), "unknown")
+                updates["policyArea"] = inferred_area
+            
+            # Apply updates
+            if updates:
+                await master_policies_collection.update_one(
+                    {"_id": policy_id},
+                    {"$set": updates}
+                )
+                repaired_count += 1
+                logger.info(f"Repaired policy: {policy.get('policyName')} with updates: {updates}")
+        
+        return {
+            "success": True,
+            "repaired_policies": repaired_count,
+            "message": f"Successfully repaired {repaired_count} historical policies"
+        }
+    
+    except Exception as e:
+        logger.error(f"Error repairing historical data: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "repaired_policies": 0
+        }
+
+async def migrate_policy_to_master(submission: dict, area_id: str, policy_index: int, policy: dict):
+    """Helper function to migrate a single policy to master database"""
+    try:
+        # Check if already exists
+        existing = await master_policies_collection.find_one({
+            "original_submission_id": str(submission["_id"]),
+            "policyArea": area_id,
+            "policy_index": policy_index
+        })
+        
+        if existing:
+            logger.info(f"Policy already exists in master: {policy.get('policyName')}")
+            return
+        
+        # Get area info
+        area_info = next((area for area in POLICY_AREAS if area["id"] == area_id), None)
+        
+        # Create master policy document
+        master_policy = {
+            **policy,
+            "country": submission.get("country", "Unknown"),
+            "policyArea": area_id,
+            "area_name": area_info["name"] if area_info else area_id,
+            "area_icon": area_info["icon"] if area_info else "📄",
+            "area_color": area_info["color"] if area_info else "from-gray-500 to-gray-600",
+            "user_id": submission.get("user_id", "unknown"),
+            "user_email": submission.get("user_email", "unknown"),
+            "user_name": submission.get("user_name", "unknown"),
+            "original_submission_id": str(submission["_id"]),
+            "policy_index": policy_index,
+            "moved_to_master_at": datetime.utcnow(),
+            "approved_by": "migration",
+            "approved_by_email": "system",
+            "master_status": "active",
+            "policy_score": calculate_policy_score(policy),
+            "completeness_score": calculate_completeness_score(policy)
+        }
+        
+        # Insert into master collection
+        result = await master_policies_collection.insert_one(master_policy)
+        
+        if result.inserted_id:
+            logger.info(f"Migrated policy: {policy.get('policyName')} from {submission.get('country')}")
+    
+    except Exception as e:
+        logger.error(f"Error migrating single policy: {str(e)}")
+
 
 @app.get("/api/health")
 async def health_check():
