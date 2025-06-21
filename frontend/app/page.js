@@ -174,26 +174,16 @@ export default function Page() {
               <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full filter blur-3xl translate-x-1/2 translate-y-1/2"></div>
               
               <div className="relative max-w-7xl mx-auto text-center">
-                <div className="mb-8">
-                  <div className="inline-flex items-center gap-2 bg-white/70 backdrop-blur-sm border border-white/20 rounded-full px-6 py-3 mb-8 shadow-lg">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium text-gray-700">Live Global Policy Database</span>
-                  </div>
-                </div>
                 
                 <h1 className="text-6xl md:text-8xl font-black mb-8 leading-tight">
                   <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    Global Policy
-                  </span>
-                  <br />
-                  <span className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    Intelligence
+                    Global Policy Tracker
                   </span>
                 </h1>
                 
                 <p className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed mb-12">
                   Discover, analyze, and understand global policy frameworks through our comprehensive 
-                  interactive platform powered by cutting-edge visualization technology.
+                  interactive platform powered by visualization technology.
                 </p>
 
                 {/* CTA Buttons */}
@@ -227,8 +217,8 @@ export default function Page() {
                 {/* Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
                   {[
-                    { number: "150+", label: "Countries Covered", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
-                    { number: "1000+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+                    { number: "30+", label: "Countries Covered", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+                    { number: "100+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
                     { number: "24/7", label: "Real-time Updates", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" }
                   ].map((stat, index) => (
                     <div key={index} className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
@@ -308,7 +298,7 @@ export default function Page() {
                     Get Started
                   </h2>
                   <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                    Choose your path to explore global policy intelligence
+                    Choose your path to explore global policy tracker
                   </p>
                 </div>
 
@@ -368,7 +358,7 @@ export default function Page() {
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent group-hover:from-indigo-600 group-hover:to-purple-600 transition-all duration-300">
-                  Policy Intelligence
+                  Policy Tracker
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Global Policy Platform</p>
               </div>
@@ -563,7 +553,7 @@ export default function Page() {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                    Global Policy Intelligence
+                    Global Policy Tracker
                   </h3>
                   <p className="text-blue-200 text-sm">Empowering Policy Understanding</p>
                 </div>
@@ -617,7 +607,7 @@ export default function Page() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <span className="text-gray-300">contact@policyintel.org</span>
+                  <span className="text-gray-300">bsse1320@iit.du.ac.bd</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
@@ -626,7 +616,7 @@ export default function Page() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  <span className="text-gray-300">Global HQ</span>
+                  <span className="text-gray-300">Dhaka, Bangladesh</span>
                 </div>
               </div>
             </div>

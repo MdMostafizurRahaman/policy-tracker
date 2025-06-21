@@ -265,12 +265,12 @@ export default function Worldmap() {
               placeholder="Search country..."
               value={searchValue}
               onChange={e => setSearchValue(e.target.value)}
-              className="country-search-input"
+              className="country-search-input text-black"
               autoComplete="off"
             />
             <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
             {searchSuggestions.length > 0 && (
-              <ul className="country-suggestions">
+              <ul className="country-suggestions text-black">
                 {searchSuggestions.map((c, i) => (
                   <li key={i} onClick={() => handleCountrySelect(c)}>{c}</li>
                 ))}
