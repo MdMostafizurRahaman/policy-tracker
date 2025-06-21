@@ -30,6 +30,15 @@ import asyncio
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+from chatbot import (
+    init_chatbot, 
+    ChatRequest, 
+    chat_endpoint, 
+    get_conversation_endpoint, 
+    delete_conversation_endpoint, 
+    get_conversations_endpoint,
+    policy_search_endpoint
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -555,6 +564,11 @@ async def startup_event():
     # Check database connection
     if await check_database_connection():
         await initialize_super_admin()
+        
+        # Initialize the database-only chatbot
+        init_chatbot(client)
+        logger.info("Database-only chatbot initialized")
+        
         logger.info("Application startup completed successfully")
     else:
         logger.error("Application startup failed - database connection issue")
@@ -1376,6 +1390,31 @@ async def get_public_master_policies(
                                             "master_status": "active"
                                         }
                                         temp_policies.append(temp_policy)
+                elif isinstance(policy_areas, dict):
+                    # Old format: {area_id: [policies]}
+                    for area_id, policies in policy_areas.items():
+                        if isinstance(policies, list):
+                            for policy_index, policy in enumerate(policies):
+                                if policy.get("status") == "approved":
+                                    # Check if already in master
+                                    exists = await master_policies_collection.find_one({
+                                        "original_submission_id": str(submission["_id"]),
+                                        "policyArea": area_id,
+                                        "policy_index": policy_index
+                                    })
+                                    if not exists:
+                                        area_info = next((a for a in POLICY_AREAS if a["id"] == area_id), None)
+                                        temp_policy = {
+                                            **convert_objectid(policy),
+                                            "country": country_name,
+                                            "policyArea": area_id,
+                                            "area_name": area_info["name"] if area_info else area_id,
+                                            "area_icon": area_info["icon"] if area_info else "📄",
+                                            "name": policy.get("policyName", "Unnamed Policy"),
+                                            "area_id": area_id,
+                                            "master_status": "active"
+                                        }
+                                        temp_policies.append(temp_policy)
         
         # Combine both sources
         all_policies = master_policies + temp_policies
@@ -1451,34 +1490,35 @@ async def get_master_policy_statistics():
             area_stats[doc["_id"]] = doc["count"]
         
         return {
-            "total_countries": len(country_stats),
-            "total_policies": sum(country_stats.values()),
-            "country_distribution": country_stats,
-            "area_distribution": area_stats
+            "success": True,
+            "country_stats": country_stats,
+            "area_stats": area_stats
         }
+    
     except Exception as e:
         logger.error(f"Error getting master policy statistics: {str(e)}")
-        return {}
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
-@app.post("/api/admin/remove-real-duplicates")
-async def remove_real_duplicates(admin_user: dict = Depends(get_admin_user)):
-    """Remove actual duplicate policies from master database"""
+# Debugging and maintenance endpoints
+@app.get("/api/debug/remove-duplicates")
+async def debug_remove_duplicates():
+    """Debug endpoint to remove duplicate policies"""
     try:
-        # Find real duplicates based on multiple fields
+        # Group by policy name and country, then count
         pipeline = [
             {"$match": {"master_status": "active"}},
             {"$group": {
                 "_id": {
-                    "country": "$country",
-                    "policyArea": "$policyArea", 
                     "policyName": "$policyName",
-                    "original_submission_id": "$original_submission_id",
-                    "policy_index": "$policy_index"
+                    "country": "$country"
                 },
                 "count": {"$sum": 1},
-                "docs": {"$push": {"id": "$_id", "moved_at": "$moved_to_master_at"}}
+                "docs": {"$push": "$$ROOT"}
             }},
-            {"$match": {"count": {"$gt": 1}}}
+            {"$match": {"count": { "$gt": 1 }}}
         ]
         
         duplicates_found = 0
@@ -1980,46 +2020,6 @@ async def migrate_policy_to_master(submission: dict, area_id: str, policy_index:
         
         # Get area info
         area_info = next((area for area in POLICY_AREAS if area["id"] == area_id), None)
-        
-        # Create master policy document
-        master_policy = {
-            **policy,
-            "country": submission.get("country", "Unknown"),
-            "policyArea": area_id,
-            "area_name": area_info["name"] if area_info else area_id,
-            "area_icon": area_info["icon"] if area_info else "📄",
-            "area_color": area_info["color"] if area_info else "from-gray-500 to-gray-600",
-            "user_id": submission.get("user_id", "unknown"),
-            "user_email": submission.get("user_email", "unknown"),
-            "user_name": submission.get("user_name", "unknown"),
-            "original_submission_id": str(submission["_id"]),
-            "policy_index": policy_index,
-            "moved_to_master_at": datetime.utcnow(),
-            "approved_by": "migration",
-            "approved_by_email": "system",
-            "master_status": "active",
-            "policy_score": calculate_policy_score(policy),
-            "completeness_score": calculate_completeness_score(policy)
-        }
-        
-        # Insert into master collection
-        result = await master_policies_collection.insert_one(master_policy)
-        
-        if result.inserted_id:
-            logger.info(f"Migrated policy: {policy.get('policyName')} from {submission.get('country')}")
-    
-    except Exception as e:
-        logger.error(f"Error migrating single policy: {str(e)}")
-
-
-@app.get("/api/health")
-async def health_check():
-    """Enhanced health check"""
-    try:
-        # Test database connection
-        await db.command("ping")
-        
-        # Get basic stats
         user_count = await users_collection.count_documents({})
         submission_count = await temp_submissions_collection.count_documents({})
         master_count = await master_policies_collection.count_documents({"master_status": "active"})
@@ -2043,11 +2043,12 @@ async def health_check():
 async def root():
     """Enhanced root endpoint"""
     return {
-        "message": "Enhanced AI Policy Database API is running", 
-        "version": "4.0.0",
+        "message": "Enhanced AI Policy Database API with Database-Only Chatbot", 
+        "version": "4.1.0",
         "status": "operational",
         "features": [
             "🔐 Complete Authentication System with Email Verification",
+            "🤖 Database-Only AI Policy Chatbot (NEW!)",
             "🚀 Enhanced Google OAuth Integration", 
             "📝 Multi-Policy Area Submission System",
             "🗺️ Real-time Map Visualization",
@@ -2056,13 +2057,24 @@ async def root():
             "📧 Improved Email System with Templates",
             "🔄 Automatic Policy-to-Master Migration",
             "🌍 Enhanced Country and Area Support",
-            "⚡ Performance Optimizations"
+            "⚡ Performance Optimizations",
+            "🔍 Advanced Database Search and Filtering"
+        ],
+        "chatbot_features": [
+            "🔍 Country-based policy search",
+            "📋 Policy area exploration", 
+            "📝 Policy name search",
+            "🌍 Complete database coverage",
+            "💬 Natural language queries",
+            "📊 Real-time policy statistics",
+            "🚫 Database-only responses (no external AI generation)"
         ],
         "endpoints": {
             "authentication": "/api/auth/*",
             "submissions": "/api/submit-enhanced-form",
             "admin": "/api/admin/*",
-            "policies": "/api/admin/master-policies",
+            "policies": "/api/public/master-policies",
+            "chatbot": "/api/chat",
             "health": "/api/health"
         }
     }
@@ -2533,6 +2545,95 @@ async def get_country_policies_detailed(country_name: str):
             "error": str(e)
         }   
 # Add this at the end of main.py
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    """Database-only chat endpoint"""
+    try:
+        response = await chat_endpoint(request)
+        return response
+    except Exception as e:
+        logger.error(f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@app.get("/api/chat/conversation/{conversation_id}")
+async def get_conversation(conversation_id: str):
+    """Get conversation history"""
+    try:
+        response = await get_conversation_endpoint(conversation_id)
+        return response
+    except Exception as e:
+        logger.error(f"Get conversation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get conversation: {str(e)}")
+
+@app.delete("/api/chat/conversation/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation"""
+    try:
+        response = await delete_conversation_endpoint(conversation_id)
+        return response
+    except Exception as e:
+        logger.error(f"Delete conversation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
+
+@app.get("/api/chat/conversations")
+async def get_conversations(limit: int = 20):
+    """Get list of conversations"""
+    try:
+        response = await get_conversations_endpoint(limit)
+        return response
+    except Exception as e:
+        logger.error(f"Get conversations error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get conversations: {str(e)}")
+
+@app.get("/api/chat/policy-search")
+async def policy_search(q: str):
+    """Enhanced policy search for chatbot sidebar"""
+    try:
+        response = await policy_search_endpoint(q)
+        return response
+    except Exception as e:
+        logger.error(f"Policy search error: {str(e)}")
+        return {"policies": []}
+
+@app.get("/api/debug/chatbot-test")
+async def test_chatbot():
+    """Test chatbot functionality"""
+    try:
+        from chatbot import chatbot_instance
+        
+        if not chatbot_instance:
+            return {"error": "Chatbot not initialized"}
+        
+        # Test basic searches
+        test_results = {}
+        
+        # Test country search
+        countries = await chatbot_instance.get_countries_list()
+        test_results["countries_count"] = len(countries)
+        test_results["sample_countries"] = countries[:5]
+        
+        # Test policy areas
+        areas = await chatbot_instance.get_policy_areas_list()
+        test_results["areas_count"] = len(areas)
+        test_results["sample_areas"] = areas[:5]
+        
+        # Test policy search
+        if countries:
+            first_country = countries[0]
+            policies = await chatbot_instance.search_policies_by_country(first_country)
+            test_results["sample_country_policies"] = len(policies)
+            test_results["sample_country"] = first_country
+        
+        return {
+            "chatbot_status": "initialized",
+            "database_connection": "ok",
+            "test_results": test_results
+        }
+    
+    except Exception as e:
+        logger.error(f"Chatbot test error: {str(e)}")
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
