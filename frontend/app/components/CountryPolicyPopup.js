@@ -72,48 +72,14 @@ export default function CountryPolicyPopup({ country, onClose }) {
   useEffect(() => {
     if (country && country.name) {
       setLoading(true)
-      // Fetch policy data for this country
-      fetch(`${API_BASE_URL}/country-policies/${encodeURIComponent(country.name)}`)
+      fetch(`${API_BASE_URL}/admin/master-policies?country=${encodeURIComponent(country.name)}&limit=100`)
         .then(res => res.json())
         .then(data => {
-          // Transform the data into a more usable format
-          const policyList = []
-          
-          // Check each policy field and create entries for those that exist
-          const policyFields = [
-            "AI Safety", "CyberSafety", "Digital Education", "Digital Inclusion",
-            "Digital Leisure", "(Dis)Information", "Digital Work", "Mental Health",
-            "Physical Health", "Social Media/Gaming Regulation"
-          ]
-          
-          policyFields.forEach((field, index) => {
-            if (data.policies[index] && data.policies[index].status === "approved") {
-              policyList.push({
-                id: index,
-                name: field,
-                type: field,
-                file: data.policies[index].file || null,
-                text: data.policies[index].text || null,
-                year: data.policies[index].year || "N/A",
-                description: data.policies[index].description || 
-                            policyTypes[field]?.description || 
-                            "No detailed description available",
-                metrics: data.policies[index].metrics || [],
-                policy_name: data.policies[index].policy_name || field,
-                target_groups: data.policies[index].target_groups || [],
-                policy_link: data.policies[index].policy_link || "",
-                ai_principles: data.policies[index].ai_principles || [],
-                human_rights_alignment: data.policies[index].human_rights_alignment || false,
-                environmental_considerations: data.policies[index].environmental_considerations || false,
-                international_cooperation: data.policies[index].international_cooperation || false,
-                has_consultation: data.policies[index].has_consultation || false,
-                is_evaluated: data.policies[index].is_evaluated || false,
-                risk_assessment: data.policies[index].risk_assessment || false
-              })
-            }
-          })
-          
-          setPolicies(policyList)
+          // Filter for approved/active policies only
+          const approvedPolicies = (data.policies || []).filter(
+            p => p.status === "approved" || p.master_status === "active"
+          )
+          setPolicies(approvedPolicies)
           setLoading(false)
         })
         .catch(err => {
@@ -243,12 +209,9 @@ export default function CountryPolicyPopup({ country, onClose }) {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {policies.map((policy, index) => (
                   <div
-                    key={policy.id}
+                    key={policy.policyId || policy._id || index}  // Add unique key
                     className="policy-card cursor-pointer"
-                    style={{
-                      animationDelay: `${index * 0.1}s`,
-                    }}
-                    onClick={() => handlePolicyClick(policy)}
+                    onClick={() => setSelectedPolicy(policy)}
                   >
                     <div className={`bg-white/10 hover:bg-white/20 rounded-lg p-4 h-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg border border-white/20`}>
                       <div className="policy-icon mb-2 flex justify-center">
