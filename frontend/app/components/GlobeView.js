@@ -23,27 +23,43 @@ export default function GlobeView({ countries, geoFeatures, onCountryClick }) {
       setHoveredCountry(countryName)
       setTooltipContent({
         name: countryName,
-        total: countryData?.total_policies || 0
+        count: countryData?.count || 0,
+        color: countryData?.color || "#6b7280",
+        total: countryData?.totalPolicies || 0
       })
-      globeRef.current.controls().autoRotate = false
+      if (globeRef.current) {
+        globeRef.current.controls().autoRotate = false
+      }
     } else {
       setHoveredCountry(null)
       setTooltipContent(null)
-      globeRef.current.controls().autoRotate = true
+      if (globeRef.current) {
+        globeRef.current.controls().autoRotate = true
+      }
     }
   }
   
   const handlePolygonClick = (feat) => {
-    const countryName = feat.properties.name
-    globeRef.current.controls().autoRotate = false
+    if (!feat) return
     
-    // Call the parent onCountryClick handler with the geo object
-    if (onCountryClick) {
-      onCountryClick({
-        properties: {
-          name: countryName
-        }
-      });
+    const countryName = feat.properties.name
+    const countryData = countries?.[countryName]
+    
+    // Stop auto-rotation when country is clicked
+    if (globeRef.current) {
+      globeRef.current.controls().autoRotate = false
+    }
+    
+    // Only trigger popup if country has policies
+    if (countryData && countryData.count > 0) {
+      // Call the parent onCountryClick handler with proper geo object format
+      if (onCountryClick) {
+        onCountryClick({
+          properties: {
+            name: countryName
+          }
+        });
+      }
     }
   }
   
@@ -65,20 +81,57 @@ export default function GlobeView({ countries, geoFeatures, onCountryClick }) {
           const name = feat.properties.name
           if (hoveredCountry === name) return "#FFD700" // Highlight color on hover
           const countryData = countries?.[name]
-          return countryData ? countryData.color : "rgba(200, 200, 200, 0.6)"
+          return countryData?.color || "rgba(200, 200, 200, 0.6)"
         }}
         polygonSideColor={() => "rgba(100, 100, 100, 0.2)"}
         polygonStrokeColor={() => "#111"}
-        polygonLabel={({ properties: p }) => `
-          <b>${p.name}</b><br />
-          ${countries?.[p.name]?.total_policies ?? "N/A"} policies
-        `}
+        polygonLabel={({ properties: p }) => {
+          const countryData = countries?.[p.name]
+          return `
+            <div style="
+              background: rgba(0,0,0,0.8); 
+              color: white; 
+              padding: 8px 12px; 
+              border-radius: 6px; 
+              font-family: sans-serif;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            ">
+              <div style="font-weight: bold; margin-bottom: 4px;">${p.name}</div>
+              <div style="font-size: 12px;">
+                Policy Areas: ${countryData?.count || 0}/10
+              </div>
+              <div style="font-size: 12px;">
+                Total Policies: ${countryData?.totalPolicies || 0}
+              </div>
+              ${countryData?.count > 0 ? '<div style="font-size: 11px; margin-top: 4px; opacity: 0.8;">Click to view details</div>' : ''}
+            </div>
+          `
+        }}
         onPolygonHover={handlePolygonHover}
         onPolygonClick={handlePolygonClick}
         polygonsTransitionDuration={300}
+        polygonAltitude={0.01}
+        polygonCapCurvatureResolution={4}
+        enablePointerInteraction={true}
       />
       {tooltipContent && (
-        <Tooltip content={tooltipContent} />
+        <div style={{
+          position: "absolute",
+          top: "20px",
+          left: "20px",
+          background: "rgba(0,0,0,0.8)",
+          color: "white",
+          padding: "12px",
+          borderRadius: "8px",
+          fontSize: "14px",
+          pointerEvents: "none",
+          zIndex: 1000,
+          fontFamily: "sans-serif"
+        }}>
+          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{tooltipContent.name}</div>
+          <div>Policy Areas: {tooltipContent.count}/10</div>
+          <div>Total Policies: {tooltipContent.total}</div>
+        </div>
       )}
     </div>
   )

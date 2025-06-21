@@ -11,6 +11,67 @@ export default function CountryPolicyPopup({ country, onClose }) {
 
   // Define policy types with their icons and colors
   const policyTypes = {
+    "AI Safety": {
+      name: "AI Safety",
+      icon: "🛡️",
+      color: "bg-red-500",
+      description: "Policies ensuring AI systems are safe and beneficial"
+    },
+    "CyberSafety": {
+      name: "CyberSafety", 
+      icon: "🔒",
+      color: "bg-blue-500",
+      description: "Policies for cybersecurity and online protection"
+    },
+    "Digital Education": {
+      name: "Digital Education",
+      icon: "🎓", 
+      color: "bg-green-500",
+      description: "Initiatives for education in digital skills and technologies"
+    },
+    "Digital Inclusion": {
+      name: "Digital Inclusion",
+      icon: "🌐",
+      color: "bg-teal-500", 
+      description: "Efforts to ensure universal access to digital resources"
+    },
+    "Digital Leisure": {
+      name: "Digital Leisure",
+      icon: "🎮",
+      color: "bg-indigo-500",
+      description: "Regulations concerning digital entertainment and leisure activities"
+    },
+    "(Dis)Information": {
+      name: "(Dis)Information",
+      icon: "📰",
+      color: "bg-yellow-500",
+      description: "Policies addressing misinformation and promoting accurate information"
+    },
+    "Digital Work": {
+      name: "Digital Work", 
+      icon: "💼",
+      color: "bg-red-500",
+      description: "Regulations for digital work environments and remote work"
+    },
+    "Mental Health": {
+      name: "Mental Health",
+      icon: "🧠",
+      color: "bg-pink-500",
+      description: "Policies addressing digital impact on mental wellbeing"
+    },
+    "Physical Health": {
+      name: "Physical Health",
+      icon: "❤️", 
+      color: "bg-red-400",
+      description: "Regulations focused on physical health aspects of digital use"
+    },
+    "Social Media/Gaming Regulation": {
+      name: "Social Media/Gaming Regulation",
+      icon: "📱",
+      color: "bg-orange-500", 
+      description: "Rules governing social media platforms and gaming content"
+    },
+    // Add legacy/alternative mappings
     "ai-safety": {
       name: "AI Safety",
       icon: "🛡️",
@@ -19,7 +80,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     },
     "cyber-safety": {
       name: "CyberSafety",
-      icon: "🔒",
+      icon: "🔒", 
       color: "bg-blue-500",
       description: "Policies for cybersecurity and online protection"
     },
@@ -36,7 +97,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
       description: "Efforts to ensure universal access to digital resources"
     },
     "digital-leisure": {
-      name: "Digital Leisure",
+      name: "Digital Leisure", 
       icon: "🎮",
       color: "bg-indigo-500",
       description: "Regulations concerning digital entertainment and leisure activities"
@@ -44,7 +105,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     "disinformation": {
       name: "(Dis)Information",
       icon: "📰",
-      color: "bg-yellow-500",
+      color: "bg-yellow-500", 
       description: "Policies addressing misinformation and promoting accurate information"
     },
     "digital-work": {
@@ -62,7 +123,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     "physical-health": {
       name: "Physical Health",
       icon: "❤️",
-      color: "bg-red-400",
+      color: "bg-red-400", 
       description: "Regulations focused on physical health aspects of digital use"
     },
     "social-media-gaming": {
@@ -85,38 +146,50 @@ export default function CountryPolicyPopup({ country, onClose }) {
     if (country && country.name) {
       setLoading(true)
       // Fetch from the public master policies endpoint
-      fetch(`${API_BASE_URL}/public/master-policies?country=${encodeURIComponent(country.name)}&limit=1000`)
+      fetch(`${API_BASE_URL}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000`)
         .then(res => res.json())
         .then(data => {
           console.log("Country policies data:", data);
           
           if (data.success && data.policies) {
-            // Filter for active master policies only
-            const activePolicies = data.policies.filter(
-              p => p.master_status === "active"
-            )
+            // FIXED: Don't filter by master_status since all returned policies should be valid
+            const activePolicies = data.policies;
+            
+            console.log(`Found ${activePolicies.length} policies for ${country.name}`);
             
             setPolicies(activePolicies)
             
-            // Group policies by area
+            // Group policies by area with better fallback handling
             const areas = {}
-            activePolicies.forEach(policy => {
-              const areaId = policy.policyArea || policy.area_id
+            activePolicies.forEach((policy, index) => {
+              const areaId = policy.policyArea || policy.area_id || "unknown"
+              console.log(`Policy ${index}: ${policy.policyName || policy.name} -> Area: ${areaId}`);
+              
               if (!areas[areaId]) {
+                const areaInfo = policyTypes[areaId] || {
+                  name: policy.area_name || areaId || "Unknown Area",
+                  icon: policy.area_icon || "📄",
+                  color: "bg-gray-500",
+                  description: "Policy area"
+                };
+                
                 areas[areaId] = {
                   id: areaId,
-                  name: policy.area_name || policyTypes[areaId]?.name || areaId,
-                  icon: policy.area_icon || policyTypes[areaId]?.icon || "📄",
-                  color: policyTypes[areaId]?.color || "bg-gray-500",
-                  description: policyTypes[areaId]?.description || "",
+                  name: areaInfo.name,
+                  icon: areaInfo.icon,
+                  color: areaInfo.color,
+                  description: areaInfo.description,
                   policies: []
                 }
               }
+              // FIXED: Add the policy to the area
               areas[areaId].policies.push(policy)
             })
             
+            console.log("Grouped areas:", areas);
             setPolicyAreas(Object.values(areas))
           } else {
+            console.warn("No policies found or API error:", data);
             setPolicies([])
             setPolicyAreas([])
           }
@@ -250,36 +323,55 @@ export default function CountryPolicyPopup({ country, onClose }) {
 
               {/* Policy Areas grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.keys(policyTypes).map((areaId) => {
-                  const areaData = policyAreas.find(area => area.id === areaId)
-                  const hasPolicy = !!areaData
+                {/* First show areas that have policies */}
+                {policyAreas.map((areaData) => {
                   const policyCount = areaData?.policies?.length || 0
                   
                   return (
                     <div
-                      key={areaId}
-                      className={`policy-area-card cursor-pointer ${hasPolicy ? 'active' : 'inactive'}`}
-                      onClick={() => hasPolicy && setSelectedPolicy({ isAreaView: true, areaData })}
+                      key={areaData.id}
+                      className="policy-area-card cursor-pointer active"
+                      onClick={() => setSelectedPolicy({ isAreaView: true, areaData })}
                     >
-                      <div className={`${hasPolicy ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5'} rounded-lg p-4 h-full transition-all duration-300 transform ${hasPolicy ? 'hover:scale-105 hover:shadow-lg' : ''} border ${hasPolicy ? 'border-white/20' : 'border-white/10'}`}>
+                      <div className="bg-white/10 hover:bg-white/20 rounded-lg p-4 h-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg border border-white/20">
                         <div className="policy-icon mb-2 flex justify-center">
-                          <div className={`w-12 h-12 rounded-full ${policyTypes[areaId]?.color || "bg-gray-500"} ${hasPolicy ? '' : 'opacity-50'} flex items-center justify-center text-xl`}>
-                            {policyTypes[areaId]?.icon || "📄"}
+                          <div className={`w-12 h-12 rounded-full ${areaData.color} flex items-center justify-center text-xl`}>
+                            {areaData.icon}
                           </div>
                         </div>
-                        <h4 className={`${hasPolicy ? 'text-white' : 'text-gray-400'} font-semibold text-center mb-2`}>
-                          {policyTypes[areaId]?.name || areaId}
+                        <h4 className="text-white font-semibold text-center mb-2">
+                          {areaData.name}
                         </h4>
                         <div className="text-center">
-                          {hasPolicy ? (
-                            <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-600 text-white">
-                              {policyCount} {policyCount === 1 ? 'Policy' : 'Policies'}
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-600 text-gray-300">
-                              No Policies
-                            </span>
-                          )}
+                          <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-600 text-white">
+                            {policyCount} {policyCount === 1 ? 'Policy' : 'Policies'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {/* Then show standard areas that don't have policies */}
+                {Object.keys(policyTypes).filter(areaId => 
+                  !areaId.includes('-') && // Only show the main format (not hyphenated versions)
+                  !policyAreas.find(area => area.id === areaId || area.name === policyTypes[areaId].name)
+                ).map((areaId) => {
+                  return (
+                    <div key={areaId} className="policy-area-card inactive">
+                      <div className="bg-white/5 rounded-lg p-4 h-full transition-all duration-300 border border-white/10">
+                        <div className="policy-icon mb-2 flex justify-center">
+                          <div className={`w-12 h-12 rounded-full ${policyTypes[areaId].color} opacity-50 flex items-center justify-center text-xl`}>
+                            {policyTypes[areaId].icon}
+                          </div>
+                        </div>
+                        <h4 className="text-gray-400 font-semibold text-center mb-2">
+                          {policyTypes[areaId].name}
+                        </h4>
+                        <div className="text-center">
+                          <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-600 text-gray-300">
+                            No Policies
+                          </span>
                         </div>
                       </div>
                     </div>
