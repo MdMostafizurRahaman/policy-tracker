@@ -8,7 +8,7 @@ import AuthSystem from "./AuthSystem.js"
 import AdminLogin from "./components/AdminLogin.js"; // Make sure this exists
 
 const GlobeView = dynamic(() => import("./components/GlobeView.js"), { ssr: false })
-
+//deployment working perfectly. i am changing the ui now. this version can also see
 export default function Page() {
   const [view, setView] = useState("home")
   const [darkMode, setDarkMode] = useState(false)
