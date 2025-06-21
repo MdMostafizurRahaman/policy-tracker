@@ -156,7 +156,7 @@ export default function AdminDashboard() {
   // Policy Management Functions
   const updatePolicyStatus = async (submissionId, policyArea, policyIndex, status, notes = "") => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/update-policy-status`, {
+      const response = await fetch(`${API_BASE_URL}/admin/update-enhanced-policy-status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           submission_id: submissionId,
-          policy_area: policyArea,
+          area_id: policyArea,  // Changed from policy_area to area_id
           policy_index: policyIndex,
           status: status,
           admin_notes: notes
@@ -200,13 +200,16 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           submission_id: submissionId,
-          policy_area: policyArea,
+          area_id: policyArea,  // Ensure this matches backend expectation
           policy_index: policyIndex
         })
       })
       
       if (response.ok) {
         setSuccess("Policy approved and moved to master database")
+      } else {
+        const errorData = await response.json()
+        console.error('Move to master error:', errorData)
       }
     } catch (error) {
       console.error('Error moving to master:', error)
