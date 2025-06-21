@@ -385,31 +385,52 @@ const PolicySubmissionForm = () => {
         user_email: user.email,
         user_name: `${user.firstName} ${user.lastName}`,
         country: formData.country,
-        policyAreas: policyAreas,
+        policyAreas: Object.entries(policyAreas).map(([area_id, policies]) => ({
+          area_id,
+          area_name: POLICY_AREAS.find(a => a.id === area_id)?.name || area_id,
+          policies
+        })),
         submission_status: "pending",
         submitted_at: new Date().toISOString()
       };
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      setSuccess("Policies submitted successfully! Your submission is now pending admin review.");
-      
-      // Reset form
-      setPolicyAreas(() => {
-        const areas = {};
-        POLICY_AREAS.forEach(area => {
-          areas[area.id] = [];
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch(`${API_BASE_URL}/submit-enhanced-form`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify(submissionData)
         });
-        return areas;
-      });
-      setFormData({ country: "" });
-      setSelectedPolicyArea(null);
-      setSelectedPolicyIndex(null);
 
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.detail || "Submission failed");
+        }
+
+        setSuccess("Policies submitted successfully! Your submission is now pending admin review.");
+
+        // Reset form
+        setPolicyAreas(() => {
+          const areas = {};
+          POLICY_AREAS.forEach(area => {
+            areas[area.id] = [];
+          });
+          return areas;
+        });
+        setFormData({ country: "" });
+        setSelectedPolicyArea(null);
+        setSelectedPolicyIndex(null);
+
+      } catch (error) {
+        setError(`Submission failed: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
     } catch (error) {
       setError(`Submission failed: ${error.message}`);
-    } finally {
       setLoading(false);
     }
   };
