@@ -885,9 +885,11 @@ async def submit_enhanced_form(
     submission: EnhancedSubmission,
     current_user: dict = Depends(get_current_user)
 ):
+    print("Submission received:", submission)
+    print("Current user:", current_user)
     try:
-        # Validate user owns this submission
-        if submission.user_id != current_user["id"]:
+        # Fix: Use "_id" instead of "id"
+        if submission.user_id != current_user["_id"]:
             raise HTTPException(status_code=403, detail="Unauthorized submission")
         
         # Filter out empty policy areas
@@ -898,25 +900,55 @@ async def submit_enhanced_form(
                 if policy.policyName and policy.policyName.strip()
             ]
             if non_empty_policies:
-                area.policies = non_empty_policies
-                filtered_policy_areas.append(area)
+                # Convert policies to dict format
+                policies_dict = []
+                for policy in non_empty_policies:
+                    policy_dict = {
+                        "policyName": policy.policyName,
+                        "policyId": policy.policyId,
+                        "policyDescription": policy.policyDescription,
+                        "targetGroups": policy.targetGroups,
+                        "policyFile": policy.policyFile,
+                        "policyLink": policy.policyLink,
+                        "implementation": policy.implementation,
+                        "evaluation": policy.evaluation,
+                        "participation": policy.participation,
+                        "alignment": policy.alignment,
+                        "status": policy.status,
+                        "admin_notes": policy.admin_notes
+                    }
+                    policies_dict.append(policy_dict)
+                
+                area_dict = {
+                    "area_id": area.area_id,
+                    "area_name": area.area_name,
+                    "policies": policies_dict
+                }
+                filtered_policy_areas.append(area_dict)
         
         if not filtered_policy_areas:
             raise HTTPException(status_code=400, detail="At least one policy must be provided")
         
-        # Prepare submission document
-        submission_dict = pydantic_to_dict(submission)
-        submission_dict["policyAreas"] = filtered_policy_areas
-        submission_dict["created_at"] = datetime.utcnow()
-        submission_dict["updated_at"] = datetime.utcnow()
-        submission_dict["submission_status"] = "pending"
+        # Prepare submission document manually (avoid pydantic_to_dict issues)
+        submission_dict = {
+            "user_id": submission.user_id,
+            "user_email": submission.user_email,
+            "user_name": submission.user_name,
+            "country": submission.country,
+            "policyAreas": filtered_policy_areas,
+            "submission_status": "pending",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        print("Prepared submission dict:", submission_dict)
         
         # Insert into temporary collection
         result = await temp_submissions_collection.insert_one(submission_dict)
         
         if result.inserted_id:
             # Count total policies
-            total_policies = sum(len(area.policies) for area in filtered_policy_areas)
+            total_policies = sum(len(area["policies"]) for area in filtered_policy_areas)
             
             return {
                 "success": True, 
@@ -931,8 +963,12 @@ async def submit_enhanced_form(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Submission error: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Submission failed: {str(e)}")
-
+      
 # Get Countries Endpoint
 @app.get("/api/countries")
 async def get_countries():
