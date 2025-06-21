@@ -1187,8 +1187,8 @@ async def move_policy_to_master_internal(submission: dict, area_id: str, policy_
             "approved_by": str(admin_user["_id"]),
             "approved_by_email": admin_user["email"],
             "master_status": "active",
-            "visibility": "public",  # For map display
-            "policy_score": calculate_policy_score(policy),  # Enhanced scoring
+            # Remove the visibility field restriction - all approved policies should be visible
+            "policy_score": calculate_policy_score(policy),
             "completeness_score": calculate_completeness_score(policy)
         }
         
@@ -1200,7 +1200,7 @@ async def move_policy_to_master_internal(submission: dict, area_id: str, policy_
     
     except Exception as e:
         logger.error(f"Error moving policy to master: {str(e)}")
-
+        
 def calculate_policy_score(policy: dict) -> int:
     """Calculate policy completeness score (0-100)"""
     score = 0
@@ -1309,73 +1309,83 @@ async def update_submission_status(submission_id: str):
         logger.error(f"Error updating submission status: {e}")
 
 # Enhanced master policies endpoint for map
-@app.get("/api/admin/master-policies")
-async def get_master_policies(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    status: str = Query("active", enum=["active", "archived"]),
+@app.get("/api/public/master-policies")
+async def get_public_master_policies(
+    limit: int = Query(1000, ge=1, le=1000),
     country: str = None,
-    area: str = None,
-    search: str = None,
-    sort: str = Query("policyName", regex="^(policyName|country|createdAt|updatedAt)$"),
-    order: str = Query("asc", regex="^(asc|desc)$"),
-    include_stats: bool = False
+    area: str = None
 ):
-    """Enhanced master policies retrieval with pagination, filtering, and sorting"""
+    """Enhanced public endpoint for master policies with better country stats"""
     try:
-        filter_dict = {"master_status": status}
+        # Remove the visibility filter - all active master policies should be public
+        filter_dict = {"master_status": "active"}
         
         if country:
             filter_dict["country"] = country
         if area:
             filter_dict["policyArea"] = area
-        if search:
-            filter_dict["$or"] = [
-                {"policyName": {"$regex": search, "$options": "i"}},
-                {"policyDescription": {"$regex": search, "$options": "i"}},
-                {"targetGroups": {"$regex": search, "$options": "i"}}
-            ]
         
-        # Sorting
-        sort_direction = 1 if order == "asc" else -1
-        sort_dict = {sort: sort_direction}
+        # Get policies with enhanced information
+        projection = {
+            "country": 1,
+            "policyArea": 1,
+            "area_name": 1,
+            "area_icon": 1,
+            "area_color": 1,
+            "policyName": 1,
+            "policyId": 1,
+            "policyDescription": 1,
+            "status": 1,
+            "master_status": 1,
+            "policy_score": 1,
+            "completeness_score": 1,
+            "moved_to_master_at": 1,
+            "user_email": 1,
+            "user_name": 1,
+            "implementation": 1,
+            "evaluation": 1,
+            "participation": 1,
+            "alignment": 1,
+            "targetGroups": 1,
+            "visibility": 1
+        }
         
-        # Pagination
-        skip_count = (page - 1) * limit
-        
-        # Aggregation pipeline for enhanced retrieval
-        pipeline = [
-            {"$match": filter_dict},
-            {"$sort": sort_dict},
-            {"$skip": skip_count},
-            {"$limit": limit}
-        ]
+        policies_cursor = master_policies_collection.find(
+            filter_dict, 
+            projection
+        ).limit(limit).sort("moved_to_master_at", -1)
         
         policies = []
-        async for doc in master_policies_collection.aggregate(pipeline):
-            policies.append(doc)
-
+        async for doc in policies_cursor:
+            policy_dict = convert_objectid(doc)
+            # Ensure consistent field names
+            policy_dict["name"] = policy_dict.get("policyName", "Unnamed Policy")
+            policy_dict["area_id"] = policy_dict.get("policyArea")
+            
+            # Debug logging for each policy
+            logger.info(f"Policy: {policy_dict.get('policyName')} | Country: {policy_dict.get('country')} | Area: {policy_dict.get('policyArea')}")
+            
+            policies.append(policy_dict)
+        
         # Get total count
         total_count = await master_policies_collection.count_documents(filter_dict)
-
-        result = {
+        
+        logger.info(f"Public master policies fetched: {len(policies)} policies for {len(set(p.get('country') for p in policies if p.get('country')))} countries")
+        
+        return {
+            "success": True,
             "policies": policies,
-            "total_count": total_count,
-            "page": page,
-            "limit": limit,
-            "total_pages": (total_count + limit - 1) // limit
+            "total_count": total_count
         }
-
-        # Add statistics if requested
-        if include_stats:
-            result["statistics"] = await get_master_policy_statistics()
-
-        return result
-
+    
     except Exception as e:
-        logger.error(f"Error fetching master policies: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching master policies: {str(e)}")
-
+        logger.error(f"Error fetching public master policies: {str(e)}")
+        return {
+            "success": False,
+            "policies": [],
+            "total_count": 0,
+            "error": str(e)
+        }
 async def get_master_policy_statistics():
     """Get statistics for master policies"""
     try:
@@ -1823,7 +1833,7 @@ async def get_public_master_policies(
     country: str = None,
     area: str = None
 ):
-    """Public endpoint for master policies (for world map visualization)"""
+    """Enhanced public endpoint for master policies with better country stats"""
     try:
         filter_dict = {"master_status": "active", "visibility": "public"}
         
@@ -1832,19 +1842,27 @@ async def get_public_master_policies(
         if area:
             filter_dict["policyArea"] = area
         
-        # Get policies with basic information only (for performance)
+        # Get policies with enhanced information
         projection = {
             "country": 1,
             "policyArea": 1,
             "area_name": 1,
             "area_icon": 1,
+            "area_color": 1,
             "policyName": 1,
+            "policyId": 1,
             "policyDescription": 1,
             "status": 1,
             "master_status": 1,
             "policy_score": 1,
             "completeness_score": 1,
-            "moved_to_master_at": 1
+            "moved_to_master_at": 1,
+            "implementation": 1,
+            "evaluation": 1,
+            "participation": 1,
+            "alignment": 1,
+            "targetGroups": 1,
+            "visibility": 1
         }
         
         policies_cursor = master_policies_collection.find(
@@ -1854,90 +1872,86 @@ async def get_public_master_policies(
         
         policies = []
         async for doc in policies_cursor:
-            policies.append(convert_objectid(doc))
+            policy_dict = convert_objectid(doc)
+            # Ensure consistent field names
+            policy_dict["name"] = policy_dict.get("policyName", "Unnamed Policy")
+            policy_dict["area_id"] = policy_dict.get("policyArea")
+            policies.append(policy_dict)
         
         # Get total count
         total_count = await master_policies_collection.count_documents(filter_dict)
         
-        # Get basic statistics for the map
-        country_stats = {}
-        area_stats = {}
-        
-        for policy in policies:
-            country = policy.get("country")
-            area = policy.get("policyArea")
-            
-            if country:
-                if country not in country_stats:
-                    country_stats[country] = {"total_policies": 0, "areas": set()}
-                country_stats[country]["total_policies"] += 1
-                if area:
-                    country_stats[country]["areas"].add(area)
-            
-            if area:
-                area_stats[area] = area_stats.get(area, 0) + 1
-        
-        # Convert sets to counts for JSON serialization
-        for country in country_stats:
-            country_stats[country]["unique_areas"] = len(country_stats[country]["areas"])
-            del country_stats[country]["areas"]
-        
-        logger.info(f"Public master policies fetched: {len(policies)} policies from {len(country_stats)} countries")
+        logger.info(f"Public master policies fetched: {len(policies)} policies")
         
         return {
+            "success": True,
             "policies": policies,
-            "total_count": total_count,
-            "country_stats": country_stats,
-            "area_stats": area_stats,
-            "success": True
+            "total_count": total_count
         }
     
     except Exception as e:
         logger.error(f"Error fetching public master policies: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching policies: {str(e)}")
-
+        return {
+            "success": False,
+            "policies": [],
+            "total_count": 0,
+            "error": str(e)
+        }
 # Also add a specific endpoint for country policy details (public)
 @app.get("/api/public/country-policies/{country_name}")
-async def get_country_policies(country_name: str):
-    """Get all policies for a specific country (public endpoint)"""
+async def get_country_policies_detailed(country_name: str):
+    """Get detailed policies for a specific country with proper grouping"""
     try:
         filter_dict = {
             "master_status": "active",
-            "visibility": "public",
+            "visibility": "public", 
             "country": country_name
         }
         
-        # Get full policy details for the selected country
+        # Get all policies for the country
         policies_cursor = master_policies_collection.find(filter_dict).sort("moved_to_master_at", -1)
         policies = []
         
         async for doc in policies_cursor:
-            policies.append(convert_objectid(doc))
+            policy_dict = convert_objectid(doc)
+            # Ensure compatibility with frontend
+            policy_dict["name"] = policy_dict.get("policyName", "Unnamed Policy")
+            policy_dict["policy_name"] = policy_dict.get("policyName", "Unnamed Policy") 
+            policy_dict["type"] = policy_dict.get("area_name", policy_dict.get("policyArea", "Unknown"))
+            policy_dict["year"] = policy_dict.get("implementation", {}).get("deploymentYear", "TBD")
+            policies.append(policy_dict)
         
         # Group by policy area
         policies_by_area = {}
         for policy in policies:
             area_id = policy.get("policyArea", "unknown")
+            area_name = policy.get("area_name", area_id)
+            
             if area_id not in policies_by_area:
                 policies_by_area[area_id] = {
                     "area_id": area_id,
-                    "area_name": policy.get("area_name", area_id),
+                    "area_name": area_name,
                     "area_icon": policy.get("area_icon", "📄"),
                     "policies": []
                 }
             policies_by_area[area_id]["policies"].append(policy)
         
         return {
+            "success": True,
             "country": country_name,
             "total_policies": len(policies),
-            "policy_areas": list(policies_by_area.values()),
-            "success": True
+            "policy_areas": list(policies_by_area.values())
         }
     
     except Exception as e:
         logger.error(f"Error fetching country policies: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching country policies: {str(e)}")
-    
+        return {
+            "success": False,
+            "country": country_name, 
+            "total_policies": 0,
+            "policy_areas": [],
+            "error": str(e)
+        }   
 # Add this at the end of main.py
 
 if __name__ == "__main__":
