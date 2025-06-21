@@ -123,7 +123,7 @@ const PRINCIPLES = [
   "Human Rights", "Democracy", "Rule of Law", "Ethics"
 ];
 
-const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "INR", "CAD", "AUD", "CHF", "SEK", "Local"];
+const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "INR", "CAD", "AUD", "CHF", "SEK", "Others"];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -646,7 +646,7 @@ const PolicySubmissionForm = () => {
               type="text"
               value={currentPolicy.policyName}
               onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyName", e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="Enter policy name"
             />
           </div>
@@ -659,8 +659,8 @@ const PolicySubmissionForm = () => {
               type="text"
               value={currentPolicy.policyId}
               onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyId", e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="Enter policy ID"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Policy Name - Nolicy number"
             />
           </div>
         </div>
@@ -691,7 +691,7 @@ const PolicySubmissionForm = () => {
           <textarea
             value={currentPolicy.policyDescription}
             onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyDescription", e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+            className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
             rows="4"
             placeholder="Describe the policy in detail..."
           />
@@ -710,7 +710,7 @@ const PolicySubmissionForm = () => {
                   handleFileUpload(selectedPolicyArea, selectedPolicyIndex, file);
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               accept=".pdf,.doc,.docx,.txt"
               disabled={fileUploading[uploadKey]}
             />
@@ -756,7 +756,7 @@ const PolicySubmissionForm = () => {
             type="url"
             value={currentPolicy.policyLink}
             onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyLink", e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             placeholder="https://..."
           />
         </div>
@@ -778,7 +778,7 @@ const PolicySubmissionForm = () => {
               type="number"
               value={currentPolicy.implementation.yearlyBudget}
               onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "implementation", "yearlyBudget", e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
               placeholder="Enter budget amount"
             />
           </div>
@@ -789,7 +789,7 @@ const PolicySubmissionForm = () => {
             <select
               value={currentPolicy.implementation.budgetCurrency}
               onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "implementation", "budgetCurrency", e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
             >
               {CURRENCIES.map(currency => (
                 <option key={currency} value={currency}>{currency}</option>
@@ -818,9 +818,9 @@ const PolicySubmissionForm = () => {
             type="number"
             value={currentPolicy.implementation.deploymentYear}
             onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "implementation", "deploymentYear", parseInt(e.target.value) || new Date().getFullYear())}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-            min="2020"
-            max="2030"
+            className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+            min="1900"
+            max="2025"
           />
         </div>
       </div>
@@ -853,7 +853,7 @@ const PolicySubmissionForm = () => {
               <select
                 value={currentPolicy.evaluation.evaluationType}
                 onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "evaluation", "evaluationType", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               >
                 <option value="internal">Internal</option>
                 <option value="external">External</option>
@@ -878,15 +878,15 @@ const PolicySubmissionForm = () => {
               
               {[
                 { key: 'transparencyScore', label: 'Transparency Score', color: 'blue' },
-                { key: 'explainabilityScore', label: 'Explainability Score', color: 'indigo' },
-                { key: 'accountabilityScore', label: 'Accountability Score', color: 'purple' }
+                { key: 'explainabilityScore', label: 'Explainability Score', color: 'red' },
+                { key: 'accountabilityScore', label: 'Accountability Score', color: 'green' }
               ].map(({ key, label, color }) => (
                 <div key={key} className="space-y-2">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-semibold text-gray-700">
                       {label} (0-10)
                     </label>
-                    <span className={`px-3 py-1 bg-${color}-100 text-${color}-700 rounded-lg font-bold`}>
+                    <span className={`px-3 py-1 bg-${color}-100 text-${color}-900 rounded-lg font-bold`}>
                       {currentPolicy.evaluation[key]}
                     </span>
                   </div>
@@ -935,7 +935,7 @@ const PolicySubmissionForm = () => {
                   type="date"
                   value={currentPolicy.participation.consultationStartDate}
                   onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "participation", "consultationStartDate", e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 />
               </div>
               <div>
@@ -946,7 +946,7 @@ const PolicySubmissionForm = () => {
                   type="date"
                   value={currentPolicy.participation.consultationEndDate}
                   onChange={(e) => updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "participation", "consultationEndDate", e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
