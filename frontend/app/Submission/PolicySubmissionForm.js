@@ -208,20 +208,22 @@ const PolicySubmissionForm = () => {
   const [fileUploading, setFileUploading] = useState({});
 
   useEffect(() => {
-    // Get actual logged-in user
     const token = localStorage.getItem('access_token');
     const userData = localStorage.getItem('userData');
+    
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
+        // Ensure user has id field
+        if (!parsedUser.id && parsedUser._id) {
+          parsedUser.id = parsedUser._id;
+        }
         setUser(parsedUser);
       } catch (error) {
         console.error('Error parsing user data:', error);
-        // Redirect to login if user data is invalid
         window.location.href = '/login';
       }
     } else {
-      // No user data, redirect to login
       window.location.href = '/login';
     }
   }, []);
@@ -379,58 +381,75 @@ const PolicySubmissionForm = () => {
     setSuccess("");
 
     try {
-      // Prepare submission data
+      // Ensure user.id is a string
+      const userId = String(user.id || user._id);
+      
+      // Prepare submission data with correct structure
       const submissionData = {
-        user_id: user.id,
+        user_id: userId,
         user_email: user.email,
         user_name: `${user.firstName} ${user.lastName}`,
         country: formData.country,
         policyAreas: Object.entries(policyAreas).map(([area_id, policies]) => ({
           area_id,
           area_name: POLICY_AREAS.find(a => a.id === area_id)?.name || area_id,
-          policies
+          policies: policies.map(policy => ({
+            ...policy,
+            // Ensure all required fields have defaults
+            policyName: policy.policyName || "",
+            policyId: policy.policyId || "",
+            policyDescription: policy.policyDescription || "",
+            targetGroups: policy.targetGroups || [],
+            policyFile: policy.policyFile || null,
+            policyLink: policy.policyLink || "",
+            implementation: policy.implementation || {},
+            evaluation: policy.evaluation || {},
+            participation: policy.participation || {},
+            alignment: policy.alignment || {},
+            status: policy.status || "pending",
+            admin_notes: policy.admin_notes || ""
+          }))
         })),
-        submission_status: "pending",
-        submitted_at: new Date().toISOString()
+        submission_status: "pending"
       };
 
-      try {
-        const token = localStorage.getItem('access_token');
-        const response = await fetch(`${API_BASE_URL}/submit-enhanced-form`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify(submissionData)
-        });
+      console.log("Submitting data:", submissionData); // Debug log
 
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.detail || "Submission failed");
-        }
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`${API_BASE_URL}/submit-enhanced-form`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(submissionData)
+      });
 
-        setSuccess("Policies submitted successfully! Your submission is now pending admin review.");
-
-        // Reset form
-        setPolicyAreas(() => {
-          const areas = {};
-          POLICY_AREAS.forEach(area => {
-            areas[area.id] = [];
-          });
-          return areas;
-        });
-        setFormData({ country: "" });
-        setSelectedPolicyArea(null);
-        setSelectedPolicyIndex(null);
-
-      } catch (error) {
-        setError(`Submission failed: ${error.message}`);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Submission error response:", errorData);
+        throw new Error(errorData.detail || "Submission failed");
       }
+
+      const result = await response.json();
+      setSuccess("Policies submitted successfully! Your submission is now pending admin review.");
+
+      // Reset form
+      setPolicyAreas(() => {
+        const areas = {};
+        POLICY_AREAS.forEach(area => {
+          areas[area.id] = [];
+        });
+        return areas;
+      });
+      setFormData({ country: "" });
+      setSelectedPolicyArea(null);
+      setSelectedPolicyIndex(null);
+
     } catch (error) {
+      console.error("Submission error:", error);
       setError(`Submission failed: ${error.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -1055,7 +1074,7 @@ const PolicySubmissionForm = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-            Enhanced Policy Submission
+            Policy Submission
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Submit comprehensive policy information across multiple areas for admin review and database storage.
@@ -1066,23 +1085,7 @@ const PolicySubmissionForm = () => {
         <UserSubmissionCard user={user} />
 
         {/* User Info and Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          {/* Remove the first user info card here if you want to avoid duplicate user info */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Submitting as</p>
-                <p className="text-lg font-bold text-gray-900">{user.firstName} {user.lastName}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
@@ -1172,20 +1175,20 @@ const PolicySubmissionForm = () => {
                 setShowCountryDropdown(true);
               }}
               onFocus={() => setShowCountryDropdown(true)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="Type to search countries..."
             />
             
             {showCountryDropdown && filteredCountries.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+              <div className="text-black absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                 {filteredCountries.slice(0, 10).map((country) => (
                   <button
                     key={country}
                     onClick={() => handleCountrySelect(country)}
-                    className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0"
+                    className="w-full text-left px-4 py-3 hover:bg-blue-500 transition-colors border-b border-gray-100 last:border-0"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                      <div className=" w-6 h-6 bg-blue-400 rounded-full flex items-center justify-center">
                         <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>

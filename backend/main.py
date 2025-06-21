@@ -26,6 +26,14 @@ import requests
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 import uvicorn
+import asyncio
+import logging
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -35,34 +43,44 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 # JWT and Security Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-key-here-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
-# Email Configuration
-SMTP_SERVER = os.getenv("SMTP_SERVER")
-SMTP_PORT = int(os.getenv("SMTP_PORT"))
-SMTP_USERNAME = os.getenv("SMTP_USERNAME",)
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD",)
-FROM_EMAIL = os.getenv("FROM_EMAIL")
+# Enhanced Email Configuration with fallback
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@aipolicytracker.com")
 
-# Google OAuth Configuration
+# Google OAuth Configuration with fallback
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 # Initialize FastAPI app
-app = FastAPI(title="Enhanced AI Policy Database API", version="3.0.0")
+app = FastAPI(
+    title="Enhanced AI Policy Database API", 
+    version="4.0.0",
+    description="Complete AI Policy Management System with Authentication, Submissions, and Admin Dashboard"
+)
 
-# Add CORS middleware
+# Enhanced CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://policy-tracker-f.onrender.com", "http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "https://policy-tracker-f.onrender.com", 
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "https://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# MongoDB connection
-MONGODB_URL = os.getenv("MONGO_URI")
+# MongoDB connection with retry logic
+MONGODB_URL = os.getenv("MONGO_URI", "mongodb://localhost:27017/ai_policy_db")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
 db = client.ai_policy_database
 
@@ -74,88 +92,94 @@ admin_actions_collection = db.admin_actions
 files_collection = db.files
 otp_collection = db.otp_codes
 
-# Legacy collections for backward compatibility
-legacy_temp_policies_collection = db.temp_policies
-legacy_policies_collection = db.policyInitiatives
-
 # Security
 security = HTTPBearer()
 
-# Policy Areas Configuration (10 main areas)
+# Enhanced Policy Areas Configuration
 POLICY_AREAS = [
     {
         "id": "ai-safety",
         "name": "AI Safety",
         "description": "Policies ensuring AI systems are safe and beneficial",
-        "icon": "shield",
-        "color": "from-red-500 to-pink-600"
+        "icon": "🛡️",
+        "color": "from-red-500 to-pink-600",
+        "gradient": "bg-gradient-to-r from-red-500 to-pink-600"
     },
     {
         "id": "cyber-safety",
-        "name": "CyberSafety",
+        "name": "CyberSafety", 
         "description": "Cybersecurity and digital safety policies",
-        "icon": "security",
-        "color": "from-blue-500 to-cyan-600"
+        "icon": "🔒",
+        "color": "from-blue-500 to-cyan-600",
+        "gradient": "bg-gradient-to-r from-blue-500 to-cyan-600"
     },
     {
         "id": "digital-education",
         "name": "Digital Education",
         "description": "Educational technology and digital literacy policies",
-        "icon": "education",
-        "color": "from-green-500 to-emerald-600"
+        "icon": "🎓",
+        "color": "from-green-500 to-emerald-600",
+        "gradient": "bg-gradient-to-r from-green-500 to-emerald-600"
     },
     {
         "id": "digital-inclusion",
         "name": "Digital Inclusion",
         "description": "Bridging the digital divide and ensuring equal access",
-        "icon": "inclusion",
-        "color": "from-purple-500 to-indigo-600"
+        "icon": "🌐",
+        "color": "from-purple-500 to-indigo-600",
+        "gradient": "bg-gradient-to-r from-purple-500 to-indigo-600"
     },
     {
         "id": "digital-leisure",
         "name": "Digital Leisure",
         "description": "Gaming, entertainment, and digital recreation policies",
-        "icon": "entertainment",
-        "color": "from-yellow-500 to-orange-600"
+        "icon": "🎮",
+        "color": "from-yellow-500 to-orange-600",
+        "gradient": "bg-gradient-to-r from-yellow-500 to-orange-600"
     },
     {
         "id": "disinformation",
         "name": "(Dis)Information",
         "description": "Combating misinformation and promoting truth",
-        "icon": "information",
-        "color": "from-gray-500 to-slate-600"
+        "icon": "📰",
+        "color": "from-gray-500 to-slate-600",
+        "gradient": "bg-gradient-to-r from-gray-500 to-slate-600"
     },
     {
         "id": "digital-work",
         "name": "Digital Work",
         "description": "Future of work and digital employment policies",
-        "icon": "work",
-        "color": "from-teal-500 to-blue-600"
+        "icon": "💼",
+        "color": "from-teal-500 to-blue-600",
+        "gradient": "bg-gradient-to-r from-teal-500 to-blue-600"
     },
     {
         "id": "mental-health",
         "name": "Mental Health",
         "description": "Digital wellness and mental health policies",
-        "icon": "health",
-        "color": "from-pink-500 to-rose-600"
+        "icon": "🧠",
+        "color": "from-pink-500 to-rose-600",
+        "gradient": "bg-gradient-to-r from-pink-500 to-rose-600"
     },
     {
         "id": "physical-health",
         "name": "Physical Health",
         "description": "Healthcare technology and physical wellness policies",
-        "icon": "medical",
-        "color": "from-emerald-500 to-green-600"
+        "icon": "❤️",
+        "color": "from-emerald-500 to-green-600",
+        "gradient": "bg-gradient-to-r from-emerald-500 to-green-600"
     },
     {
         "id": "social-media-gaming",
         "name": "Social Media/Gaming Regulation",
         "description": "Social media platforms and gaming regulation",
-        "icon": "social",
-        "color": "from-indigo-500 to-purple-600"
+        "icon": "📱",
+        "color": "from-indigo-500 to-purple-600",
+        "gradient": "bg-gradient-to-r from-indigo-500 to-purple-600"
     }
 ]
 
-# Load countries data
+# Enhanced Countries list
 COUNTRIES = [
     "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
     "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas",
@@ -195,7 +219,7 @@ COUNTRIES = [
 SUPER_ADMIN_EMAIL = "admin@gmail.com"
 SUPER_ADMIN_PASSWORD = "admin123"
 
-# Pydantic Models
+# Enhanced Pydantic Models
 class UserRegistration(BaseModel):
     firstName: str
     lastName: str
@@ -203,6 +227,12 @@ class UserRegistration(BaseModel):
     password: str
     confirmPassword: str
     country: str
+
+    @validator('firstName', 'lastName')
+    def validate_names(cls, v):
+        if not v or len(v.strip()) < 2:
+            raise ValueError('Name must be at least 2 characters long')
+        return v.strip()
 
     @validator('password')
     def validate_password(cls, v):
@@ -233,30 +263,55 @@ class OTPVerification(BaseModel):
     email: EmailStr
     otp: str
 
+    @validator('otp')
+    def validate_otp(cls, v):
+        if not v or len(v) != 6 or not v.isdigit():
+            raise ValueError('OTP must be exactly 6 digits')
+        return v
+
 class PasswordReset(BaseModel):
     email: EmailStr
     otp: str
     newPassword: str
     confirmPassword: str
 
+    @validator('newPassword')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        return v
+
+    @validator('confirmPassword')
+    def passwords_match(cls, v, values, **kwargs):
+        if 'newPassword' in values and v != values['newPassword']:
+            raise ValueError('Passwords do not match')
+        return v
+
 class SubPolicy(BaseModel):
-    policyName: str
+    policyName: str = ""
     policyId: str = ""
     policyDescription: str = ""
     targetGroups: List[str] = []
     policyFile: Optional[Dict] = None
     policyLink: str = ""
-    implementation: Dict = {}
-    evaluation: Dict = {}
-    participation: Dict = {}
-    alignment: Dict = {}
+    implementation: Dict = Field(default_factory=dict)
+    evaluation: Dict = Field(default_factory=dict)
+    participation: Dict = Field(default_factory=dict)
+    alignment: Dict = Field(default_factory=dict)
     status: str = "pending"
     admin_notes: str = ""
 
 class PolicyArea(BaseModel):
     area_id: str
     area_name: str
-    policies: List[SubPolicy] = []
+    policies: List[SubPolicy] = Field(default_factory=list)
+
+    @validator('area_id')
+    def validate_area_id(cls, v):
+        valid_ids = [area["id"] for area in POLICY_AREAS]
+        if v not in valid_ids:
+            raise ValueError(f'Invalid policy area ID. Must be one of: {valid_ids}')
+        return v
 
 class EnhancedSubmission(BaseModel):
     user_id: str
@@ -265,6 +320,19 @@ class EnhancedSubmission(BaseModel):
     country: str
     policyAreas: List[PolicyArea]
     submission_status: str = "pending"
+    submitted_at: Optional[str] = None
+    
+    @validator('policyAreas')
+    def validate_policy_areas(cls, v):
+        if not v:
+            raise ValueError('At least one policy area must be provided')
+        return v
+
+    @validator('country')
+    def validate_country(cls, v):
+        if v not in COUNTRIES:
+            raise ValueError('Invalid country')
+        return v
 
 class PolicyStatusUpdate(BaseModel):
     submission_id: str
@@ -272,9 +340,23 @@ class PolicyStatusUpdate(BaseModel):
     policy_index: int
     status: str
     admin_notes: str = ""
+    
+    @validator('status')
+    def validate_status(cls, v):
+        allowed_statuses = ['pending', 'approved', 'rejected', 'under_review', 'needs_revision']
+        if v not in allowed_statuses:
+            raise ValueError(f'Status must be one of: {allowed_statuses}')
+        return v
 
-# Utility Functions
+    @validator('policy_index')
+    def validate_policy_index(cls, v):
+        if v < 0:
+            raise ValueError('Policy index must be non-negative')
+        return v
+
+# Enhanced Utility Functions
 def convert_objectid(obj):
+    """Convert ObjectId to string recursively"""
     if isinstance(obj, ObjectId):
         return str(obj)
     elif isinstance(obj, dict):
@@ -284,6 +366,7 @@ def convert_objectid(obj):
     return obj
 
 def pydantic_to_dict(obj):
+    """Convert Pydantic model to dict recursively"""
     if hasattr(obj, 'dict'):
         return obj.dict()
     elif isinstance(obj, dict):
@@ -296,12 +379,18 @@ def pydantic_to_dict(obj):
         return obj
 
 def hash_password(password: str) -> str:
+    """Hash password with bcrypt"""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    """Verify password against hash"""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception:
+        return False
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """Create JWT access token"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -312,10 +401,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 def generate_otp() -> str:
+    """Generate 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
 
-async def send_email(to_email: str, subject: str, body: str):
+async def send_email(to_email: str, subject: str, body: str) -> bool:
+    """Enhanced email sending with better error handling"""
     try:
+        if not SMTP_USERNAME or not SMTP_PASSWORD:
+            logger.warning("Email credentials not configured - using mock email")
+            # Mock email for development - just log the OTP
+            if "verification code" in body.lower() or "reset code" in body.lower():
+                # Extract OTP from body for logging
+                import re
+                otp_match = re.search(r'\b\d{6}\b', body)
+                if otp_match:
+                    logger.info(f"MOCK EMAIL - OTP for {to_email}: {otp_match.group()}")
+            return True
+        
         msg = MIMEMultipart()
         msg['From'] = FROM_EMAIL
         msg['To'] = to_email
@@ -323,18 +425,26 @@ async def send_email(to_email: str, subject: str, body: str):
         
         msg.attach(MIMEText(body, 'html'))
         
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        text = msg.as_string()
-        server.sendmail(FROM_EMAIL, to_email, text)
-        server.quit()
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+        
+        logger.info(f"Email sent successfully to {to_email}")
         return True
+        
     except Exception as e:
-        print(f"Email sending failed: {e}")
+        logger.error(f"Email sending failed to {to_email}: {str(e)}")
+        # For development, still log OTP even if email fails
+        if "verification code" in body.lower() or "reset code" in body.lower():
+            import re
+            otp_match = re.search(r'\b\d{6}\b', body)
+            if otp_match:
+                logger.info(f"EMAIL FAILED - OTP for {to_email}: {otp_match.group()}")
         return False
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current authenticated user"""
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
@@ -346,16 +456,19 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             raise HTTPException(status_code=401, detail="User not found")
         
         return convert_objectid(user)
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        logger.error(f"JWT decode error: {str(e)}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def get_admin_user(current_user: dict = Depends(get_current_user)):
+    """Get current admin user"""
     if not current_user.get("is_admin", False):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
-# File handling
+# Enhanced file handling
 async def save_file_to_db(file: UploadFile, metadata: Dict = None) -> str:
+    """Save uploaded file to database"""
     try:
         file_content = await file.read()
         await file.seek(0)
@@ -370,105 +483,26 @@ async def save_file_to_db(file: UploadFile, metadata: Dict = None) -> str:
         }
         
         result = await files_collection.insert_one(file_doc)
+        logger.info(f"File saved to database: {file.filename} (ID: {result.inserted_id})")
         return str(result.inserted_id)
     except Exception as e:
+        logger.error(f"Error saving file to database: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
 async def get_file_from_db(file_id: str):
+    """Get file from database"""
     try:
         file_doc = await files_collection.find_one({"_id": ObjectId(file_id)})
         if not file_doc:
             raise HTTPException(status_code=404, detail="File not found")
         return file_doc
     except Exception as e:
+        logger.error(f"Error retrieving file: {str(e)}")
         raise HTTPException(status_code=404, detail=f"File not found: {str(e)}")
 
-# Database Migration Function
-async def migrate_legacy_data():
-    """Migrate existing data to new schema while preserving it"""
-    try:
-        # Check if migration has already been done
-        migration_check = await db.migrations.find_one({"name": "legacy_to_enhanced"})
-        if migration_check:
-            return
-        
-        # Migrate legacy submissions
-        legacy_submissions = await legacy_temp_policies_collection.find({}).to_list(None)
-        
-        for submission in legacy_submissions:
-            # Create user if doesn't exist
-            user_email = submission.get("user_email", "legacy@user.com")
-            existing_user = await users_collection.find_one({"email": user_email})
-            
-            if not existing_user:
-                user_doc = {
-                    "firstName": submission.get("user_name", "Legacy").split()[0],
-                    "lastName": " ".join(submission.get("user_name", "User").split()[1:]) or "User",
-                    "email": user_email,
-                    "password": hash_password("temporary123"),  # Temporary password
-                    "country": submission.get("country", "Unknown"),
-                    "is_admin": False,
-                    "is_verified": True,
-                    "created_at": submission.get("created_at", datetime.utcnow()),
-                    "updated_at": datetime.utcnow(),
-                    "is_legacy": True
-                }
-                user_result = await users_collection.insert_one(user_doc)
-                user_id = str(user_result.inserted_id)
-            else:
-                user_id = str(existing_user["_id"])
-            
-            # Transform old policy structure to new structure
-            new_submission = {
-                "user_id": user_id,
-                "user_email": user_email,
-                "user_name": submission.get("user_name", "Legacy User"),
-                "country": submission.get("country", "Unknown"),
-                "policyAreas": [],
-                "submission_status": submission.get("submission_status", "pending"),
-                "created_at": submission.get("created_at", datetime.utcnow()),
-                "updated_at": submission.get("updated_at", datetime.utcnow()),
-                "is_legacy": True
-            }
-            
-            # Convert old policyInitiatives to new structure
-            old_policies = submission.get("policyInitiatives", [])
-            for policy in old_policies:
-                policy_area = policy.get("policyArea", "ai-safety")
-                
-                # Find or create policy area
-                area_found = False
-                for area in new_submission["policyAreas"]:
-                    if area["area_id"] == policy_area:
-                        area["policies"].append(policy)
-                        area_found = True
-                        break
-                
-                if not area_found:
-                    area_info = next((area for area in POLICY_AREAS if area["id"] == policy_area), POLICY_AREAS[0])
-                    new_submission["policyAreas"].append({
-                        "area_id": policy_area,
-                        "area_name": area_info["name"],
-                        "policies": [policy]
-                    })
-            
-            # Insert migrated submission
-            await temp_submissions_collection.insert_one(new_submission)
-        
-        # Mark migration as complete
-        await db.migrations.insert_one({
-            "name": "legacy_to_enhanced",
-            "completed_at": datetime.utcnow(),
-            "legacy_submissions_migrated": len(legacy_submissions)
-        })
-        
-        print(f"Migration completed: {len(legacy_submissions)} submissions migrated")
-        
-    except Exception as e:
-        print(f"Migration error: {e}")
-
-# Initialize super admin on startup
+# Enhanced admin initialization
 async def initialize_super_admin():
+    """Initialize super admin with enhanced error handling"""
     try:
         existing_admin = await users_collection.find_one({"email": SUPER_ADMIN_EMAIL})
         if not existing_admin:
@@ -485,27 +519,50 @@ async def initialize_super_admin():
                 "updated_at": datetime.utcnow()
             }
             await users_collection.insert_one(admin_doc)
-            print("Super admin created successfully")
+            logger.info("Super admin created successfully")
         else:
-            # Update password if changed
+            # Update password if needed
             if not verify_password(SUPER_ADMIN_PASSWORD, existing_admin["password"]):
                 await users_collection.update_one(
                     {"email": SUPER_ADMIN_EMAIL},
-                    {"$set": {"password": hash_password(SUPER_ADMIN_PASSWORD)}}
+                    {"$set": {
+                        "password": hash_password(SUPER_ADMIN_PASSWORD),
+                        "updated_at": datetime.utcnow()
+                    }}
                 )
-            print("Super admin already exists")
+                logger.info("Super admin password updated")
+            logger.info("Super admin already exists")
     except Exception as e:
-        print(f"Error initializing super admin: {e}")
+        logger.error(f"Error initializing super admin: {e}")
+
+# Database health check
+async def check_database_connection():
+    """Check if database is accessible"""
+    try:
+        await db.command("ping")
+        logger.info("Database connection successful")
+        return True
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        return False
 
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    await initialize_super_admin()
-    await migrate_legacy_data()
+    """Initialize application on startup"""
+    logger.info("Starting AI Policy Tracker API v4.0.0")
+    
+    # Check database connection
+    if await check_database_connection():
+        await initialize_super_admin()
+        logger.info("Application startup completed successfully")
+    else:
+        logger.error("Application startup failed - database connection issue")
 
-# Authentication Endpoints
+# Enhanced Authentication Endpoints
 @app.post("/api/auth/register")
 async def register_user(user_data: UserRegistration):
+    """Enhanced user registration with better validation"""
     try:
         # Check if user already exists
         existing_user = await users_collection.find_one({"email": user_data.email})
@@ -531,62 +588,85 @@ async def register_user(user_data: UserRegistration):
         # Save user
         result = await users_collection.insert_one(user_doc)
         
-        # Check for existing OTP
-        existing_otp = await otp_collection.find_one({
+        # Clean up existing OTPs for this email
+        await otp_collection.delete_many({
             "email": user_data.email,
-            "type": "email_verification",
-            "expires_at": {"$gt": datetime.utcnow()}
+            "type": "email_verification"
         })
-        if existing_otp:
-            otp = existing_otp["otp"]
-        else:
-            # Always generate a new OTP and remove previous ones
-            await otp_collection.delete_many({
-                "email": user_data.email,
-                "type": "email_verification"
-            })
-            otp = generate_otp()
-            otp_doc = {
-                "email": user_data.email,
-                "otp": otp,
-                "type": "email_verification",
-                "created_at": datetime.utcnow(),
-                "expires_at": datetime.utcnow() + timedelta(minutes=2)  # 2 minutes validity
-            }
-            await otp_collection.insert_one(otp_doc)
         
-        # Send verification email
+        # Generate and save OTP
+        otp = generate_otp()
+        otp_doc = {
+            "email": user_data.email,
+            "otp": otp,
+            "type": "email_verification",
+            "created_at": datetime.utcnow(),
+            "expires_at": datetime.utcnow() + timedelta(minutes=10)
+        }
+        await otp_collection.insert_one(otp_doc)
+        
+        # Enhanced email template
         email_body = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #2563eb;">Welcome to AI Policy Tracker!</h2>
-            <p>Hello {user_data.firstName},</p>
-            <p>Thank you for registering with AI Policy Tracker. Your verification code is:</p>
-            <div style="background: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                <h1 style="color: #1f2937; font-size: 32px; margin: 0; letter-spacing: 4px;">{otp}</h1>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 20px;">
+            <div style="background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 40px; color: white;">🚀</span>
+                    </div>
+                    <h1 style="color: #333; margin: 0; font-size: 28px; font-weight: bold;">Welcome to AI Policy Tracker!</h1>
+                </div>
+                
+                <p style="color: #555; font-size: 16px; line-height: 1.6;">Hello <strong>{user_data.firstName}</strong>,</p>
+                <p style="color: #555; font-size: 16px; line-height: 1.6;">Thank you for joining our AI Policy community! To complete your registration, please verify your email address.</p>
+                
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 15px; margin: 30px 0;">
+                    <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">Your Verification Code</p>
+                    <h1 style="color: white; font-size: 48px; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">{otp}</h1>
+                </div>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 15px; margin: 20px 0;">
+                    <p style="color: #856404; margin: 0; font-size: 14px; text-align: center;"><strong>⏰ This code expires in 10 minutes.</strong></p>
+                </div>
+                
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">If you didn't create an account with us, please ignore this email.</p>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                <div style="text-align: center;">
+                    <p style="color: #888; font-size: 14px; margin: 0;">Best regards,</p>
+                    <p style="color: #667eea; font-size: 16px; font-weight: bold; margin: 5px 0 0 0;">AI Policy Tracker Team</p>
+                </div>
             </div>
-            <p style="color: #ef4444;"><strong>This code expires in 10 minutes.</strong></p>
-            <p>If you didn't create an account, please ignore this email.</p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 14px;">Best regards,<br>AI Policy Tracker Team</p>
         </div>
         """
-        await send_email(user_data.email, "Verify Your Email - AI Policy Tracker", email_body)
+        
+        # Send verification email
+        email_sent = await send_email(
+            user_data.email, 
+            "🚀 Welcome! Verify Your Email - AI Policy Tracker", 
+            email_body
+        )
+        
+        if not email_sent:
+            logger.warning(f"Email failed to send for {user_data.email}")
         
         return {
             "success": True,
-            "message": "User registered successfully. Please check your email for verification code.",
-            "user_id": str(result.inserted_id)
+            "message": "Account created successfully! Please check your email for verification code.",
+            "user_id": str(result.inserted_id),
+            "email_sent": email_sent
         }
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/api/auth/verify-email")
 async def verify_email(verification: OTPVerification):
+    """Enhanced email verification"""
     try:
-        # Find OTP
+        # Find valid OTP
         otp_doc = await otp_collection.find_one({
             "email": verification.email,
             "otp": verification.otp,
@@ -598,23 +678,29 @@ async def verify_email(verification: OTPVerification):
             raise HTTPException(status_code=400, detail="Invalid or expired verification code")
         
         # Update user as verified
-        await users_collection.update_one(
+        result = await users_collection.update_one(
             {"email": verification.email},
             {"$set": {"is_verified": True, "updated_at": datetime.utcnow()}}
         )
         
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # Delete used OTP
         await otp_collection.delete_one({"_id": otp_doc["_id"]})
         
+        logger.info(f"Email verified successfully for {verification.email}")
         return {"success": True, "message": "Email verified successfully"}
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Email verification error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
 
 @app.post("/api/auth/login")
 async def login_user(login_data: UserLogin):
+    """Enhanced user login"""
     try:
         # Find user
         user = await users_collection.find_one({"email": login_data.email})
@@ -627,13 +713,24 @@ async def login_user(login_data: UserLogin):
         
         # Check if email is verified
         if not user.get("is_verified", False):
-            raise HTTPException(status_code=401, detail="Please verify your email first")
+            raise HTTPException(
+                status_code=401, 
+                detail="Please verify your email first. Check your inbox for verification code."
+            )
         
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={"sub": user["email"]}, expires_delta=access_token_expires
         )
+        
+        # Update last login
+        await users_collection.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"last_login": datetime.utcnow()}}
+        )
+        
+        logger.info(f"User logged in successfully: {login_data.email}")
         
         return {
             "success": True,
@@ -645,99 +742,141 @@ async def login_user(login_data: UserLogin):
                 "lastName": user["lastName"],
                 "email": user["email"],
                 "country": user["country"],
-                "is_admin": user.get("is_admin", False)
+                "is_admin": user.get("is_admin", False),
+                "is_verified": user.get("is_verified", False)
             }
         }
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Login error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
-# Update the Google auth endpoint to handle missing client ID gracefully
 @app.post("/api/auth/google")
-async def google_auth(auth_request: GoogleAuthRequest):
+async def google_auth(request: GoogleAuthRequest):
+    """Enhanced Google OAuth authentication with better error handling"""
     try:
-        if not GOOGLE_CLIENT_ID:
-            raise HTTPException(status_code=400, detail="Google authentication not configured")
-            
-        # Verify Google token
-        idinfo = id_token.verify_oauth2_token(
-            auth_request.token, google_requests.Request(), GOOGLE_CLIENT_ID
-        )
+        # Check if Google Client ID is configured
+        if not GOOGLE_CLIENT_ID or GOOGLE_CLIENT_ID == "641700598182-a8mlt3q0dbi7e71ugr581jjhmi020n88.apps.googleusercontent.com":
+            logger.error("Google Client ID not configured")
+            raise HTTPException(
+                status_code=501, 
+                detail="Google authentication is not configured on the server"
+            )
         
-        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-            raise ValueError('Wrong issuer.')
+        logger.info(f"Attempting Google auth with Client ID: {GOOGLE_CLIENT_ID[:20]}...")
+        logger.info(f"Token received (first 50 chars): {request.token[:50]}...")
+        
+        # Verify the Google token with enhanced error handling
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                request.token, 
+                google_requests.Request(), 
+                GOOGLE_CLIENT_ID
+            )
+            logger.info("Google token verified successfully")
             
+        except ValueError as e:
+            logger.error(f"Google token verification failed: {str(e)}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid Google token: {str(e)}"
+            )
+
+        # Validate issuer
+        if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+            logger.error(f"Invalid issuer: {idinfo['iss']}")
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid token issuer"
+            )
+
+        # Extract user information
+        google_user_id = idinfo['sub']
         email = idinfo['email']
-        firstName = idinfo.get('given_name', '')
-        lastName = idinfo.get('family_name', '')
-        google_id = idinfo.get('sub')
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        
+        logger.info(f"Google user info: {email}, {first_name} {last_name}")
         
         # Check if user exists
-        user = await users_collection.find_one({"email": email})
+        existing_user = await users_collection.find_one({"email": email})
         
-        if not user:
+        if existing_user:
+            logger.info(f"Existing user found: {email}")
+            # Update user info and mark as Google authenticated
+            await users_collection.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "google_id": google_user_id,
+                        "google_auth": True,
+                        "is_verified": True,  # Google users are pre-verified
+                        "updated_at": datetime.utcnow(),
+                        "last_login": datetime.utcnow()
+                    }
+                }
+            )
+            user = await users_collection.find_one({"email": email})
+        else:
+            logger.info(f"Creating new user: {email}")
             # Create new user
-            user_doc = {
-                "firstName": firstName,
-                "lastName": lastName,
+            new_user = {
+                "firstName": first_name or "Google",
+                "lastName": last_name or "User",
                 "email": email,
-                "password": hash_password(str(uuid.uuid4())),  # Random password for Google users
-                "country": "Unknown",  # Can be updated later
-                "is_admin": False,
-                "is_verified": True,  # Google accounts are pre-verified
+                "google_id": google_user_id,
                 "google_auth": True,
-                "google_id": google_id,
+                "is_verified": True,
+                "is_admin": False,
+                "country": "Not specified",  # Can be updated later
                 "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.utcnow(),
+                "last_login": datetime.utcnow()
             }
             
-            result = await users_collection.insert_one(user_doc)
-            user_id = str(result.inserted_id)
-            user = user_doc
-            user["_id"] = result.inserted_id
-        else:
-            user_id = str(user["_id"])
-            # Update Google info if not present
-            if not user.get("google_id"):
-                await users_collection.update_one(
-                    {"_id": user["_id"]},
-                    {"$set": {
-                        "google_id": google_id,
-                        "google_auth": True,
-                        "is_verified": True,
-                        "updated_at": datetime.utcnow()
-                    }}
-                )
+            result = await users_collection.insert_one(new_user)
+            user = await users_collection.find_one({"_id": result.inserted_id})
+
+        # Generate JWT token
+        access_token = create_access_token(data={"sub": user["email"]})
         
-        # Create access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": email}, expires_delta=access_token_expires
-        )
+        # Convert ObjectId for response
+        user = convert_objectid(user)
+        
+        logger.info(f"Google authentication successful for {email}")
         
         return {
             "success": True,
             "access_token": access_token,
             "token_type": "bearer",
             "user": {
-                "id": user_id,
-                "firstName": firstName,
-                "lastName": lastName,
-                "email": email,
-                "country": user.get("country", "Unknown"),
+                "id": str(user["_id"]),
+                "firstName": user["firstName"],
+                "lastName": user["lastName"],
+                "email": user["email"],
+                "country": user["country"],
                 "is_admin": user.get("is_admin", False),
-                "google_auth": True
-            }
+                "is_verified": user.get("is_verified", True)
+            },
+            "message": "Google authentication successful"
         }
-    
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
+
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Google authentication failed: {str(e)}")
+        logger.error(f"Google auth unexpected error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Google authentication failed: {str(e)}"
+        )
+
 @app.post("/api/auth/forgot-password")
 async def forgot_password(email_data: dict):
+    """Enhanced forgot password with better email"""
     try:
         email = email_data.get("email")
         if not email:
@@ -746,61 +885,75 @@ async def forgot_password(email_data: dict):
         # Check if user exists
         user = await users_collection.find_one({"email": email})
         if not user:
-            # Don't reveal if email exists or not
+            # Don't reveal if email exists or not for security
             return {"success": True, "message": "If the email exists, a reset code has been sent"}
         
-        # Check for existing OTP
-        existing_otp = await otp_collection.find_one({
+        # Clean up existing OTPs
+        await otp_collection.delete_many({
             "email": email,
-            "type": "password_reset",
-            "expires_at": {"$gt": datetime.utcnow()}
+            "type": "password_reset"
         })
-        if existing_otp:
-            otp = existing_otp["otp"]
-        else:
-            # Generate and save OTP
-            otp = generate_otp()
-            otp_doc = {
-                "email": email,
-                "otp": otp,
-                "type": "password_reset",
-                "created_at": datetime.utcnow(),
-                "expires_at": datetime.utcnow() + timedelta(minutes=10)
-            }
-            await otp_collection.insert_one(otp_doc)
         
-        # Send reset email
+        # Generate and save OTP
+        otp = generate_otp()
+        otp_doc = {
+            "email": email,
+            "otp": otp,
+            "type": "password_reset",
+            "created_at": datetime.utcnow(),
+            "expires_at": datetime.utcnow() + timedelta(minutes=10)
+        }
+        await otp_collection.insert_one(otp_doc)
+        
+        # Enhanced password reset email
         email_body = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #dc2626;">Password Reset Request</h2>
-            <p>Hello {user['firstName']},</p>
-            <p>You requested to reset your password. Your reset code is:</p>
-            <div style="background: #fef2f2; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; border: 1px solid #fecaca;">
-                <h1 style="color: #991b1b; font-size: 32px; margin: 0; letter-spacing: 4px;">{otp}</h1>
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 20px; border-radius: 20px;">
+            <div style="background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 40px; color: white;">🔐</span>
+                    </div>
+                    <h1 style="color: #333; margin: 0; font-size: 28px; font-weight: bold;">Password Reset Request</h1>
+                </div>
+                
+                <p style="color: #555; font-size: 16px; line-height: 1.6;">Hello <strong>{user['firstName']}</strong>,</p>
+                <p style="color: #555; font-size: 16px; line-height: 1.6;">You requested to reset your password for your AI Policy Tracker account.</p>
+                
+                <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 30px; text-align: center; border-radius: 15px; margin: 30px 0;">
+                    <p style="color: white; margin: 0 0 15px 0; font-size: 18px; font-weight: bold;">Your Reset Code</p>
+                    <h1 style="color: white; font-size: 48px; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">{otp}</h1>
+                </div>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; padding: 15px; margin: 20px 0;">
+                    <p style="color: #856404; margin: 0; font-size: 14px; text-align: center;"><strong>⏰ This code expires in 10 minutes.</strong></p>
+                </div>
+                
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">If you didn't request this reset, please ignore this email and your password will remain unchanged.</p>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                <div style="text-align: center;">
+                    <p style="color: #888; font-size: 14px; margin: 0;">Best regards,</p>
+                    <p style="color: #ff6b6b; font-size: 16px; font-weight: bold; margin: 5px 0 0 0;">AI Policy Tracker Team</p>
+                </div>
             </div>
-            <p style="color: #ef4444;"><strong>This code expires in 10 minutes.</strong></p>
-            <p>If you didn't request this reset, please ignore this email.</p>
-            <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-            <p style="color: #6b7280; font-size: 14px;">Best regards,<br>AI Policy Tracker Team</p>
         </div>
         """
-        await send_email(email, "Password Reset Code - AI Policy Tracker", email_body)
+        
+        await send_email(email, "🔐 Password Reset Code - AI Policy Tracker", email_body)
         
         return {"success": True, "message": "Password reset code sent to your email"}
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Forgot password error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Password reset failed: {str(e)}")
 
 @app.post("/api/auth/reset-password")
 async def reset_password(reset_data: PasswordReset):
+    """Enhanced password reset"""
     try:
-        # Validate passwords match
-        if reset_data.newPassword != reset_data.confirmPassword:
-            raise HTTPException(status_code=400, detail="Passwords do not match")
-        
-        # Find OTP
+        # Find valid OTP
         otp_doc = await otp_collection.find_one({
             "email": reset_data.email,
             "otp": reset_data.otp,
@@ -815,121 +968,65 @@ async def reset_password(reset_data: PasswordReset):
         hashed_password = hash_password(reset_data.newPassword)
         
         # Update user password
-        await users_collection.update_one(
+        result = await users_collection.update_one(
             {"email": reset_data.email},
             {"$set": {"password": hashed_password, "updated_at": datetime.utcnow()}}
         )
         
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # Delete used OTP
         await otp_collection.delete_one({"_id": otp_doc["_id"]})
         
+        logger.info(f"Password reset successfully for {reset_data.email}")
         return {"success": True, "message": "Password reset successfully"}
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Password reset error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Password reset failed: {str(e)}")
 
-# File Upload Endpoint
-@app.post("/api/upload-policy-file")
-async def upload_policy_file(
-    country: str = Form(...),
-    area_id: str = Form(...),
-    policy_index: int = Form(...),
-    submission_id: str = Form(...),
-    file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user)
-):
-    try:
-        # Validate file size (max 10MB)
-        if file.size and file.size > 10 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="File size exceeds 10MB limit")
-        
-        # Validate file type
-        allowed_types = ['application/pdf', 'application/msword', 
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'text/plain']
-        if file.content_type not in allowed_types:
-            raise HTTPException(status_code=415, detail="File type not supported")
-        
-        # Prepare metadata
-        metadata = {
-            "country": country,
-            "area_id": area_id,
-            "policy_index": policy_index,
-            "submission_id": submission_id,
-            "user_id": current_user["id"],
-            "original_filename": file.filename
-        }
-        
-        # Save file to database
-        file_id = await save_file_to_db(file, metadata)
-        
-        return {
-            "success": True, 
-            "file_id": file_id,
-            "filename": file.filename,
-            "size": file.size or 0,
-            "content_type": file.content_type,
-            "message": "File uploaded successfully"
-        }
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
-
-# Enhanced Submission Endpoint
+# Enhanced Policy Management Endpoints
 @app.post("/api/submit-enhanced-form")
 async def submit_enhanced_form(
     submission: EnhancedSubmission,
     current_user: dict = Depends(get_current_user)
 ):
-    print("Submission received:", submission)
-    print("Current user:", current_user)
+    """Enhanced policy submission with better validation"""
     try:
-        # Fix: Use "_id" instead of "id"
-        if submission.user_id != current_user["_id"]:
+        logger.info(f"Enhanced submission received from user {current_user['email']}")
+        
+        # Validate user owns this submission
+        if submission.user_id != str(current_user["_id"]):
             raise HTTPException(status_code=403, detail="Unauthorized submission")
         
-        # Filter out empty policy areas
+        # Filter out empty policy areas and policies
         filtered_policy_areas = []
+        total_policies = 0
+        
         for area in submission.policyAreas:
             non_empty_policies = [
                 policy for policy in area.policies 
                 if policy.policyName and policy.policyName.strip()
             ]
             if non_empty_policies:
-                # Convert policies to dict format
-                policies_dict = []
-                for policy in non_empty_policies:
-                    policy_dict = {
-                        "policyName": policy.policyName,
-                        "policyId": policy.policyId,
-                        "policyDescription": policy.policyDescription,
-                        "targetGroups": policy.targetGroups,
-                        "policyFile": policy.policyFile,
-                        "policyLink": policy.policyLink,
-                        "implementation": policy.implementation,
-                        "evaluation": policy.evaluation,
-                        "participation": policy.participation,
-                        "alignment": policy.alignment,
-                        "status": policy.status,
-                        "admin_notes": policy.admin_notes
-                    }
-                    policies_dict.append(policy_dict)
-                
                 area_dict = {
                     "area_id": area.area_id,
                     "area_name": area.area_name,
-                    "policies": policies_dict
+                    "policies": [policy.dict() for policy in non_empty_policies]
                 }
                 filtered_policy_areas.append(area_dict)
+                total_policies += len(non_empty_policies)
         
         if not filtered_policy_areas:
-            raise HTTPException(status_code=400, detail="At least one policy must be provided")
+            raise HTTPException(
+                status_code=400, 
+                detail="At least one policy with a name must be provided"
+            )
         
-        # Prepare submission document manually (avoid pydantic_to_dict issues)
+        # Prepare submission document
         submission_dict = {
             "user_id": submission.user_id,
             "user_email": submission.user_email,
@@ -937,18 +1034,20 @@ async def submit_enhanced_form(
             "country": submission.country,
             "policyAreas": filtered_policy_areas,
             "submission_status": "pending",
+            "total_policies": total_policies,
+            "total_areas": len(filtered_policy_areas),
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
-        
-        print("Prepared submission dict:", submission_dict)
         
         # Insert into temporary collection
         result = await temp_submissions_collection.insert_one(submission_dict)
         
         if result.inserted_id:
-            # Count total policies
-            total_policies = sum(len(area["policies"]) for area in filtered_policy_areas)
+            logger.info(
+                f"Enhanced submission successful: {total_policies} policies in "
+                f"{len(filtered_policy_areas)} areas from {submission.user_email}"
+            )
             
             return {
                 "success": True, 
@@ -958,112 +1057,21 @@ async def submit_enhanced_form(
                 "policy_areas_count": len(filtered_policy_areas)
             }
         else:
-            raise HTTPException(status_code=500, detail="Failed to insert data into database")
+            raise HTTPException(status_code=500, detail="Failed to save submission")
     
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Submission error: {str(e)}")
-        print(f"Error type: {type(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Enhanced submission error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Submission failed: {str(e)}")
-      
-# Get Countries Endpoint
-@app.get("/api/countries")
-async def get_countries():
-    """Get list of all available countries"""
-    return {"countries": COUNTRIES, "total": len(COUNTRIES)}
 
-# Get Policy Areas Endpoint
-@app.get("/api/policy-areas")
-async def get_policy_areas():
-    """Get list of all policy areas"""
-    return {"policy_areas": POLICY_AREAS, "total": len(POLICY_AREAS)}
-
-# Enhanced Admin Endpoints
-@app.get("/api/admin/submissions")
-async def get_enhanced_submissions(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    status: Optional[str] = Query(None),
-    area_id: Optional[str] = Query(None),
-    admin_user: dict = Depends(get_admin_user)
-):
-    try:
-        skip = (page - 1) * limit
-
-        # Build filter
-        filter_dict = {}
-        if status:
-            filter_dict["submission_status"] = status
-        if area_id:
-            filter_dict["policyAreas.area_id"] = area_id
-
-        # Enhanced aggregation pipeline with user info and submitter fallback
-        pipeline = [
-            {"$match": filter_dict},
-            {"$lookup": {
-                "from": "users",
-                "let": {"user_id": {"$toObjectId": "$user_id"}},
-                "pipeline": [{"$match": {"$expr": {"$eq": ["$_id", "$$user_id"]}}}],
-                "as": "user_info"
-            }},
-            {"$addFields": {
-                "submitter_name": {
-                    "$cond": {
-                        "if": {"$eq": [{"$size": "$user_info"}, 0]},
-                        "then": "Admin Pushed",
-                        "else": {
-                            "$concat": [
-                                {"$arrayElemAt": ["$user_info.firstName", 0]},
-                                " ",
-                                {"$arrayElemAt": ["$user_info.lastName", 0]}
-                            ]
-                        }
-                    }
-                },
-                "submitter_email": {
-                    "$cond": {
-                        "if": {"$eq": [{"$size": "$user_info"}, 0]},
-                        "then": SUPER_ADMIN_EMAIL,
-                        "else": {"$arrayElemAt": ["$user_info.email", 0]}
-                    }
-                }
-            }},
-            {"$sort": {"created_at": -1}},
-            {"$skip": skip},
-            {"$limit": limit}
-        ]
-
-        cursor = temp_submissions_collection.aggregate(pipeline)
-        submissions = []
-
-        async for doc in cursor:
-            doc = convert_objectid(doc)
-            # Remove user_info field to keep response clean
-            doc.pop("user_info", None)
-            submissions.append(doc)
-
-        # Get total count
-        total_count = await temp_submissions_collection.count_documents(filter_dict)
-
-        return {
-            "submissions": submissions,
-            "total_count": total_count,
-            "page": page,
-            "limit": limit,
-            "total_pages": (total_count + limit - 1) // limit
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching submissions: {str(e)}")
-
+# Enhanced admin endpoints with better policy scoring
 @app.put("/api/admin/update-enhanced-policy-status")
 async def update_enhanced_policy_status(
     status_update: PolicyStatusUpdate,
     admin_user: dict = Depends(get_admin_user)
 ):
+    """Enhanced policy status update with automatic master DB movement"""
     try:
         submission_id = status_update.submission_id
         area_id = status_update.area_id
@@ -1088,6 +1096,8 @@ async def update_enhanced_policy_status(
                 # Update policy status
                 policy_areas[i]["policies"][policy_index]["status"] = new_status
                 policy_areas[i]["policies"][policy_index]["admin_notes"] = admin_notes
+                policy_areas[i]["policies"][policy_index]["reviewed_at"] = datetime.utcnow()
+                policy_areas[i]["policies"][policy_index]["reviewed_by"] = admin_user["email"]
                 area_found = True
                 break
         
@@ -1109,63 +1119,155 @@ async def update_enhanced_policy_status(
             "submission_id": submission_id,
             "area_id": area_id,
             "policy_index": policy_index,
-            "admin_id": admin_user["id"],
+            "admin_id": str(admin_user["_id"]),
             "admin_email": admin_user["email"],
             "admin_notes": admin_notes,
             "timestamp": datetime.utcnow()
         }
         await admin_actions_collection.insert_one(admin_log)
         
+        # If approved, move to master DB immediately
+        if new_status == 'approved':
+            await move_policy_to_master_internal(submission, area_id, policy_index, admin_user)
+        
         # Update overall submission status
         await update_submission_status(submission_id)
         
+        logger.info(f"Policy status updated to {new_status} by {admin_user['email']}")
         return {"success": True, "message": f"Policy status updated to {new_status}"}
     
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Policy status update error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Status update failed: {str(e)}")
 
-@app.get("/api/admin/statistics")
-async def get_enhanced_statistics(admin_user: dict = Depends(get_admin_user)):
+async def move_policy_to_master_internal(submission: dict, area_id: str, policy_index: int, admin_user: dict):
+    """Internal function to move approved policy to master database"""
     try:
-        # Basic submission statistics
-        stats = {
-            "pending_submissions": await temp_submissions_collection.count_documents({"submission_status": "pending"}),
-            "partially_approved": await temp_submissions_collection.count_documents({"submission_status": "partially_approved"}),
-            "fully_approved": await temp_submissions_collection.count_documents({"submission_status": "fully_approved"}),
-            "total_users": await users_collection.count_documents({}),
-            "verified_users": await users_collection.count_documents({"is_verified": True}),
-            "total_approved_policies": await master_policies_collection.count_documents({"master_status": {"$ne": "deleted"}}),
-            "total_temp_submissions": await temp_submissions_collection.count_documents({})
+        # Get the policy
+        policy = None
+        for area in submission.get("policyAreas", []):
+            if area["area_id"] == area_id:
+                if policy_index < len(area["policies"]):
+                    policy = area["policies"][policy_index]
+                    break
+        
+        if not policy:
+            return
+        
+        # Check if already moved to master
+        existing_master = await master_policies_collection.find_one({
+            "original_submission_id": str(submission["_id"]),
+            "policyArea": area_id,
+            "policy_index": policy_index,
+            "master_status": "active"
+        })
+        
+        if existing_master:
+            return  # Already in master DB
+        
+        # Get area info for enhanced data
+        area_info = next((area for area in POLICY_AREAS if area["id"] == area_id), None)
+        
+        # Prepare policy for master DB with enhanced metadata
+        master_policy = {
+            **policy,
+            "country": submission["country"],
+            "policyArea": area_id,
+            "area_name": area_info["name"] if area_info else area_id,
+            "area_icon": area_info["icon"] if area_info else "📄",
+            "area_color": area_info["color"] if area_info else "from-gray-500 to-gray-600",
+            "user_id": submission["user_id"],
+            "user_email": submission.get("user_email", ""),
+            "user_name": submission.get("user_name", ""),
+            "original_submission_id": str(submission["_id"]),
+            "policy_index": policy_index,
+            "moved_to_master_at": datetime.utcnow(),
+            "approved_by": str(admin_user["_id"]),
+            "approved_by_email": admin_user["email"],
+            "master_status": "active",
+            "visibility": "public",  # For map display
+            "policy_score": calculate_policy_score(policy),  # Enhanced scoring
+            "completeness_score": calculate_completeness_score(policy)
         }
         
-        # Policy area distribution
-        policy_area_distribution = {}
-        for area in POLICY_AREAS:
-            count = await temp_submissions_collection.count_documents({
-                "policyAreas.area_id": area["id"]
-            })
-            policy_area_distribution[area["id"]] = count
+        # Insert into master collection
+        result = await master_policies_collection.insert_one(master_policy)
         
-        stats["policy_area_distribution"] = policy_area_distribution
-        
-        # Recent admin actions
-        cursor = admin_actions_collection.find().sort("timestamp", -1).limit(10)
-        recent_actions = []
-        async for action in cursor:
-            action = convert_objectid(action)
-            recent_actions.append(action)
-        
-        stats["recent_actions"] = recent_actions
-        
-        return stats
+        if result.inserted_id:
+            logger.info(f"Policy moved to master DB: {policy.get('policyName', 'Unnamed')} from {submission['country']}")
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
+        logger.error(f"Error moving policy to master: {str(e)}")
+
+def calculate_policy_score(policy: dict) -> int:
+    """Calculate policy completeness score (0-100)"""
+    score = 0
+    
+    # Basic info (30 points)
+    if policy.get("policyName"):
+        score += 10
+    if policy.get("policyId"):
+        score += 5
+    if policy.get("policyDescription"):
+        score += 15
+    
+    # Implementation details (25 points)
+    impl = policy.get("implementation", {})
+    if impl.get("yearlyBudget"):
+        score += 10
+    if impl.get("deploymentYear"):
+        score += 5
+    if impl.get("budgetCurrency"):
+        score += 5
+    if impl.get("privateSecFunding") is not None:
+        score += 5
+    
+    # Evaluation (20 points)
+    eval_data = policy.get("evaluation", {})
+    if eval_data.get("isEvaluated"):
+        score += 10
+        if eval_data.get("evaluationType"):
+            score += 5
+        if eval_data.get("riskAssessment"):
+            score += 5
+    
+    # Participation (15 points)
+    part = policy.get("participation", {})
+    if part.get("hasConsultation"):
+        score += 10
+        if part.get("consultationStartDate"):
+            score += 3
+        if part.get("commentsPublic"):
+            score += 2
+    
+    # Alignment (10 points)
+    align = policy.get("alignment", {})
+    if align.get("aiPrinciples"):
+        score += 5
+    if align.get("humanRightsAlignment"):
+        score += 3
+    if align.get("internationalCooperation"):
+        score += 2
+    
+    return min(score, 100)
+
+def calculate_completeness_score(policy: dict) -> str:
+    """Calculate policy completeness level"""
+    score = calculate_policy_score(policy)
+    
+    if score >= 80:
+        return "excellent"
+    elif score >= 60:
+        return "good"
+    elif score >= 40:
+        return "fair"
+    else:
+        return "basic"
 
 async def update_submission_status(submission_id: str):
-    """Update the overall status of a submission based on policy statuses"""
+    """Enhanced submission status update"""
     try:
         submission = await temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
         if not submission:
@@ -1184,140 +1286,79 @@ async def update_submission_status(submission_id: str):
             else:
                 policy_statuses = [p.get("status", "pending") for p in all_policies]
                 
-                if all(status == "approved" for status in policy_statuses):
+                approved_count = sum(1 for status in policy_statuses if status == "approved")
+                total_count = len(policy_statuses)
+                
+                if approved_count == total_count:
                     new_status = "fully_approved"
-                elif all(status in ["approved", "rejected"] for status in policy_statuses):
-                    new_status = "fully_processed"
-                elif any(status == "approved" for status in policy_statuses):
+                elif approved_count > 0:
                     new_status = "partially_approved"
+                elif all(status in ["rejected", "needs_revision"] for status in policy_statuses):
+                    new_status = "processed"
                 else:
-                    new_status = "pending"
+                    new_status = "under_review"
         
         await temp_submissions_collection.update_one(
             {"_id": ObjectId(submission_id)},
-            {"$set": {"submission_status": new_status, "updated_at": datetime.utcnow()}}
+            {"$set": {
+                "submission_status": new_status, 
+                "updated_at": datetime.utcnow()
+            }}
         )
     except Exception as e:
-        print(f"Error updating submission status: {e}")
+        logger.error(f"Error updating submission status: {e}")
 
-# File Download Endpoint
-@app.get("/api/file/{file_id}")
-async def download_file(file_id: str):
-    try:
-        file_doc = await get_file_from_db(file_id)
-        
-        content_type = file_doc.get("content_type") or mimetypes.guess_type(file_doc["filename"])[0] or "application/octet-stream"
-        file_data = file_doc["file_data"]
-        
-        def iterfile():
-            yield file_data
-        
-        return StreamingResponse(
-            iterfile(),
-            media_type=content_type,
-            headers={"Content-Disposition": f"attachment; filename={file_doc['filename']}"}
-        )
-    
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=f"File not found: {str(e)}")
-
-# User Profile Endpoint
-@app.get("/api/user/profile")
-async def get_user_profile(current_user: dict = Depends(get_current_user)):
-    try:
-        user_data = await users_collection.find_one({"_id": ObjectId(current_user["id"])})
-        if not user_data:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_data = convert_objectid(user_data)
-        user_data.pop("password", None)  # Remove password from response
-        
-        return {"success": True, "user": user_data}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching profile: {str(e)}")
-
-# Health Check
-@app.get("/api/health")
-async def health_check():
-    try:
-        await db.command("ping")
-        return {
-            "status": "healthy", 
-            "database": "connected", 
-            "timestamp": datetime.utcnow(),
-            "version": "3.0.0"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
-
-# Root endpoint
-@app.get("/")
-async def root():
-    return {
-        "message": "Enhanced AI Policy Database API is running", 
-        "version": "3.0.0",
-        "features": [
-            "Complete Authentication System with Email Verification",
-            "Google OAuth Integration",
-            "Enhanced Policy Area Structure",
-            "Backward Compatible Database Migration", 
-            "Advanced File Upload System",
-            "Comprehensive Admin Dashboard",
-            "User Management with Roles"
-        ]
-    }
-
-# Add these endpoints to your FastAPI app (main.py)
-
+# Enhanced master policies endpoint for map
 @app.get("/api/admin/master-policies")
 async def get_master_policies(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
-    country: Optional[str] = Query(None),
-    policy_area: Optional[str] = Query(None),
+    status: str = Query("active", enum=["active", "archived"]),
+    country: str = None,
+    area: str = None,
+    search: str = None,
+    sort: str = Query("policyName", regex="^(policyName|country|createdAt|updatedAt)$"),
+    order: str = Query("asc", regex="^(asc|desc)$"),
+    include_stats: bool = False
 ):
-    """Get approved policies from master database with filtering"""
+    """Enhanced master policies retrieval with pagination, filtering, and sorting"""
     try:
-        skip = (page - 1) * limit
-
-        # Build filter
-        filter_dict = {"master_status": {"$ne": "deleted"}}
+        filter_dict = {"master_status": status}
+        
         if country:
-            filter_dict["country"] = {"$regex": country, "$options": "i"}
-        if policy_area:
-            filter_dict["policyArea"] = policy_area
-
-        # Get policies with user data
+            filter_dict["country"] = country
+        if area:
+            filter_dict["policyArea"] = area
+        if search:
+            filter_dict["$or"] = [
+                {"policyName": {"$regex": search, "$options": "i"}},
+                {"policyDescription": {"$regex": search, "$options": "i"}},
+                {"targetGroups": {"$regex": search, "$options": "i"}}
+            ]
+        
+        # Sorting
+        sort_direction = 1 if order == "asc" else -1
+        sort_dict = {sort: sort_direction}
+        
+        # Pagination
+        skip_count = (page - 1) * limit
+        
+        # Aggregation pipeline for enhanced retrieval
         pipeline = [
             {"$match": filter_dict},
-            {"$lookup": {
-                "from": "users",
-                "let": {"user_id": {"$toObjectId": "$user_id"}},
-                "pipeline": [{"$match": {"$expr": {"$eq": ["$_id", "$$user_id"]}}}],
-                "as": "user_data"
-            }},
-            {"$sort": {"moved_to_master_at": -1}},
-            {"$skip": skip},
+            {"$sort": sort_dict},
+            {"$skip": skip_count},
             {"$limit": limit}
         ]
-
-        cursor = master_policies_collection.aggregate(pipeline)
+        
         policies = []
-
-        async for doc in cursor:
-            doc = convert_objectid(doc)
-            # Add user data to policy
-            if doc.get("user_data") and len(doc["user_data"]) > 0:
-                user = doc["user_data"][0]
-                doc["user_name"] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
-                doc["user_email"] = user.get("email", "")
-            doc.pop("user_data", None)  # Remove the lookup data
+        async for doc in master_policies_collection.aggregate(pipeline):
             policies.append(doc)
 
         # Get total count
         total_count = await master_policies_collection.count_documents(filter_dict)
 
-        return {
+        result = {
             "policies": policies,
             "total_count": total_count,
             "page": page,
@@ -1325,331 +1366,580 @@ async def get_master_policies(
             "total_pages": (total_count + limit - 1) // limit
         }
 
+        # Add statistics if requested
+        if include_stats:
+            result["statistics"] = await get_master_policy_statistics()
+
+        return result
+
     except Exception as e:
+        logger.error(f"Error fetching master policies: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching master policies: {str(e)}")
 
-@app.delete("/api/admin/master-policy/{policy_id}")
-async def delete_master_policy(
-    policy_id: str,
-    admin_user: dict = Depends(get_admin_user)
-):
-    """Soft delete a policy from master database"""
+async def get_master_policy_statistics():
+    """Get statistics for master policies"""
     try:
-        result = await master_policies_collection.update_one(
-            {"_id": ObjectId(policy_id)},
-            {"$set": {
-                "master_status": "deleted",
-                "deleted_at": datetime.utcnow(),
-                "deleted_by": admin_user["id"]
-            }}
-        )
+        # Country distribution
+        country_pipeline = [
+            {"$match": {"master_status": "active"}},
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
         
-        if result.modified_count == 1:
-            # Log admin action
-            admin_log = {
-                "action": "master_policy_deleted",
-                "master_policy_id": policy_id,
-                "admin_id": admin_user["id"],
-                "admin_email": admin_user["email"],
-                "timestamp": datetime.utcnow()
-            }
-            await admin_actions_collection.insert_one(admin_log)
-            
-            return {"success": True, "message": "Policy deleted successfully"}
-        else:
-            raise HTTPException(status_code=404, detail="Policy not found")
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting policy: {str(e)}")
-
-@app.get("/api/admin/users")
-async def get_users(
-    page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
-    search: Optional[str] = Query(None),
-    admin_user: dict = Depends(get_admin_user)
-):
-    """Get all users (admin only)"""
-    try:
-        skip = (page - 1) * limit
+        country_stats = {}
+        async for doc in master_policies_collection.aggregate(country_pipeline):
+            country_stats[doc["_id"]] = doc["count"]
         
-        # Build filter
-        filter_dict = {}
-        if search:
-            filter_dict["$or"] = [
-                {"email": {"$regex": search, "$options": "i"}},
-                {"firstName": {"$regex": search, "$options": "i"}},
-                {"lastName": {"$regex": search, "$options": "i"}},
-                {"country": {"$regex": search, "$options": "i"}}
-            ]
+        # Policy area distribution
+        area_pipeline = [
+            {"$match": {"master_status": "active"}},
+            {"$group": {"_id": "$policyArea", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}
+        ]
         
-        # Get users
-        cursor = users_collection.find(filter_dict).sort("created_at", -1).skip(skip).limit(limit)
-        
-        users = []
-        async for doc in cursor:
-            doc = convert_objectid(doc)
-            doc.pop("password", None)  # Never return passwords
-            users.append(doc)
-        
-        # Get total count
-        total_count = await users_collection.count_documents(filter_dict)
+        area_stats = {}
+        async for doc in master_policies_collection.aggregate(area_pipeline):
+            area_stats[doc["_id"]] = doc["count"]
         
         return {
-            "users": users,
-            "total_count": total_count,
-            "page": page,
-            "limit": limit,
-            "total_pages": (total_count + limit - 1) // limit
+            "total_countries": len(country_stats),
+            "total_policies": sum(country_stats.values()),
+            "country_distribution": country_stats,
+            "area_distribution": area_stats
         }
-    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+        logger.error(f"Error getting master policy statistics: {str(e)}")
+        return {}
 
-@app.put("/api/admin/users/{user_id}/toggle-admin")
-async def toggle_admin_status(
-    user_id: str,
-    admin_user: dict = Depends(get_admin_user)
-):
-    """Toggle admin status for a user (super admin only)"""
+# Enhanced utility endpoints
+@app.get("/api/countries")
+async def get_countries():
+    """Get list of all available countries"""
+    return {"countries": COUNTRIES, "total": len(COUNTRIES)}
+
+@app.get("/api/policy-areas")
+async def get_policy_areas():
+    """Get list of all policy areas with enhanced metadata"""
+    return {"policy_areas": POLICY_AREAS, "total": len(POLICY_AREAS)}
+
+@app.get("/api/health")
+async def health_check():
+    """Enhanced health check"""
     try:
-        # Only super admin can perform this action
-        if not admin_user.get("is_super_admin", False):
-            raise HTTPException(status_code=403, detail="Super admin access required")
+        # Test database connection
+        await db.command("ping")
         
-        # Cannot modify self
-        if user_id == admin_user["id"]:
-            raise HTTPException(status_code=400, detail="Cannot modify your own admin status")
+        # Get basic stats
+        user_count = await users_collection.count_documents({})
+        submission_count = await temp_submissions_collection.count_documents({})
+        master_count = await master_policies_collection.count_documents({"master_status": "active"})
         
-        # Get user
-        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        return {
+            "status": "healthy", 
+            "database": "connected", 
+            "timestamp": datetime.utcnow(),
+            "version": "4.0.0",
+            "statistics": {
+                "total_users": user_count,
+                "total_submissions": submission_count,
+                "active_policies": master_count
+            }
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Database connection failed: {str(e)}")
+
+@app.get("/")
+async def root():
+    """Enhanced root endpoint"""
+    return {
+        "message": "Enhanced AI Policy Database API is running", 
+        "version": "4.0.0",
+        "status": "operational",
+        "features": [
+            "🔐 Complete Authentication System with Email Verification",
+            "🚀 Enhanced Google OAuth Integration", 
+            "📝 Multi-Policy Area Submission System",
+            "🗺️ Real-time Map Visualization",
+            "👨‍💼 Advanced Admin Dashboard",
+            "📊 Policy Scoring and Analytics",
+            "📧 Improved Email System with Templates",
+            "🔄 Automatic Policy-to-Master Migration",
+            "🌍 Enhanced Country and Area Support",
+            "⚡ Performance Optimizations"
+        ],
+        "endpoints": {
+            "authentication": "/api/auth/*",
+            "submissions": "/api/submit-enhanced-form",
+            "admin": "/api/admin/*",
+            "policies": "/api/admin/master-policies",
+            "health": "/api/health"
+        }
+    }
+
+@app.post("/api/auth/admin-login")
+async def admin_login(login_data: UserLogin):
+    """Admin login endpoint with enhanced security"""
+    try:
+        # Find user
+        user = await users_collection.find_one({"email": login_data.email})
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
         
-        # Toggle admin status
-        new_status = not user.get("is_admin", False)
+        # Check if user is admin
+        if not user.get("is_admin", False):
+            raise HTTPException(status_code=403, detail="Access denied. Admin privileges required.")
         
+        # Verify password
+        if not verify_password(login_data.password, user["password"]):
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
+        
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user["email"]}, expires_delta=access_token_expires
+        )
+        
+        # Update last login
         await users_collection.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {
-                "is_admin": new_status,
-                "updated_at": datetime.utcnow()
-            }}
+            {"_id": user["_id"]},
+            {"$set": {"last_login": datetime.utcnow()}}
         )
         
         # Log admin action
         admin_log = {
-            "action": "admin_status_toggled",
-            "target_user_id": user_id,
-            "target_user_email": user["email"],
-            "new_status": new_status,
-            "admin_id": admin_user["id"],
-            "admin_email": admin_user["email"],
-            "timestamp": datetime.utcnow()
+            "action": "admin_login",
+            "admin_id": str(user["_id"]),
+            "admin_email": user["email"],
+            "timestamp": datetime.utcnow(),
+            "ip_address": "unknown"  # You can get this from request headers if needed
         }
         await admin_actions_collection.insert_one(admin_log)
         
+        logger.info(f"Admin logged in successfully: {login_data.email}")
+        
         return {
             "success": True,
-            "message": f"Admin status {'enabled' if new_status else 'disabled'}",
-            "is_admin": new_status
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": str(user["_id"]),
+                "firstName": user["firstName"],
+                "lastName": user["lastName"],
+                "email": user["email"],
+                "country": user["country"],
+                "is_admin": user.get("is_admin", False),
+                "is_super_admin": user.get("is_super_admin", False),
+                "is_verified": user.get("is_verified", False)
+            }
         }
     
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating admin status: {str(e)}")
+        logger.error(f"Admin login error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Admin login failed: {str(e)}")
 
-@app.get("/api/admin/submission/{submission_id}")
-async def get_submission_details(
-    submission_id: str,
+@app.get("/api/admin/submissions")
+async def get_admin_submissions(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    status: str = Query("all"),
     admin_user: dict = Depends(get_admin_user)
 ):
-    """Get detailed view of a specific submission"""
+    """Get all submissions for admin review with pagination"""
     try:
-        # Get submission with user data
-        pipeline = [
-            {"$match": {"_id": ObjectId(submission_id)}},
-            {"$lookup": {
-                "from": "users",
-                "let": {"user_id": {"$toObjectId": "$user_id"}},
-                "pipeline": [{"$match": {"$expr": {"$eq": ["$_id", "$$user_id"]}}}],
-                "as": "user_data"
-            }}
-        ]
+        # Build filter
+        filter_dict = {}
+        if status != "all":
+            filter_dict["submission_status"] = status
         
-        cursor = temp_submissions_collection.aggregate(pipeline)
-        submission = await cursor.next()
+        # Calculate pagination
+        skip_count = (page - 1) * limit
         
-        if not submission:
-            raise HTTPException(status_code=404, detail="Submission not found")
+        # Get submissions with pagination
+        submissions_cursor = temp_submissions_collection.find(filter_dict).sort("created_at", -1).skip(skip_count).limit(limit)
+        submissions = []
         
-        submission = convert_objectid(submission)
+        async for submission in submissions_cursor:
+            submission = convert_objectid(submission)
+            submissions.append(submission)
         
-        # Add user data to submission
-        if submission.get("user_data") and len(submission["user_data"]) > 0:
-            user = submission["user_data"][0]
-            submission["user_name"] = f"{user.get('firstName', '')} {user.get('lastName', '')}".strip()
-            submission["user_email"] = user.get("email", "")
-            submission["user_country"] = user.get("country", "")
-        submission.pop("user_data", None)  # Remove the lookup data
+        # Get total count for pagination
+        total_count = await temp_submissions_collection.count_documents(filter_dict)
+        total_pages = (total_count + limit - 1) // limit
         
-        return submission
+        logger.info(f"Admin fetched {len(submissions)} submissions (page {page}/{total_pages})")
+        
+        return {
+            "submissions": submissions,
+            "total_count": total_count,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+            "success": True
+        }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching submission: {str(e)}")
+        logger.error(f"Error fetching admin submissions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching submissions: {str(e)}")
+
+@app.get("/api/admin/statistics")
+async def get_admin_statistics(admin_user: dict = Depends(get_admin_user)):
+    """Get comprehensive admin statistics"""
+    try:
+        # Count submissions by status
+        pending_submissions = await temp_submissions_collection.count_documents({"submission_status": "pending"})
+        partially_approved = await temp_submissions_collection.count_documents({"submission_status": "partially_approved"})
+        fully_approved = await temp_submissions_collection.count_documents({"submission_status": "fully_approved"})
+        under_review = await temp_submissions_collection.count_documents({"submission_status": "under_review"})
+        
+        # Count total users
+        total_users = await users_collection.count_documents({})
+        verified_users = await users_collection.count_documents({"is_verified": True})
+        
+        # Count master policies
+        total_approved_policies = await master_policies_collection.count_documents({"master_status": "active"})
+        
+        # Count total submissions
+        total_submissions = await temp_submissions_collection.count_documents({})
+        
+        # Country distribution
+        country_pipeline = [
+            {"$group": {"_id": "$country", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]
+        
+        country_stats = {}
+        async for doc in temp_submissions_collection.aggregate(country_pipeline):
+            country_stats[doc["_id"]] = doc["count"]
+        
+        # Recent activity (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_submissions = await temp_submissions_collection.count_documents({
+            "created_at": {"$gte": seven_days_ago}
+        })
+        
+        statistics = {
+            "pending_submissions": pending_submissions,
+            "partially_approved": partially_approved,
+            "fully_approved": fully_approved,
+            "under_review": under_review,
+            "total_users": total_users,
+            "verified_users": verified_users,
+            "total_approved_policies": total_approved_policies,
+            "total_submissions": total_submissions,
+            "recent_submissions": recent_submissions,
+            "country_distribution": country_stats,
+            "success": True
+        }
+        
+        logger.info(f"Admin statistics fetched: {total_submissions} total submissions, {total_approved_policies} approved policies")
+        
+        return statistics
+    
+    except Exception as e:
+        logger.error(f"Error fetching admin statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
 
 @app.post("/api/admin/move-to-master")
-async def move_policy_to_master(
-    move_request: dict,
+async def move_to_master(
+    request: dict,
     admin_user: dict = Depends(get_admin_user)
 ):
     """Move approved policy to master database"""
     try:
-        submission_id = move_request.get("submission_id")
-        area_id = move_request.get("area_id")
-        policy_index = move_request.get("policy_index")
+        submission_id = request.get("submission_id")
+        area_id = request.get("area_id")
+        policy_index = request.get("policy_index")
         
         if not all([submission_id, area_id, policy_index is not None]):
-            raise HTTPException(status_code=400, detail="Missing required fields")
+            raise HTTPException(status_code=400, detail="Missing required parameters")
         
         # Find the submission
         submission = await temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
         if not submission:
             raise HTTPException(status_code=404, detail="Submission not found")
         
-        # Get the policy
-        policy = None
-        for area in submission.get("policyAreas", []):
-            if area["area_id"] == area_id:
-                if policy_index < len(area["policies"]):
-                    policy = area["policies"][policy_index]
-                    break
+        # Call the internal function we already have
+        await move_policy_to_master_internal(submission, area_id, policy_index, admin_user)
         
-        if not policy:
-            raise HTTPException(status_code=404, detail="Policy not found")
-        
-        # Only move if approved
-        if policy.get("status") != "approved":
-            raise HTTPException(status_code=400, detail="Only approved policies can be moved to master database")
-        
-        # Prepare policy for master DB
-        master_policy = {
-            **policy,
-            "country": submission["country"],
-            "user_id": submission["user_id"],
-            "user_email": submission.get("user_email", ""),
-            "user_name": submission.get("user_name", ""),
-            "original_submission_id": submission_id,
-            "moved_to_master_at": datetime.utcnow(),
-            "approved_by": admin_user["id"],
-            "approved_by_email": admin_user["email"],
-            "master_status": "active"
-        }
-        
-        # Insert into master collection
-        result = await master_policies_collection.insert_one(master_policy)
-        
-        if result.inserted_id:
-            # Log the action
-            admin_log = {
-                "action": "moved_to_master",
-                "submission_id": submission_id,
-                "area_id": area_id,
-                "policy_index": policy_index,
-                "master_policy_id": str(result.inserted_id),
-                "admin_id": admin_user["id"],
-                "admin_email": admin_user["email"],
-                "timestamp": datetime.utcnow()
-            }
-            await admin_actions_collection.insert_one(admin_log)
-            
-            return {
-                "success": True,
-                "message": "Policy moved to master database",
-                "master_id": str(result.inserted_id)
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to move policy to master database")
+        return {"success": True, "message": "Policy moved to master database successfully"}
     
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Move to master failed: {str(e)}")
+        logger.error(f"Error moving policy to master: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error moving policy: {str(e)}")
 
-@app.post("/api/auth/admin-login")
-async def admin_login(login_data: UserLogin):
+@app.delete("/api/admin/delete-policy")
+async def delete_policy(
+    request: dict,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Delete a policy from a submission"""
     try:
-        # Check against hardcoded admin credentials
-        if (login_data.email == SUPER_ADMIN_EMAIL and 
-            verify_password(login_data.password, hash_password(SUPER_ADMIN_PASSWORD))):
-            
-            # Create access token
-            access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token = create_access_token(
-                data={"sub": login_data.email}, expires_delta=access_token_expires
-            )
-            
-            return {
-                "success": True,
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user": {
-                    "email": SUPER_ADMIN_EMAIL,
-                    "firstName": "Super",
-                    "lastName": "Admin",
-                    "is_admin": True,
-                    "is_super_admin": True
-                }
-            }
-        else:
-            raise HTTPException(status_code=401, detail="Invalid admin credentials")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Admin login failed: {str(e)}")
-    
-
-# Add migration for legacy data without user info
-async def migrate_orphaned_policies():
-    """Set admin as submitter for policies without user data"""
-    try:
-        # Find policies without user_id or with missing user
-        orphaned_policies = await temp_submissions_collection.find({
-            "$or": [
-                {"user_id": {"$exists": False}},
-                {"user_id": ""},
-                {"user_name": {"$exists": False}},
-                {"user_name": ""}
-            ]
-        }).to_list(None)
+        submission_id = request.get("submission_id")
+        policy_area = request.get("policy_area")
+        policy_index = request.get("policy_index")
         
-        admin_user = await users_collection.find_one({"email": SUPER_ADMIN_EMAIL})
-        admin_id = str(admin_user["_id"])
+        if not all([submission_id, policy_area, policy_index is not None]):
+            raise HTTPException(status_code=400, detail="Missing required parameters")
         
-        for policy in orphaned_policies:
-            await temp_submissions_collection.update_one(
-                {"_id": policy["_id"]},
-                {"$set": {
-                    "user_id": admin_id,
-                    "user_email": SUPER_ADMIN_EMAIL,
-                    "user_name": "Admin Pushed",
-                    "is_admin_pushed": True
-                }}
-            )
-            
-        # Same for master policies
-        await master_policies_collection.update_many(
-            {"$or": [{"user_id": {"$exists": False}}, {"user_id": ""}]},
+        # Find the submission
+        submission = await temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Find and remove the policy
+        policy_areas = submission.get("policyAreas", [])
+        policy_found = False
+        
+        for i, area in enumerate(policy_areas):
+            if area.get("area_id") == policy_area:
+                if policy_index < len(area.get("policies", [])):
+                    # Remove the policy
+                    del policy_areas[i]["policies"][policy_index]
+                    policy_found = True
+                    
+                    # If no policies left in this area, remove the area
+                    if not policy_areas[i]["policies"]:
+                        del policy_areas[i]
+                    
+                    break
+        
+        if not policy_found:
+            raise HTTPException(status_code=404, detail="Policy not found")
+        
+        # Update the submission
+        await temp_submissions_collection.update_one(
+            {"_id": ObjectId(submission_id)},
             {"$set": {
-                "user_id": admin_id,
-                "user_email": SUPER_ADMIN_EMAIL,
-                "user_name": "Admin Pushed",
-                "is_admin_pushed": True
+                "policyAreas": policy_areas,
+                "updated_at": datetime.utcnow()
             }}
         )
-    except Exception as e:
-        print(f"Orphaned policy migration error: {e}")
-
         
+        # Log admin action
+        admin_log = {
+            "action": "delete_policy",
+            "submission_id": submission_id,
+            "policy_area": policy_area,
+            "policy_index": policy_index,
+            "admin_id": str(admin_user["_id"]),
+            "admin_email": admin_user["email"],
+            "timestamp": datetime.utcnow()
+        }
+        await admin_actions_collection.insert_one(admin_log)
+        
+        # Update overall submission status
+        await update_submission_status(submission_id)
+        
+        logger.info(f"Policy deleted by admin {admin_user['email']}")
+        return {"success": True, "message": "Policy deleted successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting policy: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting policy: {str(e)}")
+
+@app.put("/api/admin/edit-policy")
+async def edit_policy(
+    request: dict,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Edit a policy in a submission"""
+    try:
+        submission_id = request.get("submission_id")
+        policy_area = request.get("policy_area")
+        policy_index = request.get("policy_index")
+        updated_policy = request.get("updated_policy")
+        
+        if not all([submission_id, policy_area, policy_index is not None, updated_policy]):
+            raise HTTPException(status_code=400, detail="Missing required parameters")
+        
+        # Find the submission
+        submission = await temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
+        if not submission:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        
+        # Find and update the policy
+        policy_areas = submission.get("policyAreas", [])
+        policy_found = False
+        
+        for i, area in enumerate(policy_areas):
+            if area.get("area_id") == policy_area:
+                if policy_index < len(area.get("policies", [])):
+                    # Update the policy
+                    policy_areas[i]["policies"][policy_index] = {
+                        **policy_areas[i]["policies"][policy_index],
+                        **updated_policy,
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": admin_user["email"]
+                    }
+                    policy_found = True
+                    break
+        
+        if not policy_found:
+            raise HTTPException(status_code=404, detail="Policy not found")
+        
+        # Update the submission
+        await temp_submissions_collection.update_one(
+            {"_id": ObjectId(submission_id)},
+            {"$set": {
+                "policyAreas": policy_areas,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        # Log admin action
+        admin_log = {
+            "action": "edit_policy",
+            "submission_id": submission_id,
+            "policy_area": policy_area,
+            "policy_index": policy_index,
+            "admin_id": str(admin_user["_id"]),
+            "admin_email": admin_user["email"],
+            "timestamp": datetime.utcnow(),
+            "changes": updated_policy
+        }
+        await admin_actions_collection.insert_one(admin_log)
+        
+        logger.info(f"Policy edited by admin {admin_user['email']}")
+        return {"success": True, "message": "Policy updated successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editing policy: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error editing policy: {str(e)}")
+
+# Add this new public endpoint for the world map
+@app.get("/api/public/master-policies")
+async def get_public_master_policies(
+    limit: int = Query(1000, ge=1, le=1000),
+    country: str = None,
+    area: str = None
+):
+    """Public endpoint for master policies (for world map visualization)"""
+    try:
+        filter_dict = {"master_status": "active", "visibility": "public"}
+        
+        if country:
+            filter_dict["country"] = country
+        if area:
+            filter_dict["policyArea"] = area
+        
+        # Get policies with basic information only (for performance)
+        projection = {
+            "country": 1,
+            "policyArea": 1,
+            "area_name": 1,
+            "area_icon": 1,
+            "policyName": 1,
+            "policyDescription": 1,
+            "status": 1,
+            "master_status": 1,
+            "policy_score": 1,
+            "completeness_score": 1,
+            "moved_to_master_at": 1
+        }
+        
+        policies_cursor = master_policies_collection.find(
+            filter_dict, 
+            projection
+        ).limit(limit).sort("moved_to_master_at", -1)
+        
+        policies = []
+        async for doc in policies_cursor:
+            policies.append(convert_objectid(doc))
+        
+        # Get total count
+        total_count = await master_policies_collection.count_documents(filter_dict)
+        
+        # Get basic statistics for the map
+        country_stats = {}
+        area_stats = {}
+        
+        for policy in policies:
+            country = policy.get("country")
+            area = policy.get("policyArea")
             
+            if country:
+                if country not in country_stats:
+                    country_stats[country] = {"total_policies": 0, "areas": set()}
+                country_stats[country]["total_policies"] += 1
+                if area:
+                    country_stats[country]["areas"].add(area)
+            
+            if area:
+                area_stats[area] = area_stats.get(area, 0) + 1
+        
+        # Convert sets to counts for JSON serialization
+        for country in country_stats:
+            country_stats[country]["unique_areas"] = len(country_stats[country]["areas"])
+            del country_stats[country]["areas"]
+        
+        logger.info(f"Public master policies fetched: {len(policies)} policies from {len(country_stats)} countries")
+        
+        return {
+            "policies": policies,
+            "total_count": total_count,
+            "country_stats": country_stats,
+            "area_stats": area_stats,
+            "success": True
+        }
+    
+    except Exception as e:
+        logger.error(f"Error fetching public master policies: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching policies: {str(e)}")
+
+# Also add a specific endpoint for country policy details (public)
+@app.get("/api/public/country-policies/{country_name}")
+async def get_country_policies(country_name: str):
+    """Get all policies for a specific country (public endpoint)"""
+    try:
+        filter_dict = {
+            "master_status": "active",
+            "visibility": "public",
+            "country": country_name
+        }
+        
+        # Get full policy details for the selected country
+        policies_cursor = master_policies_collection.find(filter_dict).sort("moved_to_master_at", -1)
+        policies = []
+        
+        async for doc in policies_cursor:
+            policies.append(convert_objectid(doc))
+        
+        # Group by policy area
+        policies_by_area = {}
+        for policy in policies:
+            area_id = policy.get("policyArea", "unknown")
+            if area_id not in policies_by_area:
+                policies_by_area[area_id] = {
+                    "area_id": area_id,
+                    "area_name": policy.get("area_name", area_id),
+                    "area_icon": policy.get("area_icon", "📄"),
+                    "policies": []
+                }
+            policies_by_area[area_id]["policies"].append(policy)
+        
+        return {
+            "country": country_name,
+            "total_policies": len(policies),
+            "policy_areas": list(policies_by_area.values()),
+            "success": True
+        }
+    
+    except Exception as e:
+        logger.error(f"Error fetching country policies: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching country policies: {str(e)}")
+    
+# Add this at the end of main.py
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
