@@ -667,7 +667,7 @@ const PolicyChatAssistant = () => {
                       ? `Ask more about ${selectedPolicy.name} or search for other policies...`
                       : "Ask about AI policies by country, policy name, or area. Try 'United States', 'AI Safety', or 'help'..."
                   }
-                  className="w-full px-6 py-4 border border-gray-300/50 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white/80 backdrop-blur-sm placeholder-gray-500 shadow-sm"
+                  className="text-black w-full px-6 py-4 border border-gray-300/50 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white/80 backdrop-blur-sm placeholder-gray-500 shadow-sm"
                   rows="1"
                   style={{ minHeight: '56px', maxHeight: '120px' }}
                 />
