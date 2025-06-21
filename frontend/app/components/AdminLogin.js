@@ -4,8 +4,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 
 const AdminLogin = ({ setUser, setView }) => {
   const [formData, setFormData] = useState({
-    email: 'admin@gmail.com', // Pre-fill for convenience
-    password: ''
+    email: 'admin@gmail.com',
+    password: 'admin123'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

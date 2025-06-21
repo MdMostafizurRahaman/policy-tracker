@@ -56,46 +56,112 @@ export default function Worldmap() {
       })
   }, [])
 
-  // Fetch admin-approved master policies
+  // Fetch admin-approved master policies - UPDATED TO USE PUBLIC ENDPOINT
+
   useEffect(() => {
-    fetch(`${API_BASE_URL}/admin/master-policies?limit=100`)
+    const publicEndpoint = `${API_BASE_URL}/public/master-policies?limit=1000`;
+    
+    console.log('Fetching from:', publicEndpoint); // Debug log
+    
+    fetch(publicEndpoint)
       .then(async res => {
+        console.log('Response status:', res.status); // Debug log
         if (!res.ok) {
           const text = await res.text();
           console.error("Failed to fetch policies:", res.status, text);
+          console.log("Trying fallback endpoint...");
+          
+          // Fallback to admin endpoint (if user is admin)
+          const token = localStorage.getItem('access_token');
+          if (token) {
+            return fetch(`${API_BASE_URL}/admin/master-policies?limit=100`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }).then(async fallbackRes => {
+              if (!fallbackRes.ok) {
+                console.error("Fallback also failed");
+                return { policies: [] };
+              }
+              return fallbackRes.json();
+            });
+          }
+          
           return { policies: [] };
         }
         return res.json();
       })
-      .then(data => setMasterPolicies(data.policies || []))
+      .then(data => {
+        console.log("Raw API response:", data); // Debug log
+        console.log("Master policies loaded:", data.policies?.length || 0);
+        console.log("Sample policies:", data.policies?.slice(0, 3)); // Debug log
+        setMasterPolicies(data.policies || []);
+      })
       .catch(err => {
         console.error("Fetch error:", err);
+        console.log("Setting empty policies array due to error");
         setMasterPolicies([]);
       });
-  }, [])
+  }, [API_BASE_URL])
 
-  // Build country stats for coloring
+  // Build country stats for coloring - UPDATED LOGIC
   useEffect(() => {
-    if (!masterPolicies.length) return
-    // countryStats: { [country]: { approvedAreas: Set, color, count } }
+    console.log("Building country stats from policies:", masterPolicies.length); // Debug log
+    
+    if (!masterPolicies.length) {
+      console.log("No master policies available"); // Debug log
+      return;
+    }
+    
     const stats = {}
-    masterPolicies.forEach(policy => {
+    
+    // Group policies by country and policy area
+    masterPolicies.forEach((policy, index) => {
       const country = policy.country
       const area = policy.policyArea || policy.area_id
-      if (!country || !area) return
-      if (!stats[country]) stats[country] = { approvedAreas: new Set() }
-      // Only count fully approved/active policies
+      
+      console.log(`Policy ${index}:`, { country, area, status: policy.status, master_status: policy.master_status }); // Debug log
+      
+      if (!country || !area) {
+        console.warn(`Skipping policy ${index} - missing country or area`); // Debug log
+        return;
+      }
+      
+      if (!stats[country]) {
+        stats[country] = { 
+          approvedAreas: new Set(),
+          totalPolicies: 0
+        }
+      }
+      
+      // Only count approved/active policies
       if (policy.status === "approved" || policy.master_status === "active") {
         stats[country].approvedAreas.add(area)
+        stats[country].totalPolicies++
       }
     })
+    
+    // Calculate score and color for each country
     Object.keys(stats).forEach(country => {
-      const count = stats[country].approvedAreas.size
-      if (count >= 8) stats[country].color = "#22c55e" // green
-      else if (count >= 4) stats[country].color = "#FFE600" // yellow
-      else stats[country].color = "#ef4444" // red
-      stats[country].count = count
+      const approvedAreasCount = stats[country].approvedAreas.size
+      
+      // Score = number of policy areas with at least 1 approved policy (max 10)
+      stats[country].score = approvedAreasCount
+      stats[country].count = approvedAreasCount // For display
+      
+      // Color based on score (out of 10 policy areas)
+      if (approvedAreasCount >= 8) {
+        stats[country].color = "#22c55e" // Green (Excellent)
+      } else if (approvedAreasCount >= 4) {
+        stats[country].color = "#FFE600" // Yellow (Moderate) 
+      } else if (approvedAreasCount >= 1) {
+        stats[country].color = "#ef4444" // Red (Needs Improvement)
+      } else {
+        stats[country].color = "#F5DEB3" // Beige (No policies)
+      }
     })
+    
+    console.log("Final country stats:", stats); // Debug log
     setCountryStats(stats)
   }, [masterPolicies])
 
