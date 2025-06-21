@@ -615,7 +615,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter your email"
                 />
               </div>
@@ -625,7 +625,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="password"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter your password"
                 />
               </div>
@@ -722,7 +722,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                     type="text"
                     value={formData.firstName}
                     onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                     placeholder="First name"
                   />
                 </div>
@@ -732,7 +732,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                     placeholder="Last name"
                   />
                 </div>
@@ -744,7 +744,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter your email"
                 />
               </div>
@@ -759,7 +759,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                     setShowCountryDropdown(true);
                   }}
                   onFocus={() => setShowCountryDropdown(true)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="🌍 Type to search countries..."
                 />
                 {showCountryDropdown && filteredCountries.length > 0 && (
@@ -768,7 +768,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                       <button
                         key={country}
                         onClick={() => handleCountrySelect(country)}
-                        className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 font-medium"
+                        className="text-black not-last-of-type:w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-0 font-medium"
                       >
                         🏃‍♂️ {country}
                       </button>
@@ -791,7 +791,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="password"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Create a strong password"
                 />
                 <p className="text-xs text-gray-500 mt-2 flex items-center">
@@ -808,7 +808,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Confirm your password"
                 />
               </div>
@@ -895,7 +895,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter your email"
                 />
               </div>
@@ -1006,7 +1006,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="text"
                   value={formData.otp}
                   onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white font-mono text-center"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white font-mono text-center"
                   placeholder="Enter 6-digit code"
                   maxLength={6}
                 />
@@ -1018,7 +1018,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="password"
                   value={formData.newPassword}
                   onChange={(e) => handleInputChange('newPassword', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter new password"
                 />
               </div>
@@ -1029,7 +1029,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Confirm new password"
                 />
               </div>
