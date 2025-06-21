@@ -7,55 +7,66 @@ export default function CountryPolicyPopup({ country, onClose }) {
   const [selectedPolicy, setSelectedPolicy] = useState(null)
   const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
+  const [policyAreas, setPolicyAreas] = useState([])
 
   // Define policy types with their icons and colors
   const policyTypes = {
-    "AI Safety": {
-      icon: "🤖",
-      color: "bg-purple-500",
-      description: "Policies regarding artificial intelligence safety and regulation"
+    "ai-safety": {
+      name: "AI Safety",
+      icon: "🛡️",
+      color: "bg-red-500",
+      description: "Policies ensuring AI systems are safe and beneficial"
     },
-    "CyberSafety": {
+    "cyber-safety": {
+      name: "CyberSafety",
       icon: "🔒",
       color: "bg-blue-500",
       description: "Policies for cybersecurity and online protection"
     },
-    "Digital Education": {
+    "digital-education": {
+      name: "Digital Education",
       icon: "🎓",
       color: "bg-green-500",
       description: "Initiatives for education in digital skills and technologies"
     },
-    "Digital Inclusion": {
+    "digital-inclusion": {
+      name: "Digital Inclusion",
       icon: "🌐",
       color: "bg-teal-500",
       description: "Efforts to ensure universal access to digital resources"
     },
-    "Digital Leisure": {
+    "digital-leisure": {
+      name: "Digital Leisure",
       icon: "🎮",
       color: "bg-indigo-500",
       description: "Regulations concerning digital entertainment and leisure activities"
     },
-    "(Dis)Information": {
+    "disinformation": {
+      name: "(Dis)Information",
       icon: "📰",
       color: "bg-yellow-500",
       description: "Policies addressing misinformation and promoting accurate information"
     },
-    "Digital Work": {
+    "digital-work": {
+      name: "Digital Work",
       icon: "💼",
       color: "bg-red-500",
       description: "Regulations for digital work environments and remote work"
     },
-    "Mental Health": {
+    "mental-health": {
+      name: "Mental Health",
       icon: "🧠",
       color: "bg-pink-500",
       description: "Policies addressing digital impact on mental wellbeing"
     },
-    "Physical Health": {
+    "physical-health": {
+      name: "Physical Health",
       icon: "❤️",
       color: "bg-red-400",
       description: "Regulations focused on physical health aspects of digital use"
     },
-    "Social Media/Gaming Regulation": {
+    "social-media-gaming": {
+      name: "Social Media/Gaming Regulation",
       icon: "📱",
       color: "bg-orange-500",
       description: "Rules governing social media platforms and gaming content"
@@ -67,23 +78,54 @@ export default function CountryPolicyPopup({ country, onClose }) {
     const timer = setTimeout(() => setVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
 
   useEffect(() => {
     if (country && country.name) {
       setLoading(true)
-      fetch(`${API_BASE_URL}/admin/master-policies?country=${encodeURIComponent(country.name)}&limit=100`)
+      // Fetch from the public master policies endpoint
+      fetch(`${API_BASE_URL}/public/master-policies?country=${encodeURIComponent(country.name)}&limit=1000`)
         .then(res => res.json())
         .then(data => {
-          // Filter for approved/active policies only
-          const approvedPolicies = (data.policies || []).filter(
-            p => p.status === "approved" || p.master_status === "active"
-          )
-          setPolicies(approvedPolicies)
+          console.log("Country policies data:", data);
+          
+          if (data.success && data.policies) {
+            // Filter for active master policies only
+            const activePolicies = data.policies.filter(
+              p => p.master_status === "active"
+            )
+            
+            setPolicies(activePolicies)
+            
+            // Group policies by area
+            const areas = {}
+            activePolicies.forEach(policy => {
+              const areaId = policy.policyArea || policy.area_id
+              if (!areas[areaId]) {
+                areas[areaId] = {
+                  id: areaId,
+                  name: policy.area_name || policyTypes[areaId]?.name || areaId,
+                  icon: policy.area_icon || policyTypes[areaId]?.icon || "📄",
+                  color: policyTypes[areaId]?.color || "bg-gray-500",
+                  description: policyTypes[areaId]?.description || "",
+                  policies: []
+                }
+              }
+              areas[areaId].policies.push(policy)
+            })
+            
+            setPolicyAreas(Object.values(areas))
+          } else {
+            setPolicies([])
+            setPolicyAreas([])
+          }
           setLoading(false)
         })
         .catch(err => {
           console.error("Error fetching policy data:", err)
+          setPolicies([])
+          setPolicyAreas([])
           setLoading(false)
         })
     }
@@ -105,14 +147,11 @@ export default function CountryPolicyPopup({ country, onClose }) {
 
   // Get country flag
   const getFlagUrl = (countryName) => {
-    // This function would normally use a proper API or database
-    // For demo purposes, using a flag API service
     return `https://flagcdn.com/w160/${getCountryCode(countryName).toLowerCase()}.png`
   }
 
   // Helper function to get country code (simplified version)
   const getCountryCode = (countryName) => {
-    // This would be a more complete mapping in production
     const codes = {
       "United States": "us",
       "United Kingdom": "gb",
@@ -124,6 +163,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
       "China": "cn",
       "India": "in",
       "Brazil": "br",
+      "Bangladesh": "bd",
       // Add more countries as needed
     }
     return codes[countryName] || "un" // default to UN flag if not found
@@ -150,6 +190,9 @@ export default function CountryPolicyPopup({ country, onClose }) {
               src={getFlagUrl(country.name)}
               alt={`${country.name} flag`}
               className="h-8 mr-3 rounded shadow"
+              onError={(e) => {
+                e.target.src = "https://flagcdn.com/w160/un.png" // Fallback to UN flag
+              }}
             />
             <h2 className="text-2xl font-bold text-white">{country.name}</h2>
           </div>
@@ -173,55 +216,125 @@ export default function CountryPolicyPopup({ country, onClose }) {
             <>
               <div className="text-center mb-6">
                 <h3 className="text-xl text-white mb-2">
-                  Available Policies ({policies.length}/10)
+                  Policy Areas ({policyAreas.length}/10)
                 </h3>
                 <p className="text-blue-200 text-sm">
-                  {policies.length > 0 
-                    ? "Click on a policy to view details"
-                    : "No policies available for this country"}
+                  {policyAreas.length > 0 
+                    ? "Click on a policy area to view policies"
+                    : "No approved policies available for this country"}
                 </p>
               </div>
 
               {/* Policy Score Bar */}
               <div className="mb-6 bg-white/10 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-white font-semibold">Policy Completion</span>
-                  <span className="text-white">{policies.length}/10</span>
+                  <span className="text-white font-semibold">Policy Area Coverage</span>
+                  <span className="text-white">{policyAreas.length}/10</span>
                 </div>
                 <div className="w-full bg-gray-700 rounded-full h-3">
                   <div 
                     className={`h-3 rounded-full transition-all duration-500 ${
-                      policies.length >= 8 ? 'bg-green-500' : 
-                      policies.length >= 4 ? 'bg-yellow-500' : 
-                      policies.length >= 1 ? 'bg-red-500' : 'bg-gray-500'
+                      policyAreas.length >= 8 ? 'bg-green-500' : 
+                      policyAreas.length >= 4 ? 'bg-yellow-500' : 
+                      policyAreas.length >= 1 ? 'bg-red-500' : 'bg-gray-500'
                     }`}
-                    style={{ width: `${(policies.length / 10) * 100}%` }}
+                    style={{ width: `${(policyAreas.length / 10) * 100}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs text-blue-200 mt-1">
-                  <span>0-3: Emerging</span>
+                  <span>1-3: Emerging</span>
                   <span>4-7: Developing</span>
                   <span>8-10: Advanced</span>
                 </div>
               </div>
 
-              {/* Policies grid - animated entrance for each policy */}
+              {/* Policy Areas grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {policies.map((policy, index) => (
-                  <div
-                    key={policy.policyId || policy._id || index}  // Add unique key
-                    className="policy-card cursor-pointer"
-                    onClick={() => setSelectedPolicy(policy)}
-                  >
-                    <div className={`bg-white/10 hover:bg-white/20 rounded-lg p-4 h-full transition-all duration-300 transform hover:scale-105 hover:shadow-lg border border-white/20`}>
-                      <div className="policy-icon mb-2 flex justify-center">
-                        <div className={`w-12 h-12 rounded-full ${policyTypes[policy.type]?.color || "bg-gray-500"} flex items-center justify-center text-xl`}>
-                          {policyTypes[policy.type]?.icon || "📄"}
+                {Object.keys(policyTypes).map((areaId) => {
+                  const areaData = policyAreas.find(area => area.id === areaId)
+                  const hasPolicy = !!areaData
+                  const policyCount = areaData?.policies?.length || 0
+                  
+                  return (
+                    <div
+                      key={areaId}
+                      className={`policy-area-card cursor-pointer ${hasPolicy ? 'active' : 'inactive'}`}
+                      onClick={() => hasPolicy && setSelectedPolicy({ isAreaView: true, areaData })}
+                    >
+                      <div className={`${hasPolicy ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5'} rounded-lg p-4 h-full transition-all duration-300 transform ${hasPolicy ? 'hover:scale-105 hover:shadow-lg' : ''} border ${hasPolicy ? 'border-white/20' : 'border-white/10'}`}>
+                        <div className="policy-icon mb-2 flex justify-center">
+                          <div className={`w-12 h-12 rounded-full ${policyTypes[areaId]?.color || "bg-gray-500"} ${hasPolicy ? '' : 'opacity-50'} flex items-center justify-center text-xl`}>
+                            {policyTypes[areaId]?.icon || "📄"}
+                          </div>
+                        </div>
+                        <h4 className={`${hasPolicy ? 'text-white' : 'text-gray-400'} font-semibold text-center mb-2`}>
+                          {policyTypes[areaId]?.name || areaId}
+                        </h4>
+                        <div className="text-center">
+                          {hasPolicy ? (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-600 text-white">
+                              {policyCount} {policyCount === 1 ? 'Policy' : 'Policies'}
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2 py-1 rounded-full text-xs bg-gray-600 text-gray-300">
+                              No Policies
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <h4 className="text-white font-semibold text-center mb-2">{policy.name}</h4>
-                      <div className="text-center">
-                        <span className="inline-block px-2 py-1 rounded-full text-xs bg-green-600 text-white">
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : selectedPolicy.isAreaView ? (
+            // Area view showing policies in this area
+            <div className="area-policies-view animate-fadeIn">
+              <button 
+                onClick={closeSelectedPolicy}
+                className="mb-4 flex items-center text-blue-300 hover:text-white transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to policy areas
+              </button>
+              
+              <div className="mb-6">
+                <div className="flex items-center mb-4">
+                  <div className={`w-12 h-12 rounded-full ${selectedPolicy.areaData.color} flex items-center justify-center text-2xl mr-4`}>
+                    {selectedPolicy.areaData.icon}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-white font-bold">{selectedPolicy.areaData.name}</h3>
+                    <p className="text-blue-300">{selectedPolicy.areaData.policies.length} approved policies</p>
+                  </div>
+                </div>
+                <p className="text-blue-200 text-sm">{selectedPolicy.areaData.description}</p>
+              </div>
+
+              {/* Policies in this area */}
+              <div className="space-y-4">
+                {selectedPolicy.areaData.policies.map((policy, index) => (
+                  <div
+                    key={index}
+                    className="bg-white/10 rounded-lg p-4 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300"
+                    onClick={() => setSelectedPolicy(policy)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-white font-semibold text-lg mb-1">
+                          {policy.policyName || policy.name || 'Unnamed Policy'}
+                        </h4>
+                        <p className="text-blue-300 text-sm mb-2">
+                          ID: {policy.policyId || 'N/A'}
+                        </p>
+                        {policy.policyDescription && (
+                          <p className="text-blue-200 text-sm">{policy.policyDescription}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="inline-block px-3 py-1 rounded-full text-sm bg-green-600 text-white">
                           Active
                         </span>
                       </div>
@@ -229,29 +342,9 @@ export default function CountryPolicyPopup({ country, onClose }) {
                   </div>
                 ))}
               </div>
-
-              {/* Show missing policies */}
-              {policies.length < 10 && (
-                <div className="mt-8">
-                  <h4 className="text-white text-lg mb-4">Areas for Development</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.keys(policyTypes).filter(type => 
-                      !policies.some(p => p.type === type)
-                    ).map((missingType, index) => (
-                      <div key={missingType} className="bg-white/5 rounded-lg p-3 border border-white/10">
-                        <div className="flex items-center">
-                          <div className={`w-8 h-8 rounded-full ${policyTypes[missingType]?.color || "bg-gray-500"} flex items-center justify-center text-sm opacity-50 mr-3`}>
-                            {policyTypes[missingType]?.icon || "📄"}
-                          </div>
-                          <span className="text-blue-300 text-sm">{missingType}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+            </div>
           ) : (
+            // Individual policy view
             <div className="policy-detail-view animate-fadeIn">
               <button 
                 onClick={closeSelectedPolicy}
@@ -265,53 +358,67 @@ export default function CountryPolicyPopup({ country, onClose }) {
               
               <div className="bg-white/5 rounded-lg p-6 border border-white/10">
                 <div className="flex items-center mb-4">
-                  <div className={`w-12 h-12 rounded-full ${policyTypes[selectedPolicy.type]?.color || "bg-gray-500"} flex items-center justify-center text-2xl mr-4`}>
-                    {policyTypes[selectedPolicy.type]?.icon || "📄"}
+                  <div className={`w-12 h-12 rounded-full ${policyTypes[selectedPolicy.policyArea]?.color || "bg-gray-500"} flex items-center justify-center text-2xl mr-4`}>
+                    {policyTypes[selectedPolicy.policyArea]?.icon || "📄"}
                   </div>
                   <div>
-                    <h3 className="text-2xl text-white">{selectedPolicy.policy_name || selectedPolicy.name}</h3>
-                    <p className="text-blue-300">{selectedPolicy.type}</p>
+                    <h3 className="text-2xl text-white">{selectedPolicy.policyName || selectedPolicy.name}</h3>
+                    <p className="text-blue-300">{policyTypes[selectedPolicy.policyArea]?.name || selectedPolicy.policyArea}</p>
                   </div>
                 </div>
                 
                 <div className="mb-4 flex flex-wrap gap-2">
                   <span className="inline-block px-3 py-1 rounded-full text-sm bg-blue-600 text-white">
-                    {selectedPolicy.type}
+                    {policyTypes[selectedPolicy.policyArea]?.name || selectedPolicy.policyArea}
                   </span>
-                  <span className="inline-block px-3 py-1 rounded-full text-sm bg-purple-600 text-white">
-                    Enacted: {selectedPolicy.year}
-                  </span>
-                  {selectedPolicy.is_evaluated && (
-                    <span className="inline-block px-3 py-1 rounded-full text-sm bg-green-600 text-white">
-                      Evaluated
+                  {selectedPolicy.implementation?.deploymentYear && (
+                    <span className="inline-block px-3 py-1 rounded-full text-sm bg-purple-600 text-white">
+                      Deployed: {selectedPolicy.implementation.deploymentYear}
                     </span>
                   )}
-                  {selectedPolicy.risk_assessment && (
-                    <span className="inline-block px-3 py-1 rounded-full text-sm bg-orange-600 text-white">
-                      Risk Assessed
-                    </span>
-                  )}
+                  <span className="inline-block px-3 py-1 rounded-full text-sm bg-green-600 text-white">
+                    Approved
+                  </span>
                 </div>
-                
-                <p className="text-blue-200 text-sm mb-4">
-                  {policyTypes[selectedPolicy.type]?.description || "Policy information"}
-                </p>
                 
                 <div className="space-y-6">
                   {/* Policy Description */}
-                  {selectedPolicy.description && (
+                  {selectedPolicy.policyDescription && (
                     <div className="bg-black/20 rounded-lg p-4">
                       <h4 className="text-white text-lg mb-2">Description</h4>
-                      <p className="text-blue-100">{selectedPolicy.description}</p>
+                      <p className="text-blue-100">{selectedPolicy.policyDescription}</p>
+                    </div>
+                  )}
+
+                  {/* Implementation Details */}
+                  {selectedPolicy.implementation && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-white text-lg mb-2">Implementation</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedPolicy.implementation.yearlyBudget && (
+                          <div>
+                            <span className="text-blue-300 text-sm">Budget:</span>
+                            <p className="text-white font-semibold">
+                              {selectedPolicy.implementation.budgetCurrency || 'USD'} {parseFloat(selectedPolicy.implementation.yearlyBudget).toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+                        {selectedPolicy.implementation.deploymentYear && (
+                          <div>
+                            <span className="text-blue-300 text-sm">Deployment Year:</span>
+                            <p className="text-white font-semibold">{selectedPolicy.implementation.deploymentYear}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {/* Target Groups */}
-                  {selectedPolicy.target_groups && selectedPolicy.target_groups.length > 0 && (
+                  {selectedPolicy.targetGroups && selectedPolicy.targetGroups.length > 0 && (
                     <div className="bg-black/20 rounded-lg p-4">
                       <h4 className="text-white text-lg mb-2">Target Groups</h4>
                       <div className="flex flex-wrap gap-2">
-                        {selectedPolicy.target_groups.map((group, idx) => (
+                        {selectedPolicy.targetGroups.map((group, idx) => (
                           <span key={idx} className="px-2 py-1 bg-blue-600 text-white rounded text-sm">
                             {group}
                           </span>
@@ -320,116 +427,12 @@ export default function CountryPolicyPopup({ country, onClose }) {
                     </div>
                   )}
 
-                  {/* AI Principles */}
-                  {selectedPolicy.ai_principles && selectedPolicy.ai_principles.length > 0 && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">AI Principles</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedPolicy.ai_principles.map((principle, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-purple-600 text-white rounded text-sm">
-                            {principle}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Alignment Features */}
-                  {(selectedPolicy.human_rights_alignment || selectedPolicy.environmental_considerations || selectedPolicy.international_cooperation) && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">Policy Alignment</h4>
-                      <div className="space-y-2">
-                        {selectedPolicy.human_rights_alignment && (
-                          <div className="flex items-center text-green-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            Human Rights Aligned
-                          </div>
-                        )}
-                        {selectedPolicy.environmental_considerations && (
-                          <div className="flex items-center text-green-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            Environmental Considerations
-                          </div>
-                        )}
-                        {selectedPolicy.international_cooperation && (
-                          <div className="flex items-center text-green-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            International Cooperation
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Process Features */}
-                  {(selectedPolicy.has_consultation || selectedPolicy.is_evaluated || selectedPolicy.risk_assessment) && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">Policy Process</h4>
-                      <div className="space-y-2">
-                        {selectedPolicy.has_consultation && (
-                          <div className="flex items-center text-blue-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
-                            </svg>
-                            Public Consultation Conducted
-                          </div>
-                        )}
-                        {selectedPolicy.is_evaluated && (
-                          <div className="flex items-center text-blue-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            Policy Evaluated
-                          </div>
-                        )}
-                        {selectedPolicy.risk_assessment && (
-                          <div className="flex items-center text-orange-300">
-                            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                            Risk Assessment Completed
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Metrics */}
-                  {selectedPolicy.metrics && selectedPolicy.metrics.length > 0 && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">Policy Metrics</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {selectedPolicy.metrics.map((metric, idx) => (
-                          <div key={idx} className="bg-white/10 rounded p-2">
-                            <span className="text-blue-100 text-sm">{metric}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Policy Text/Content */}
-                  {selectedPolicy.text && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">Policy Content</h4>
-                      <div className="text-blue-100 text-sm whitespace-pre-wrap max-h-40 overflow-y-auto">
-                        {selectedPolicy.text}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Policy Link */}
-                  {selectedPolicy.policy_link && (
+                  {selectedPolicy.policyLink && (
                     <div className="bg-black/20 rounded-lg p-4">
                       <h4 className="text-white text-lg mb-2">External Link</h4>
                       <a 
-                        href={selectedPolicy.policy_link} 
+                        href={selectedPolicy.policyLink} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-blue-400 hover:text-blue-300 underline flex items-center"
@@ -439,22 +442,6 @@ export default function CountryPolicyPopup({ country, onClose }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </a>
-                    </div>
-                  )}
-
-                  {/* File Download */}
-                  {selectedPolicy.file && (
-                    <div className="bg-black/20 rounded-lg p-4">
-                      <h4 className="text-white text-lg mb-2">Policy Document</h4>
-                      <button 
-                        onClick={() => window.open(`http://localhost:8000/api/policy-file/${selectedPolicy.file}`, '_blank')}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center transition-colors"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Download Policy File
-                      </button>
                     </div>
                   )}
                 </div>
