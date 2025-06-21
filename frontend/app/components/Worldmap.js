@@ -81,7 +81,7 @@ export default function Worldmap() {
       });
   }, [API_BASE_URL])
 
-  // Build country stats for coloring - FIXED LOGIC
+  // Build country stats for coloring - UPDATED COLOR SCHEME
   useEffect(() => {
     console.log("Building country stats from policies:", masterPolicies.length);
     
@@ -113,7 +113,6 @@ export default function Worldmap() {
       }
       
       // Count ALL approved policies from master DB (they should all be active)
-      // Remove the master_status check since all policies in master DB should be approved
       if (area) {
         stats[country].approvedAreas.add(area)
       }
@@ -123,7 +122,7 @@ export default function Worldmap() {
     
     console.log("Countries found in policies:", Object.keys(stats));
     
-    // Calculate color and display values
+    // Calculate color and display values with NEW COLOR SCHEME
     Object.keys(stats).forEach(country => {
       const approvedAreasCount = stats[country].approvedAreas.size
       const totalPolicies = stats[country].totalPolicies
@@ -134,17 +133,15 @@ export default function Worldmap() {
       stats[country].count = approvedAreasCount
       stats[country].totalPolicies = totalPolicies
       
-      // Enhanced color coding
+      // NEW COLOR SCHEME: 0-3 red, 4-7 yellow, 8-10 green
       if (approvedAreasCount >= 8) {
-        stats[country].color = "#22c55e" // Green - Excellent
-      } else if (approvedAreasCount >= 5) {
-        stats[country].color = "#3b82f6" // Blue - Good  
-      } else if (approvedAreasCount >= 3) {
-        stats[country].color = "#eab308" // Yellow - Moderate
+        stats[country].color = "#22CE5e" // Green - Excellent (8-10 areas)
+      } else if (approvedAreasCount >= 4) {
+        stats[country].color = "#eab308" // Yellow - Moderate (4-7 areas)  
       } else if (approvedAreasCount >= 1) {
-        stats[country].color = "#f97316" // Orange - Basic
+        stats[country].color = "#ef4444" // Red - Needs Improvement (1-3 areas)
       } else {
-        stats[country].color = "#6b7280" // Gray - No policies
+        stats[country].color = "#d1d5db" // Light Gray - No policies (0 areas)
       }
     })
     
@@ -355,7 +352,7 @@ export default function Worldmap() {
                       padding: "2px 8px",
                       fontWeight: 500
                     }}>
-                      {tooltipContent.count >= 8 ? "Excellent" : tooltipContent.count >= 4 ? "Moderate" : "Needs Improvement"}
+                      {tooltipContent.count >= 8 ? "Excellent (8-10)" : tooltipContent.count >= 4 ? "Moderate (4-7)" : tooltipContent.count >= 1 ? "Needs Improvement (1-3)" : "No Policies"}
                     </span>
                   </div>
                 </div>
