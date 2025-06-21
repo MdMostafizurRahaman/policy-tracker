@@ -586,7 +586,7 @@ export default function AdminDashboard() {
                 placeholder="Search by country, policy name, or policy ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                className="text-black w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
               />
             </div>
             <div>
@@ -594,7 +594,7 @@ export default function AdminDashboard() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
+                className=" text-black px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white/70"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -866,7 +866,7 @@ export default function AdminDashboard() {
                                   <p className="font-bold text-slate-900 text-lg mb-1">{policy.policyName}</p>
                                   <p className="text-xs text-slate-500 mb-1">
                                     <span className="mr-2">ID: <span className="font-mono">{policy.policyId || 'N/A'}</span></span>
-                                    <span>Area: <span className="font-semibold">{policy.policyArea || 'N/A'}</span></span>
+                                    <span>Area: <span className="font-semibold te">{policy.policyArea || 'N/A'}</span></span>
                                   </p>
                                   <p className="text-xs text-slate-500">Deployment: <span className="font-semibold">{policy.implementation?.deploymentYear || 'TBD'}</span></p>
                                 </div>
@@ -956,7 +956,7 @@ export default function AdminDashboard() {
                             type="text"
                             value={editedPolicy.policyName || ''}
                             onChange={(e) => setEditedPolicy({ ...editedPolicy, policyName: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div>
@@ -965,7 +965,7 @@ export default function AdminDashboard() {
                             type="text"
                             value={editedPolicy.policyId || ''}
                             onChange={(e) => setEditedPolicy({ ...editedPolicy, policyId: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div>
@@ -974,7 +974,7 @@ export default function AdminDashboard() {
                             value={editedPolicy.policyDescription || ''}
                             onChange={(e) => setEditedPolicy({ ...editedPolicy, policyDescription: e.target.value })}
                             rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                       </div>
@@ -988,7 +988,7 @@ export default function AdminDashboard() {
                               ...editedPolicy,
                               implementation: { ...editedPolicy.implementation, yearlyBudget: e.target.value }
                             })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div>
@@ -1000,7 +1000,7 @@ export default function AdminDashboard() {
                               ...editedPolicy,
                               implementation: { ...editedPolicy.implementation, budgetCurrency: e.target.value }
                             })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div>
@@ -1012,7 +1012,7 @@ export default function AdminDashboard() {
                               ...editedPolicy,
                               implementation: { ...editedPolicy.implementation, deploymentYear: parseInt(e.target.value) }
                             })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                       </div>
@@ -1023,9 +1023,9 @@ export default function AdminDashboard() {
                         <div>
                           <h4 className="font-medium text-gray-900 mb-3">Basic Information</h4>
                           <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="text-gray-800 grid grid-cols-2 gap-4">
                               <div>
-                                <p className="text-sm text-gray-600">Policy Name</p>
+                                <p className="text-sm text-gray-700">Policy Name</p>
                                 <p className="text-sm font-medium">{selectedPolicy.policyName || 'N/A'}</p>
                               </div>
                               <div>
@@ -1071,7 +1071,7 @@ export default function AdminDashboard() {
                         {selectedPolicy.policyFile && (
                           <div>
                             <h4 className="font-medium text-gray-900 mb-2">Policy File</h4>
-                            <div className="bg-gray-50 p-3 rounded">
+                            <div className="bg-gray-50 p-3 rounded text-black">
                               <p className="text-sm"><strong>Name:</strong> {selectedPolicy.policyFile.name}</p>
                               <p className="text-sm"><strong>Type:</strong> {selectedPolicy.policyFile.type}</p>
                               <p className="text-sm"><strong>Size:</strong> {(selectedPolicy.policyFile.size / 1024).toFixed(2)} KB</p>
@@ -1106,15 +1106,15 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Yearly Budget</p>
-                                  <p className="text-sm font-medium">{formatCurrency(selectedPolicy.implementation.yearlyBudget, selectedPolicy.implementation.budgetCurrency)}</p>
+                                  <p className="text-sm font-medium text-black">{formatCurrency(selectedPolicy.implementation.yearlyBudget, selectedPolicy.implementation.budgetCurrency)}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Private Sector Funding</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.implementation.privateSecFunding ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.implementation.privateSecFunding ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Deployment Year</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.implementation.deploymentYear || 'TBD'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.implementation.deploymentYear || 'TBD'}</p>
                                 </div>
                               </div>
                             </div>
@@ -1128,15 +1128,15 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Is Evaluated</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.isEvaluated ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.evaluation.isEvaluated ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Evaluation Type</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.evaluationType || 'N/A'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.evaluation.evaluationType || 'N/A'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Risk Assessment</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}</p>
                                 </div>
                               </div>
                               
@@ -1168,15 +1168,15 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Has Consultation</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.participation.hasConsultation ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.participation.hasConsultation ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Comments Public</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.participation.commentsPublic ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.participation.commentsPublic ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Stakeholder Score</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.participation.stakeholderScore || 0}/10</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.participation.stakeholderScore || 0}/10</p>
                                 </div>
                               </div>
                               
@@ -1184,11 +1184,11 @@ export default function AdminDashboard() {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <p className="text-sm text-gray-600">Consultation Start</p>
-                                    <p className="text-sm font-medium">{formatDate(selectedPolicy.participation.consultationStartDate)}</p>
+                                    <p className="text-sm font-medium text-black">{formatDate(selectedPolicy.participation.consultationStartDate)}</p>
                                   </div>
                                   <div>
                                     <p className="text-sm text-gray-600">Consultation End</p>
-                                    <p className="text-sm font-medium">{formatDate(selectedPolicy.participation.consultationEndDate)}</p>
+                                    <p className="text-sm font-medium text-black">{formatDate(selectedPolicy.participation.consultationEndDate)}</p>
                                   </div>
                                 </div>
                               )}
@@ -1214,15 +1214,15 @@ export default function AdminDashboard() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
                                   <p className="text-sm text-gray-600">Human Rights Alignment</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.alignment.humanRightsAlignment ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.alignment.humanRightsAlignment ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">Environmental Considerations</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.alignment.environmentalConsiderations ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.alignment.environmentalConsiderations ? 'Yes' : 'No'}</p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">International Cooperation</p>
-                                  <p className="text-sm font-medium">{selectedPolicy.alignment.internationalCooperation ? 'Yes' : 'No'}</p>
+                                  <p className="text-sm font-medium text-black">{selectedPolicy.alignment.internationalCooperation ? 'Yes' : 'No'}</p>
                                 </div>
                               </div>
                             </div>
@@ -1249,7 +1249,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setAdminNotes(e.target.value)}
                     rows={3}
                     placeholder="Add notes for this policy..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-black w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
