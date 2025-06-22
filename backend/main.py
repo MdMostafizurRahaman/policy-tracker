@@ -437,6 +437,9 @@ async def send_email(to_email: str, subject: str, body: str) -> bool:
                 logger.info(f"🔑 DEVELOPMENT OTP: {extracted_otp}")
             return True
         
+        logger.info(f"📧 Attempting to send email to: {to_email}")
+        logger.info(f"📧 Using SMTP: {SMTP_USERNAME}@{SMTP_SERVER}:{SMTP_PORT}")
+        
         # Create message
         msg = MIMEMultipart('alternative')
         msg['From'] = FROM_EMAIL
@@ -447,36 +450,58 @@ async def send_email(to_email: str, subject: str, body: str) -> bool:
         html_part = MIMEText(body, 'html')
         msg.attach(html_part)
         
-        # Try to send actual email
+        # Try to send actual email with detailed error handling
         try:
+            logger.info(f"🔌 Connecting to SMTP server: {SMTP_SERVER}:{SMTP_PORT}")
             server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            
+            logger.info("🔒 Starting TLS...")
             server.starttls()
+            
+            logger.info(f"🔑 Logging in with username: {SMTP_USERNAME}")
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            
+            logger.info("📤 Sending message...")
             server.send_message(msg)
             server.quit()
             
             logger.info(f"✅ Email sent successfully to {to_email}")
+            print(f"✅ EMAIL ACTUALLY SENT to {to_email}")
             return True
             
         except smtplib.SMTPAuthenticationError as e:
             logger.error(f"❌ SMTP Authentication failed: {str(e)}")
+            print(f"❌ SMTP AUTH ERROR: {str(e)}")
             if extracted_otp:
                 logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
-            return True  # Return True for development
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False  # Return False when email fails
+            
+        except smtplib.SMTPConnectError as e:
+            logger.error(f"❌ SMTP Connection failed: {str(e)}")
+            print(f"❌ SMTP CONNECTION ERROR: {str(e)}")
+            if extracted_otp:
+                logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
             
         except smtplib.SMTPException as e:
             logger.error(f"❌ SMTP Error: {str(e)}")
+            print(f"❌ SMTP ERROR: {str(e)}")
             if extracted_otp:
                 logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
-            return True  # Return True for development
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
         
     except Exception as e:
         logger.error(f"❌ Email sending failed to {to_email}: {str(e)}")
+        print(f"❌ GENERAL EMAIL ERROR: {str(e)}")
         # For development, still log OTP even if email fails
         if extracted_otp:
             logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
-        return True  # Return True to continue development
-    
+            print(f"🔑 USE THIS OTP: {extracted_otp}")
+        return False
+      
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current authenticated user"""
     try:
@@ -691,11 +716,18 @@ async def register_user(user_data: UserRegistration):
         
         logger.info(f"Registration completed for {user_data.email}, email_sent: {email_sent}")
         
+        # Return different messages based on email status
+        if email_sent:
+            message = "Account created successfully! Please check your email for verification code."
+        else:
+            message = f"Account created! Email sending failed. Your OTP is: {otp} (Use this to verify)"
+        
         return {
             "success": True,
-            "message": "Account created successfully! Please check your email for verification code. If email doesn't arrive, check server logs for the OTP code.",
+            "message": message,
             "user_id": str(result.inserted_id),
-            "email_sent": email_sent
+            "email_sent": email_sent,
+            "otp_for_dev": otp if not email_sent else None  # Include OTP if email failed
         }
     
     except HTTPException:
