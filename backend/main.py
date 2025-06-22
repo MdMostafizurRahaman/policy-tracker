@@ -30,8 +30,13 @@ import asyncio
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
-import re
 import smtplib
+import re
+import bcrypt
+import jwt
+import random
+import string
+import traceback
 from chatbot import (
     init_chatbot, 
     ChatRequest, 
@@ -417,52 +422,63 @@ def generate_otp() -> str:
     return ''.join(random.choices(string.digits, k=6))
 
 async def send_email(to_email: str, subject: str, body: str) -> bool:
-    """Enhanced email sending with better error handling and logging"""
+    """FIXED email sending with proper SMTP handling"""
     try:
-        # Extract OTP from email body for logging
+        # Extract OTP for logging
         otp_match = re.search(r'\b\d{6}\b', body)
         extracted_otp = otp_match.group() if otp_match else None
         
-        # Always log OTP for development purposes
+        # Always log OTP for development
         if extracted_otp:
             logger.info(f"🔑 OTP for {to_email}: {extracted_otp}")
             print(f"🔑 DEVELOPMENT OTP for {to_email}: {extracted_otp}")
         
-        # Check if we have email credentials
-        if not SMTP_USERNAME or not SMTP_PASSWORD or SMTP_USERNAME == "":
-            logger.warning("⚠️ Email credentials not configured - Using development mode")
-            logger.info(f"📧 Email would be sent to: {to_email}")
-            logger.info(f"📝 Subject: {subject}")
+        # Check credentials
+        if not SMTP_USERNAME or not SMTP_PASSWORD:
+            logger.warning("⚠️ SMTP credentials missing")
             if extracted_otp:
-                logger.info(f"🔑 DEVELOPMENT OTP: {extracted_otp}")
-            return True
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
         
-        logger.info(f"📧 Attempting to send email to: {to_email}")
-        logger.info(f"📧 Using SMTP: {SMTP_USERNAME}@{SMTP_SERVER}:{SMTP_PORT}")
+        logger.info(f"📧 Sending email to: {to_email}")
+        logger.info(f"📧 SMTP Config: {SMTP_USERNAME} via {SMTP_SERVER}:{SMTP_PORT}")
         
-        # Create message
+        # Create message with proper encoding
         msg = MIMEMultipart('alternative')
         msg['From'] = FROM_EMAIL
         msg['To'] = to_email
         msg['Subject'] = subject
+        msg.set_charset('utf-8')
         
-        # Attach HTML body
-        html_part = MIMEText(body, 'html')
+        # Add both HTML and plain text versions
+        plain_text = f"Your verification code is: {extracted_otp}" if extracted_otp else "Verification email"
+        text_part = MIMEText(plain_text, 'plain', 'utf-8')
+        html_part = MIMEText(body, 'html', 'utf-8')
+        
+        msg.attach(text_part)
         msg.attach(html_part)
         
-        # Try to send actual email with detailed error handling
+        # FIXED: Use proper SMTP connection with context manager
         try:
-            logger.info(f"🔌 Connecting to SMTP server: {SMTP_SERVER}:{SMTP_PORT}")
-            server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+            # Create SMTP connection
+            logger.info(f"🔌 Connecting to {SMTP_SERVER}:{SMTP_PORT}")
             
-            logger.info("🔒 Starting TLS...")
-            server.starttls()
+            # Use SMTP_SSL instead of SMTP + starttls for better compatibility
+            if SMTP_PORT == 465:
+                server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+            else:
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+                server.ehlo()
+                logger.info("🔒 Starting TLS...")
+                server.starttls()
+                server.ehlo()
             
-            logger.info(f"🔑 Logging in with username: {SMTP_USERNAME}")
+            logger.info(f"🔑 Authenticating as: {SMTP_USERNAME}")
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             
             logger.info("📤 Sending message...")
-            server.send_message(msg)
+            text = msg.as_string()
+            server.sendmail(FROM_EMAIL, [to_email], text)
             server.quit()
             
             logger.info(f"✅ Email sent successfully to {to_email}")
@@ -470,18 +486,18 @@ async def send_email(to_email: str, subject: str, body: str) -> bool:
             return True
             
         except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"❌ SMTP Authentication failed: {str(e)}")
-            print(f"❌ SMTP AUTH ERROR: {str(e)}")
+            logger.error(f"❌ SMTP Authentication Error: {str(e)}")
+            print(f"❌ AUTH FAILED: {str(e)}")
+            print(f"🔑 USERNAME: {SMTP_USERNAME}")
+            print(f"🔑 PASSWORD LENGTH: {len(SMTP_PASSWORD)} chars")
             if extracted_otp:
-                logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
                 print(f"🔑 USE THIS OTP: {extracted_otp}")
-            return False  # Return False when email fails
+            return False
             
         except smtplib.SMTPConnectError as e:
-            logger.error(f"❌ SMTP Connection failed: {str(e)}")
-            print(f"❌ SMTP CONNECTION ERROR: {str(e)}")
+            logger.error(f"❌ SMTP Connection Error: {str(e)}")
+            print(f"❌ CONNECTION FAILED: {str(e)}")
             if extracted_otp:
-                logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
                 print(f"🔑 USE THIS OTP: {extracted_otp}")
             return False
             
@@ -489,19 +505,22 @@ async def send_email(to_email: str, subject: str, body: str) -> bool:
             logger.error(f"❌ SMTP Error: {str(e)}")
             print(f"❌ SMTP ERROR: {str(e)}")
             if extracted_otp:
-                logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Unexpected email error: {str(e)}")
+            print(f"❌ UNEXPECTED ERROR: {str(e)}")
+            if extracted_otp:
                 print(f"🔑 USE THIS OTP: {extracted_otp}")
             return False
         
     except Exception as e:
-        logger.error(f"❌ Email sending failed to {to_email}: {str(e)}")
-        print(f"❌ GENERAL EMAIL ERROR: {str(e)}")
-        # For development, still log OTP even if email fails
+        logger.error(f"❌ Email function error: {str(e)}")
+        print(f"❌ FUNCTION ERROR: {str(e)}")
         if extracted_otp:
-            logger.info(f"🔑 FALLBACK OTP for {to_email}: {extracted_otp}")
             print(f"🔑 USE THIS OTP: {extracted_otp}")
-        return False
-      
+        return False      
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current authenticated user"""
     try:
