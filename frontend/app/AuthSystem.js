@@ -275,24 +275,16 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Signup failed");
       
-      setSuccess('Account created successfully! 🎉 Please check your email for verification code. If email doesn\'t arrive, check browser console for development OTP.');
+      // Show different messages based on email status
+      if (data.email_sent) {
+        setSuccess('Account created successfully! 🎉 Please check your email for verification code.');
+      } else {
+        setSuccess(`Account created! 🎉 Email failed to send. Your verification code is: ${data.otp_for_dev || 'Check server logs'}`);
+      }
+      
       setCurrentView('otp');
       setOtpTimer(120); // 2 minutes
       setCanResendOtp(false);
-      
-      // For development - try to get OTP from dev endpoint
-      try {
-        const otpRes = await fetch(`${API_BASE_URL}/dev/get-latest-otp/${formData.email}`);
-        if (otpRes.ok) {
-          const otpData = await otpRes.json();
-          if (otpData.success) {
-            console.log(`🔑 DEVELOPMENT OTP for ${formData.email}: ${otpData.otp}`);
-            setSuccess(`Account created! 🎉 Development OTP: ${otpData.otp} (also check email)`);
-          }
-        }
-      } catch (devError) {
-        console.log('Dev OTP endpoint not available');
-      }
       
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
