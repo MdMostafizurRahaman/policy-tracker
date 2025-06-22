@@ -9,6 +9,7 @@ import asyncio
 import motor.motor_asyncio
 from bson import ObjectId
 import re
+import difflib
 
 # Load environment variables
 load_dotenv()
@@ -50,63 +51,154 @@ class DatabasePolicyChatbot:
         self.help_keywords = [
             "help", "what can you do", "commands", "how to use", "guide"
         ]
+        
+        # Non-database query patterns (to reject)
+        self.non_database_patterns = [
+            r'\btemperature\b', r'\bweather\b', r'\bclimate\b', r'\bhot\b', r'\bcold\b',
+            r'\blocation\b', r'\blatitude\b', r'\blongitude\b', r'\baddress\b',
+            r'\bpopulation\b', r'\beconomy\b', r'\bGDP\b', r'\bcurrency\b',
+            r'\btime\b', r'\bdate\b', r'\btimezone\b', r'\btoday\b',
+            r'\bsports\b', r'\bfootball\b', r'\bcricket\b', r'\bmovie\b',
+            r'\bfood\b', r'\brecipe\b', r'\bcooking\b', r'\brestaurant\b',
+            r'\bnews\b', r'\bcurrent events\b', r'\bbreaking\b',
+            r'\bhistory\b(?!\s+of\s+AI|AI)', r'\bculture\b', r'\btradition\b',
+            r'\btourism\b', r'\btravel\b', r'\bhotel\b', r'\bflight\b'
+        ]
+
+    def is_non_database_query(self, message: str) -> bool:
+        """Check if the query is asking for non-database information"""
+        message_lower = message.lower()
+        
+        # Check against non-database patterns
+        for pattern in self.non_database_patterns:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                return True
+        
+        return False
+
+    def find_closest_country_match(self, query: str, countries: List[str]) -> Optional[str]:
+        """Find the closest matching country name using fuzzy matching"""
+        query_lower = query.lower().strip()
+        
+        # First try exact match
+        for country in countries:
+            if country.lower() == query_lower:
+                return country
+        
+        # Try partial match
+        for country in countries:
+            if query_lower in country.lower() or country.lower() in query_lower:
+                return country
+        
+        # Try fuzzy matching for typos
+        matches = difflib.get_close_matches(query_lower, [c.lower() for c in countries], n=1, cutoff=0.6)
+        if matches:
+            # Find the original country name
+            for country in countries:
+                if country.lower() == matches[0]:
+                    return country
+        
+        return None
+
+    def find_closest_area_match(self, query: str, areas: List[str]) -> Optional[str]:
+        """Find the closest matching area name using fuzzy matching"""
+        query_lower = query.lower().strip()
+        
+        # First try exact match
+        for area in areas:
+            if area.lower() == query_lower:
+                return area
+        
+        # Try partial match
+        for area in areas:
+            if query_lower in area.lower() or area.lower() in query_lower:
+                return area
+        
+        # Try fuzzy matching
+        matches = difflib.get_close_matches(query_lower, [a.lower() for a in areas], n=1, cutoff=0.6)
+        if matches:
+            for area in areas:
+                if area.lower() == matches[0]:
+                    return area
+        
+        return None
 
     async def search_policies_by_country(self, country_name: str) -> List[Dict]:
-        """Search policies by country name - FIXED: Remove visibility filter"""
+        """Search policies by country name - Enhanced with better matching"""
         try:
-            # FIXED: Only use master_status filter, no visibility filter
-            master_filter = {
-                "master_status": "active",
-                "country": {"$regex": f"^{re.escape(country_name)}$", "$options": "i"}
-            }
+            # Create flexible regex pattern for country matching
+            country_variations = [
+                country_name,
+                country_name.replace("United States", "USA"),
+                country_name.replace("USA", "United States"),
+                country_name.replace("United Kingdom", "UK"),
+                country_name.replace("UK", "United Kingdom")
+            ]
             
             policies = []
-            async for policy in self.master_policies_collection.find(master_filter):
-                policies.append({
-                    "name": policy.get("policyName", "Unnamed Policy"),
-                    "country": policy.get("country", ""),
-                    "area": policy.get("area_name", policy.get("policyArea", "")),
-                    "description": policy.get("policyDescription", "No description available"),
-                    "year": policy.get("implementation", {}).get("deploymentYear", "TBD"),
-                    "status": policy.get("status", "Active"),
-                    "area_icon": policy.get("area_icon", "📄"),
-                    "source": "master"
+            
+            # Try different country name variations
+            for variant in country_variations:
+                master_filter = {
+                    "master_status": "active",
+                    "country": {"$regex": f"^{re.escape(variant)}$", "$options": "i"}
+                }
+                
+                async for policy in self.master_policies_collection.find(master_filter):
+                    policies.append({
+                        "name": policy.get("policyName", "Unnamed Policy"),
+                        "country": policy.get("country", ""),
+                        "area": policy.get("area_name", policy.get("policyArea", "")),
+                        "description": policy.get("policyDescription", "No description available"),
+                        "year": policy.get("implementation", {}).get("deploymentYear", "TBD"),
+                        "status": policy.get("status", "Active"),
+                        "area_icon": policy.get("area_icon", "📄"),
+                        "source": "master"
+                    })
+                
+                # Also search in temp submissions
+                temp_submissions = self.temp_submissions_collection.find({
+                    "country": {"$regex": f"^{re.escape(variant)}$", "$options": "i"}
                 })
+                
+                async for submission in temp_submissions:
+                    if "policyAreas" in submission:
+                        policy_areas = submission["policyAreas"]
+                        if isinstance(policy_areas, list):
+                            for area in policy_areas:
+                                for policy in area.get("policies", []):
+                                    if policy.get("status") == "approved":
+                                        policies.append({
+                                            "name": policy.get("policyName", "Unnamed Policy"),
+                                            "country": submission.get("country", ""),
+                                            "area": area.get("area_name", area.get("area_id", "")),
+                                            "description": policy.get("policyDescription", "No description available"),
+                                            "year": policy.get("implementation", {}).get("deploymentYear", "TBD"),
+                                            "status": "Approved",
+                                            "area_icon": "📄",
+                                            "source": "temp"
+                                        })
             
-            # Also search in temp submissions for approved policies
-            temp_submissions = self.temp_submissions_collection.find({
-                "country": {"$regex": f"^{re.escape(country_name)}$", "$options": "i"}
-            })
+            # Remove duplicates
+            unique_policies = []
+            seen = set()
+            for policy in policies:
+                key = (policy['name'], policy['country'])
+                if key not in seen:
+                    seen.add(key)
+                    unique_policies.append(policy)
             
-            async for submission in temp_submissions:
-                if "policyAreas" in submission:
-                    policy_areas = submission["policyAreas"]
-                    if isinstance(policy_areas, list):
-                        for area in policy_areas:
-                            for policy in area.get("policies", []):
-                                if policy.get("status") == "approved":
-                                    policies.append({
-                                        "name": policy.get("policyName", "Unnamed Policy"),
-                                        "country": submission.get("country", ""),
-                                        "area": area.get("area_name", area.get("area_id", "")),
-                                        "description": policy.get("policyDescription", "No description available"),
-                                        "year": policy.get("implementation", {}).get("deploymentYear", "TBD"),
-                                        "status": "Approved",
-                                        "area_icon": "📄",
-                                        "source": "temp"
-                                    })
-            
-            return policies
+            return unique_policies
         except Exception as e:
             print(f"Error searching policies by country: {e}")
             return []
 
     async def search_policies_by_name(self, policy_name: str) -> List[Dict]:
-        """Search policies by policy name - FIXED: Remove visibility filter"""
+        """Search policies by policy name with fuzzy matching"""
         try:
             policies = []
             
-            # Search in master policies - FIXED: Remove visibility filter
+            # Use flexible regex for policy name matching
             master_filter = {
                 "master_status": "active",
                 "policyName": {"$regex": re.escape(policy_name), "$options": "i"}
@@ -150,11 +242,10 @@ class DatabasePolicyChatbot:
             return []
 
     async def search_policies_by_area(self, area_name: str) -> List[Dict]:
-        """Search policies by policy area - FIXED: Remove visibility filter"""
+        """Search policies by policy area with fuzzy matching"""
         try:
             policies = []
             
-            # Search in master policies - FIXED: Remove visibility filter
             master_filter = {
                 "master_status": "active",
                 "$or": [
@@ -202,11 +293,10 @@ class DatabasePolicyChatbot:
             return []
 
     async def get_countries_list(self) -> List[str]:
-        """Get list of all countries with policies - FIXED: Remove visibility filter"""
+        """Get list of all countries with policies"""
         try:
             countries = set()
             
-            # Get from master policies - FIXED: Remove visibility filter
             async for policy in self.master_policies_collection.find(
                 {"master_status": "active"}, 
                 {"country": 1}
@@ -214,7 +304,6 @@ class DatabasePolicyChatbot:
                 if policy.get("country"):
                     countries.add(policy["country"])
             
-            # Get from temp submissions
             async for submission in self.temp_submissions_collection.find({}, {"country": 1}):
                 if submission.get("country"):
                     countries.add(submission["country"])
@@ -225,11 +314,10 @@ class DatabasePolicyChatbot:
             return []
 
     async def get_policy_areas_list(self) -> List[str]:
-        """Get list of all policy areas - FIXED: Remove visibility filter"""
+        """Get list of all policy areas"""
         try:
             areas = set()
             
-            # Get from master policies - FIXED: Remove visibility filter
             async for policy in self.master_policies_collection.find(
                 {"master_status": "active"}, 
                 {"area_name": 1, "policyArea": 1}
@@ -239,7 +327,6 @@ class DatabasePolicyChatbot:
                 elif policy.get("policyArea"):
                     areas.add(policy["policyArea"])
             
-            # Get from temp submissions
             async for submission in self.temp_submissions_collection.find({}, {"policyAreas": 1}):
                 if "policyAreas" in submission:
                     policy_areas = submission["policyAreas"]
@@ -256,7 +343,7 @@ class DatabasePolicyChatbot:
     async def format_policies_response(self, policies: List[Dict], query_type: str, query: str) -> str:
         """Format policies into a readable response"""
         if not policies:
-            return f"""❌ **Sorry, I couldn't find any policies {query_type} '{query}' in our database.**
+            return f"""❌ **Sorry, I couldn't find any policies {query_type} '{query}' in our AI policy database.**
 
 🔍 **Try searching for:**
 • **Country names**: United States, Germany, Japan, etc.
@@ -274,9 +361,9 @@ class DatabasePolicyChatbot:
 • "Digital Education policies"
 • "European Union"
 
-Our database only contains verified AI policies from official sources."""
+⚠️ **Important**: I only provide information from our AI policy database. I cannot answer questions about weather, temperature, current events, or other topics not related to AI policies."""
         
-        response = f"🔍 **Found {len(policies)} policies {query_type} '{query}':**\n\n"
+        response = f"🔍 **Found {len(policies)} AI policies {query_type} '{query}':**\n\n"
         
         # Group by country for better organization
         policies_by_country = {}
@@ -332,12 +419,13 @@ I can help you find AI policies from our database! Here's what I can do:
 • "GDPR" → Find GDPR-related policies
 • "Digital Education" → Find digital education policies
 
-**ℹ️ Important Notes:**
-• I only show information from our verified policy database
-• If a policy isn't in our database, I'll let you know
-• All policy information is sourced from official submissions
+**⚠️ Important Limitations:**
+• I ONLY provide information from our AI policy database
+• I cannot answer questions about weather, temperature, current events, news, or other non-policy topics
+• If information isn't in our AI policy database, I'll let you know
+• All policy information is sourced from official government submissions
 
-Just type your search term and I'll find relevant policies for you! 🚀"""
+Just type your search term and I'll find relevant AI policies for you! 🚀"""
 
     def get_greeting_response(self) -> str:
         """Generate greeting response"""
@@ -358,11 +446,42 @@ I'm here to help you explore AI policies from around the world. I have access to
 • "Digital Education"
 • "National AI Strategy"
 
-What would you like to explore? 🚀"""
+⚠️ **Important**: I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.
+
+What AI policies would you like to explore? 🚀"""
+
+    def get_non_database_response(self) -> str:
+        """Response for non-database queries"""
+        return """❌ **Sorry, I can only help with AI policy information from our database.**
+
+I'm specifically designed to assist with:
+• 🏛️ **AI Policies by Country** (e.g., "United States AI policies")
+• 📋 **Policy Areas** (e.g., "AI Safety", "Digital Education")
+• 📝 **Specific Policies** (e.g., "AI Act", "National AI Strategy")
+• 🌍 **Countries with AI Policies** (type "countries")
+
+⚠️ **I cannot help with:**
+• Weather, temperature, or climate information
+• Current news or events
+• Location or geographic details
+• Sports, entertainment, or general knowledge
+• Any topics not related to AI policies
+
+🔍 **Try asking about AI policies instead:**
+• "What AI policies does Bangladesh have?"
+• "Show me AI Safety policies"
+• "List all countries with AI policies"
+• Type "help" for more options
+
+What AI policies would you like to learn about? 🚀"""
 
     async def process_query(self, message: str) -> str:
         """Process user query and return database-based response"""
         message_lower = message.lower().strip()
+        
+        # Check if this is a non-database query first
+        if self.is_non_database_query(message):
+            return self.get_non_database_response()
         
         # Handle greetings
         if any(greeting in message_lower for greeting in self.greeting_responses):
@@ -371,6 +490,51 @@ What would you like to explore? 🚀"""
         # Handle help requests
         if any(help_word in message_lower for help_word in self.help_keywords):
             return self.get_help_response()
+        
+        # NEW: Handle "show me all policies" or similar broad queries
+        broad_queries = [
+            "show me all policies", "all policies", "show all policies",
+            "all ai policies", "show me all ai policies", "list all policies",
+            "all countries policies", "show me all countries", "policies from all countries"
+        ]
+        
+        if any(broad_query in message_lower for broad_query in broad_queries):
+            # Get a sample of policies from multiple countries
+            countries = await self.get_countries_list()
+            all_policies = []
+            
+            # Get policies from first few countries to avoid overwhelming response
+            for country in countries[:5]:  # Limit to first 5 countries
+                country_policies = await self.search_policies_by_country(country)
+                all_policies.extend(country_policies[:3])  # Max 3 policies per country
+            
+            if all_policies:
+                response = f"🌍 **Sample of AI policies from our database (showing {len(all_policies)} from {min(5, len(countries))} countries):**\n\n"
+                
+                # Group by country
+                policies_by_country = {}
+                for policy in all_policies:
+                    country = policy["country"]
+                    if country not in policies_by_country:
+                        policies_by_country[country] = []
+                    policies_by_country[country].append(policy)
+                
+                for country, country_policies in policies_by_country.items():
+                    response += f"🌍 **{country}** ({len(country_policies)} policies):\n"
+                    for policy in country_policies:
+                        response += f"  {policy['area_icon']} **{policy['name']}**\n"
+                        response += f"     📋 Area: {policy['area']}\n"
+                        response += f"     📅 Year: {policy['year']}\n"
+                    response += "\n"
+                
+                response += f"💡 **For complete coverage:**\n"
+                response += f"• Type **'countries'** to see all {len(countries)} countries with policies\n"
+                response += f"• Type any specific country name to see all its policies\n"
+                response += f"• Type **'areas'** to see all policy areas available\n"
+                
+                return response
+            else:
+                return "❌ No policies found in our database."
         
         # Handle list commands
         if message_lower in ["countries", "list countries", "show countries"]:
@@ -404,20 +568,21 @@ What would you like to explore? 🚀"""
             else:
                 return "Sorry, no policy areas found in our database."
         
-        # Search for policies
-        # First try country search
+        # Search for policies with improved matching
         countries = await self.get_countries_list()
-        for country in countries:
-            if country.lower() in message_lower or message_lower in country.lower():
-                policies = await self.search_policies_by_country(country)
-                return await self.format_policies_response(policies, "for country", country)
-        
-        # Try policy area search
         areas = await self.get_policy_areas_list()
-        for area in areas:
-            if area.lower() in message_lower or message_lower in area.lower():
-                policies = await self.search_policies_by_area(area)
-                return await self.format_policies_response(policies, "in area", area)
+        
+        # Enhanced country search with fuzzy matching
+        matched_country = self.find_closest_country_match(message, countries)
+        if matched_country:
+            policies = await self.search_policies_by_country(matched_country)
+            return await self.format_policies_response(policies, "for country", matched_country)
+        
+        # Enhanced area search with fuzzy matching
+        matched_area = self.find_closest_area_match(message, areas)
+        if matched_area:
+            policies = await self.search_policies_by_area(matched_area)
+            return await self.format_policies_response(policies, "in area", matched_area)
         
         # Try policy name search
         policies = await self.search_policies_by_name(message)
@@ -425,7 +590,7 @@ What would you like to explore? 🚀"""
             return await self.format_policies_response(policies, "matching", message)
         
         # If nothing found, provide helpful response
-        return f"""❌ **Sorry, I couldn't find any policies related to '{message}' in our database.**
+        return f"""❌ **Sorry, I couldn't find any AI policies related to '{message}' in our database.**
 
 🔍 **Try searching for:**
 • **Country names**: United States, Germany, Japan, etc.
@@ -438,12 +603,14 @@ What would you like to explore? 🚀"""
 • Type **"help"** for more search options
 
 💡 **Example searches that work:**
-• "European Union"
+• "United States" (even if you type "United staes" - I'll fix typos!)
 • "AI Safety"
 • "Digital Education policies"
-• "United States AI"
+• "European Union"
 
-Our database only contains verified AI policies from official sources. If you don't see a policy, it might not be in our database yet."""
+⚠️ **Remember**: I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.
+
+What AI policies would you like to explore? 🚀"""
 
     async def get_conversation(self, conversation_id: str) -> Optional[ChatConversation]:
         """Retrieve a conversation from the database"""
@@ -575,7 +742,7 @@ def init_chatbot(db_client):
     chatbot_instance = DatabasePolicyChatbot(db_client)
     return chatbot_instance
 
-# FastAPI route functions
+# FastAPI route functions remain the same...
 async def chat_endpoint(request: ChatRequest):
     """Chat endpoint"""
     if not chatbot_instance:
@@ -619,18 +786,21 @@ async def policy_search_endpoint(q: str):
         
         # Search by country
         countries = await chatbot_instance.get_countries_list()
-        for country in countries:
-            if q.lower() in country.lower():
-                country_policies = await chatbot_instance.search_policies_by_country(country)
-                policies.extend(country_policies)
+        matched_country = chatbot_instance.find_closest_country_match(q, countries)
+        if matched_country:
+            country_policies = await chatbot_instance.search_policies_by_country(matched_country)
+            policies.extend(country_policies)
         
         # Search by policy name
         name_policies = await chatbot_instance.search_policies_by_name(q)
         policies.extend(name_policies)
         
         # Search by area
-        area_policies = await chatbot_instance.search_policies_by_area(q)
-        policies.extend(area_policies)
+        areas = await chatbot_instance.get_policy_areas_list()
+        matched_area = chatbot_instance.find_closest_area_match(q, areas)
+        if matched_area:
+            area_policies = await chatbot_instance.search_policies_by_area(matched_area)
+            policies.extend(area_policies)
         
         # Remove duplicates based on name and country
         unique_policies = []
