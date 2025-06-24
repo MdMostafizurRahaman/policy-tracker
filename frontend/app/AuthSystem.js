@@ -275,10 +275,17 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Signup failed");
       
-      setSuccess('Account created successfully! 🎉 Please check your email for verification code.');
+      // Show different messages based on email status
+      if (data.email_sent) {
+        setSuccess('Account created successfully! 🎉 Please check your email for verification code.');
+      } else {
+        setSuccess(`Account created! 🎉 Email failed to send. Your verification code is: ${data.otp_for_dev || 'Check server logs'}`);
+      }
+      
       setCurrentView('otp');
       setOtpTimer(120); // 2 minutes
       setCanResendOtp(false);
+      
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -778,7 +785,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 {formData.country && !COUNTRIES.includes(formData.country) && filteredCountries.length === 0 && (
                   <p className="text-sm text-red-600 mt-2 flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     Country not found. Please select from the list.
                   </p>
