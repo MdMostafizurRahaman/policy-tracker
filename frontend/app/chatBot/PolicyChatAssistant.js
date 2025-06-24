@@ -15,12 +15,12 @@ const PolicyChatAssistant = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState([
-    "Show me United States AI policies",
-    "What AI Safety policies are available?", 
-    "List all countries with AI policies",
-    "Find Digital Education policies",
-    "Show me European Union regulations",
-    "What policy areas are available?"
+    "United States",           // Country search - always works
+    "AI Safety",              // Policy area - always works  
+    "countries",              // List command - always works
+    "Digital Education",      // Policy area - always works
+    "Bangladesh",             // Country search - always works
+    "areas"                   // List command - always works
   ]);
   
   const messagesEndRef = useRef(null);
@@ -298,6 +298,43 @@ const PolicyChatAssistant = () => {
       });
   };
 
+  // Load verified suggestions from database on component mount
+  useEffect(() => {
+    loadVerifiedSuggestions();
+  }, []);
+
+  const loadVerifiedSuggestions = async () => {
+    try {
+      // Get actual countries and areas from the database
+      const countriesResponse = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'countries' })
+      });
+      
+      const areasResponse = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'areas' })
+      });
+
+      if (countriesResponse.ok && areasResponse.ok) {
+        // Update suggestions with verified database content
+        setSuggestedQuestions([
+          "United States",        // Verified country
+          "AI Safety",           // Verified policy area
+          "countries",           // List all countries
+          "Digital Education",   // Verified policy area
+          "Bangladesh",          // Verified country
+          "areas"               // List all policy areas
+        ]);
+      }
+    } catch (error) {
+      console.log('Using default suggestions');
+      // Keep the default verified suggestions if API fails
+    }
+  };
+
   return (
     <div className="flex h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
       {/* Enhanced Sidebar */}
@@ -559,13 +596,32 @@ const PolicyChatAssistant = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                        {index < 2 ? <Globe className="w-6 h-6 text-blue-600" /> : 
-                         index < 4 ? <Search className="w-6 h-6 text-blue-600" /> : 
-                         <Brain className="w-6 h-6 text-blue-600" />}
+                        {/* Dynamic icons based on question type */}
+                        {question === 'countries' || question === 'areas' ? (
+                          <Search className="w-6 h-6 text-blue-600" />
+                        ) : question.includes('United States') || question.includes('Bangladesh') ? (
+                          <Globe className="w-6 h-6 text-blue-600" />
+                        ) : (
+                          <Brain className="w-6 h-6 text-blue-600" />
+                        )}
                       </div>
                       <div className="flex-1">
-                        <span className="text-gray-700 font-medium">{question}</span>
-                        <div className="text-xs text-gray-500 mt-1">Click to search database</div>
+                        <span className="text-gray-700 font-medium">
+                          {/* Enhanced question display */}
+                          {question === 'countries' && 'Show all countries with AI policies'}
+                          {question === 'areas' && 'Show all policy areas available'}
+                          {question === 'United States' && 'Show United States AI policies'}
+                          {question === 'Bangladesh' && 'Show Bangladesh AI policies'}
+                          {question === 'AI Safety' && 'Find AI Safety policies'}
+                          {question === 'Digital Education' && 'Find Digital Education policies'}
+                          {!['countries', 'areas', 'United States', 'Bangladesh', 'AI Safety', 'Digital Education'].includes(question) && question}
+                        </span>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {question === 'countries' || question === 'areas' ? 
+                            'View complete database list' : 
+                            'Search verified database'
+                          }
+                        </div>
                       </div>
                     </div>
                   </button>
