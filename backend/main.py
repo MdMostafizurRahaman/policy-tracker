@@ -30,6 +30,13 @@ import asyncio
 import logging
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
+import smtplib
+import re
+import bcrypt
+import jwt
+import random
+import string
+import traceback
 from chatbot import (
     init_chatbot, 
     ChatRequest, 
@@ -77,6 +84,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://policy-tracker-5.onrender.com",
         "https://policy-tracker-f.onrender.com", 
         "http://localhost:3000", 
         "http://localhost:3001",
@@ -415,44 +423,105 @@ def generate_otp() -> str:
     return ''.join(random.choices(string.digits, k=6))
 
 async def send_email(to_email: str, subject: str, body: str) -> bool:
-    """Enhanced email sending with better error handling"""
+    """FIXED email sending with proper SMTP handling"""
     try:
-        if not SMTP_USERNAME or not SMTP_PASSWORD:
-            logger.warning("Email credentials not configured - using mock email")
-            # Mock email for development - just log the OTP
-            if "verification code" in body.lower() or "reset code" in body.lower():
-                # Extract OTP from body for logging
-                import re
-                otp_match = re.search(r'\b\d{6}\b', body)
-                if otp_match:
-                    logger.info(f"MOCK EMAIL - OTP for {to_email}: {otp_match.group()}")
-            return True
+        # Extract OTP for logging
+        otp_match = re.search(r'\b\d{6}\b', body)
+        extracted_otp = otp_match.group() if otp_match else None
         
-        msg = MIMEMultipart()
+        # Always log OTP for development
+        if extracted_otp:
+            logger.info(f"🔑 OTP for {to_email}: {extracted_otp}")
+            print(f"🔑 DEVELOPMENT OTP for {to_email}: {extracted_otp}")
+        
+        # Check credentials
+        if not SMTP_USERNAME or not SMTP_PASSWORD:
+            logger.warning("⚠️ SMTP credentials missing")
+            if extracted_otp:
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
+        
+        logger.info(f"📧 Sending email to: {to_email}")
+        logger.info(f"📧 SMTP Config: {SMTP_USERNAME} via {SMTP_SERVER}:{SMTP_PORT}")
+        
+        # Create message with proper encoding
+        msg = MIMEMultipart('alternative')
         msg['From'] = FROM_EMAIL
         msg['To'] = to_email
         msg['Subject'] = subject
+        msg.set_charset('utf-8')
         
-        msg.attach(MIMEText(body, 'html'))
+        # Add both HTML and plain text versions
+        plain_text = f"Your verification code is: {extracted_otp}" if extracted_otp else "Verification email"
+        text_part = MIMEText(plain_text, 'plain', 'utf-8')
+        html_part = MIMEText(body, 'html', 'utf-8')
         
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
+        msg.attach(text_part)
+        msg.attach(html_part)
+        
+        # FIXED: Use proper SMTP connection with context manager
+        try:
+            # Create SMTP connection
+            logger.info(f"🔌 Connecting to {SMTP_SERVER}:{SMTP_PORT}")
+            
+            # Use SMTP_SSL instead of SMTP + starttls for better compatibility
+            if SMTP_PORT == 465:
+                server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+            else:
+                server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+                server.ehlo()
+                logger.info("🔒 Starting TLS...")
+                server.starttls()
+                server.ehlo()
+            
+            logger.info(f"🔑 Authenticating as: {SMTP_USERNAME}")
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.send_message(msg)
-        
-        logger.info(f"Email sent successfully to {to_email}")
-        return True
+            
+            logger.info("📤 Sending message...")
+            text = msg.as_string()
+            server.sendmail(FROM_EMAIL, [to_email], text)
+            server.quit()
+            
+            logger.info(f"✅ Email sent successfully to {to_email}")
+            print(f"✅ EMAIL ACTUALLY SENT to {to_email}")
+            return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"❌ SMTP Authentication Error: {str(e)}")
+            print(f"❌ AUTH FAILED: {str(e)}")
+            print(f"🔑 USERNAME: {SMTP_USERNAME}")
+            print(f"🔑 PASSWORD LENGTH: {len(SMTP_PASSWORD)} chars")
+            if extracted_otp:
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
+            
+        except smtplib.SMTPConnectError as e:
+            logger.error(f"❌ SMTP Connection Error: {str(e)}")
+            print(f"❌ CONNECTION FAILED: {str(e)}")
+            if extracted_otp:
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
+            
+        except smtplib.SMTPException as e:
+            logger.error(f"❌ SMTP Error: {str(e)}")
+            print(f"❌ SMTP ERROR: {str(e)}")
+            if extracted_otp:
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Unexpected email error: {str(e)}")
+            print(f"❌ UNEXPECTED ERROR: {str(e)}")
+            if extracted_otp:
+                print(f"🔑 USE THIS OTP: {extracted_otp}")
+            return False
         
     except Exception as e:
-        logger.error(f"Email sending failed to {to_email}: {str(e)}")
-        # For development, still log OTP even if email fails
-        if "verification code" in body.lower() or "reset code" in body.lower():
-            import re
-            otp_match = re.search(r'\b\d{6}\b', body)
-            if otp_match:
-                logger.info(f"EMAIL FAILED - OTP for {to_email}: {otp_match.group()}")
-        return False
-
+        logger.error(f"❌ Email function error: {str(e)}")
+        print(f"❌ FUNCTION ERROR: {str(e)}")
+        if extracted_otp:
+            print(f"🔑 USE THIS OTP: {extracted_otp}")
+        return False      
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current authenticated user"""
     try:
@@ -577,8 +646,10 @@ async def startup_event():
 # Enhanced Authentication Endpoints
 @app.post("/api/auth/register")
 async def register_user(user_data: UserRegistration):
-    """Enhanced user registration with better validation"""
+    """Enhanced user registration with better validation and email handling"""
     try:
+        logger.info(f"Registration attempt for: {user_data.email}")
+        
         # Check if user already exists
         existing_user = await users_collection.find_one({"email": user_data.email})
         if existing_user:
@@ -602,6 +673,7 @@ async def register_user(user_data: UserRegistration):
         
         # Save user
         result = await users_collection.insert_one(user_doc)
+        logger.info(f"User created with ID: {result.inserted_id}")
         
         # Clean up existing OTPs for this email
         await otp_collection.delete_many({
@@ -619,6 +691,7 @@ async def register_user(user_data: UserRegistration):
             "expires_at": datetime.utcnow() + timedelta(minutes=10)
         }
         await otp_collection.insert_one(otp_doc)
+        logger.info(f"OTP generated and saved for {user_data.email}: {otp}")
         
         # Enhanced email template
         email_body = f"""
@@ -661,14 +734,20 @@ async def register_user(user_data: UserRegistration):
             email_body
         )
         
-        if not email_sent:
-            logger.warning(f"Email failed to send for {user_data.email}")
+        logger.info(f"Registration completed for {user_data.email}, email_sent: {email_sent}")
+        
+        # Return different messages based on email status
+        if email_sent:
+            message = "Account created successfully! Please check your email for verification code."
+        else:
+            message = f"Account created! Email sending failed. Your OTP is: {otp} (Use this to verify)"
         
         return {
             "success": True,
-            "message": "Account created successfully! Please check your email for verification code.",
+            "message": message,
             "user_id": str(result.inserted_id),
-            "email_sent": email_sent
+            "email_sent": email_sent,
+            "otp_for_dev": otp if not email_sent else None  # Include OTP if email failed
         }
     
     except HTTPException:
@@ -712,6 +791,35 @@ async def verify_email(verification: OTPVerification):
     except Exception as e:
         logger.error(f"Email verification error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+
+@app.get("/api/dev/get-latest-otp/{email}")
+async def get_latest_otp_for_development(email: str):
+    """Development endpoint to get latest OTP (remove in production)"""
+    try:
+        # Only allow in development
+        if os.getenv("ENVIRONMENT") == "production":
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        otp_doc = await otp_collection.find_one(
+            {"email": email},
+            sort=[("created_at", -1)]  # Get the latest OTP
+        )
+        
+        if not otp_doc:
+            return {"success": False, "message": "No OTP found for this email"}
+        
+        return {
+            "success": True,
+            "email": email,
+            "otp": otp_doc["otp"],
+            "type": otp_doc["type"],
+            "expires_at": otp_doc["expires_at"],
+            "created_at": otp_doc["created_at"]
+        }
+    
+    except Exception as e:
+        logger.error(f"Error getting development OTP: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 @app.post("/api/auth/login")
 async def login_user(login_data: UserLogin):
