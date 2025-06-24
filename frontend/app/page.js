@@ -127,7 +127,12 @@ export default function Page() {
       case "forgot":
         return (
           <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
-            <AuthSystem setView={setView} setUser={setUser} initialView={view} />
+            <AuthSystem 
+              key={view} 
+              setView={setView} 
+              setUser={setUser} 
+              initialView={view} 
+            />
           </div>
         )
       
@@ -429,7 +434,7 @@ export default function Page() {
                   </button>
                   <button
                     onClick={() => setView("signup")}
-                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                    className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
                   >
                     Sign Up
                   </button>
@@ -514,7 +519,7 @@ export default function Page() {
                       setView("signup")
                       setMobileMenuOpen(false)
                     }}
-                    className="w-full text-left px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium transition-all"
+                    className="w-full text-left px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-medium transition-all"
                   >
                     Sign Up
                   </button>
