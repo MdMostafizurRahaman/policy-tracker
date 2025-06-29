@@ -800,6 +800,9 @@ async def get_latest_otp_for_development(email: str):
         if os.getenv("ENVIRONMENT") == "production":
             raise HTTPException(status_code=404, detail="Not found")
         
+        # Log warning when this endpoint is accessed
+        logger.warning(f"🚨 DEVELOPMENT OTP ENDPOINT ACCESSED for {email}")
+        
         otp_doc = await otp_collection.find_one(
             {"email": email},
             sort=[("created_at", -1)]  # Get the latest OTP
@@ -807,6 +810,8 @@ async def get_latest_otp_for_development(email: str):
         
         if not otp_doc:
             return {"success": False, "message": "No OTP found for this email"}
+        
+        logger.warning(f"🚨 DEVELOPMENT OTP RETURNED: {otp_doc['otp']} for {email}")
         
         return {
             "success": True,
