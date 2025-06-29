@@ -3,10 +3,7 @@ Core configuration for the AI Policy Tracker application.
 """
 import os
 from typing import List
-try:
-    from pydantic_settings import BaseSettings
-except ImportError:
-    from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
 load_dotenv()

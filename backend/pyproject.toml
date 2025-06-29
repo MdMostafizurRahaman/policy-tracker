@@ -14,6 +14,8 @@ pymongo = "^4.12.0"
 python-dotenv = "^1.1.0"
 python-multipart = "^0.0.20"
 pydantic = {extras = ["email"], version = "^2.10.6"}
+pydantic-settings = "^2.1.0"
+email-validator = "^2.1.0"
 bcrypt = "^4.3.0"
 pyjwt = "^2.10.1"
 google-auth = "^2.35.0"
