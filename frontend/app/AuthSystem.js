@@ -146,7 +146,48 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     return () => clearInterval(interval);
   }, [otpTimer]);
 
+  // Clear OTP when switching views to prevent auto-fill issues
+  useEffect(() => {
+    if (currentView === 'reset') {
+      setFormData(prev => ({ ...prev, otp: '', newPassword: '', confirmPassword: '' }));
+      // Also clear any browser storage that might interfere
+      sessionStorage.removeItem('otp');
+      sessionStorage.removeItem('resetCode');
+      localStorage.removeItem('otp');
+      localStorage.removeItem('resetCode');
+    } else if (currentView === 'otp') {
+      setFormData(prev => ({ ...prev, otp: '' }));
+      // Clear any browser storage that might interfere
+      sessionStorage.removeItem('otp');
+      sessionStorage.removeItem('verificationCode');
+      localStorage.removeItem('otp');
+      localStorage.removeItem('verificationCode');
+    }
+  }, [currentView]);
+
+  // Helper function to reset form data
+  const resetFormData = () => {
+    setFormData({
+      email: formData.email, // Keep email for continuity
+      password: '',
+      confirmPassword: '',
+      firstName: '',
+      lastName: '',
+      country: '',
+      otp: '',
+      newPassword: ''
+    });
+    setError('');
+    setSuccess('');
+  };
+
   const handleInputChange = (field, value) => {
+    // Debug logging for OTP field changes
+    if (field === 'otp' && value) {
+      console.log('🔍 OTP field changed to:', value, 'at:', new Date().toISOString());
+      console.trace('OTP change trace');
+    }
+    
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
   };
@@ -350,6 +391,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       if (!res.ok) throw new Error(data.detail || "Failed to send reset code");
       
       setSuccess('Password reset code sent to your email! 📧');
+      resetFormData(); // Clear form data to prevent auto-fill
       setCurrentView('reset');
       setOtpTimer(600); // 10 minutes for password reset
       setCanResendOtp(false);
@@ -785,7 +827,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 {formData.country && !COUNTRIES.includes(formData.country) && filteredCountries.length === 0 && (
                   <p className="text-sm text-red-600 mt-2 flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     Country not found. Please select from the list.
                   </p>
@@ -947,11 +989,17 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Verification Code</label>
                 <input
                   type="text"
+                  name="email-verification-otp"
                   value={formData.otp}
                   onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-center text-2xl tracking-widest font-mono bg-gray-50 hover:bg-white"
                   placeholder="000000"
                   maxLength={6}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
                 />
               </div>
               
@@ -1011,11 +1059,17 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Reset Code</label>
                 <input
                   type="text"
+                  name="password-reset-otp"
                   value={formData.otp}
                   onChange={(e) => handleInputChange('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
                   className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 hover:bg-white font-mono text-center"
                   placeholder="Enter 6-digit code"
                   maxLength={6}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
                 />
               </div>
               
