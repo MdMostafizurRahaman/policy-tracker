@@ -29,11 +29,16 @@ services:
   - type: web
     name: policy-tracker-frontend
     runtime: node
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
+    buildCommand: |
+      cd frontend
+      npm install
+      npm run build
+    startCommand: cd frontend && npm run start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
         value: https://policy-tracker-backend.onrender.com/api
+      - key: DISABLE_STATIC_EXPORT
+        value: true
     autoDeploy: false
