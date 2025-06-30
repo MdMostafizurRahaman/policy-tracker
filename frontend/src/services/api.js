@@ -23,10 +23,18 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      
+      // Handle non-JSON responses
+      const contentType = response.headers.get('content-type');
+      let data;
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = { message: await response.text() };
+      }
 
       if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Request failed');
+        throw new Error(data.detail || data.message || `HTTP ${response.status}`);
       }
 
       return data;
@@ -59,6 +67,26 @@ class ApiService {
   async delete(endpoint, options = {}) {
     return this.request(endpoint, { method: 'DELETE', ...options });
   }
+
+  async patch(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async put(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      ...options,
+    });
+  }
+
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, { method: 'DELETE', ...options });
+  }
 }
 
 // Auth Service
@@ -75,12 +103,16 @@ class AuthService extends ApiService {
     return this.post('/auth/verify-email', verificationData);
   }
 
-  async forgotPassword(email) {
-    return this.post('/auth/forgot-password', { email });
+  async forgotPassword(emailData) {
+    return this.post('/auth/forgot-password', emailData);
   }
 
   async resetPassword(resetData) {
     return this.post('/auth/reset-password', resetData);
+  }
+
+  async resendOtp(emailData) {
+    return this.post('/auth/resend-otp', emailData);
   }
 
   async getCurrentUser() {
@@ -89,6 +121,10 @@ class AuthService extends ApiService {
 
   async googleAuth(token) {
     return this.post('/auth/google', { token });
+  }
+
+  async adminLogin(credentials) {
+    return this.post('/auth/admin-login', credentials);
   }
 }
 
@@ -159,6 +195,15 @@ export const authService = new AuthService();
 export const policyService = new PolicyService();
 export const chatService = new ChatService();
 export const adminService = new AdminService();
+
+// Export combined API service for backwards compatibility
+export const apiService = {
+  ...authService,
+  auth: authService,
+  policy: policyService,
+  chat: chatService,
+  admin: adminService,
+};
 
 export default {
   auth: authService,
