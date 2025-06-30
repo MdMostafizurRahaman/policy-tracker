@@ -1,0 +1,25 @@
+version: "1"
+services:
+  - type: web
+    name: policy-tracker-backend
+    runtime: python3
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python main_simple.py
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: MONGO_URI
+        fromDatabase:
+          name: policy-tracker-db
+          property: connectionString
+    autoDeploy: false
+
+  - type: web
+    name: policy-tracker-frontend
+    runtime: node
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://policy-tracker-backend.onrender.com/api
+    autoDeploy: false
