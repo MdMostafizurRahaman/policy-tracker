@@ -65,7 +65,7 @@ async def startup_event():
         
         # Initialize the database-only chatbot
         try:
-            from services.chatbot_service_core import init_chatbot
+            from chatbot import init_chatbot
             init_chatbot(database.client)
             logger.info("Database-only chatbot initialized")
         except ImportError:
@@ -113,7 +113,7 @@ async def health_check():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app",
+        "main_new:app",
         host="0.0.0.0",
         port=8000,
         reload=True if settings.ENVIRONMENT == "development" else False
