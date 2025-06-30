@@ -3,15 +3,27 @@ services:
   - type: web
     name: policy-tracker-backend
     runtime: python3
-    buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && python main_simple.py
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python -m uvicorn main_simple:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: MONGO_URI
-        fromDatabase:
-          name: policy-tracker-db
-          property: connectionString
+        value: mongodb+srv://policy_tracker:bsse1320@cluster0.pocdfcx.mongodb.net/
+      - key: JWT_SECRET_KEY
+        value: JaSajgPtMLa0wiCgfTcTOvMzkmrACVmXsJ8Ht2BQTk54plP0agLlVomoccAICKoVNcWFEdym6LX7eeaFeyqCMw
+      - key: SMTP_USERNAME
+        value: bsse1320@iit.du.ac.bd
+      - key: SMTP_PASSWORD
+        value: awui umcw hmyl eypi
+      - key: GOOGLE_CLIENT_ID
+        value: 641700598182-fl7bcqltjul7o8fi7m3fjitm4qu5fq2b.apps.googleusercontent.com
+      - key: SMTP_SERVER
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 465
+      - key: FROM_EMAIL
+        value: bsse1320@iit.du.ac.bd
     autoDeploy: false
 
   - type: web
@@ -20,6 +32,8 @@ services:
     buildCommand: cd frontend && npm install && npm run build
     startCommand: cd frontend && npm start
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: NEXT_PUBLIC_API_URL
         value: https://policy-tracker-backend.onrender.com/api
     autoDeploy: false

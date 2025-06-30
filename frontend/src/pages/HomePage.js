@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react"
 
 export default function HomePage({ setView, darkMode, animate, navigationItems = [] }) {
+  // Ensure navigationItems is always an array
+  const safeNavigationItems = navigationItems || [];
   return (
     <div className={`min-h-screen ${animate ? 'animate-fade-in' : ''}`}>
       {/* Hero Section */}
@@ -141,7 +143,7 @@ export default function HomePage({ setView, darkMode, animate, navigationItems =
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {navigationItems?.map((item, index) => (
+            {safeNavigationItems.map((item, index) => (
               <div
                 key={item.key}
                 onClick={() => setView(item.key)}
