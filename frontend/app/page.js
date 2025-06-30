@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 import WorldMap from "./components/Worldmap.js"
 import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
 import AdminPanel from "./admin/AdminDashboard.js"
-import AuthSystem from "./AuthSystem.js"
+import AuthSystem from "../src/components/auth/AuthSystem.js"
 import AdminLogin from "./components/AdminLogin.js"
 import PolicyChatAssistant from "./chatBot/PolicyChatAssistant.js"
 
