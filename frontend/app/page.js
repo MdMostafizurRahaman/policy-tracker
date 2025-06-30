@@ -1,14 +1,14 @@
 'use client'
 import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
-import WorldMap from "./components/Worldmap.js"
-import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
-import AdminPanel from "./admin/AdminDashboard.js"
+import WorldMap from "../src/components/layout/Worldmap.js"
+import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
+import AdminPanel from "../src/components/admin/AdminDashboard.js"
 import AuthSystem from "../src/components/auth/AuthSystem.js"
-import AdminLogin from "./components/AdminLogin.js"
-import PolicyChatAssistant from "./chatBot/PolicyChatAssistant.js"
+import AdminLogin from "../src/components/admin/AdminLogin.js"
+import PolicyChatAssistant from "../src/components/chatbot/PolicyChatAssistant.js"
 
-const GlobeView = dynamic(() => import("./components/GlobeView.js"), { ssr: false })
+const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"), { ssr: false })
 
 export default function Page() {
   const [view, setView] = useState("home")
