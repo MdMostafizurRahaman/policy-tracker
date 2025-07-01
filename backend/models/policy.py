@@ -1,102 +1,9 @@
 """
-<<<<<<< HEAD
 Pydantic models for policy submissions and management.
 """
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any
-from core.constants import POLICY_AREAS, COUNTRIES, POLICY_STATUSES
-=======
-Policy Models and Schemas
-Pydantic models for policy-related operations
-"""
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-
-# Enhanced Policy Areas Configuration
-POLICY_AREAS = [
-    {
-        "id": "ai-safety",
-        "name": "AI Safety",
-        "description": "Policies ensuring AI systems are safe and beneficial",
-        "icon": "🛡️",
-        "color": "from-red-500 to-pink-600",
-        "gradient": "bg-gradient-to-r from-red-500 to-pink-600"
-    },
-    {
-        "id": "cyber-safety",
-        "name": "CyberSafety", 
-        "description": "Cybersecurity and digital safety policies",
-        "icon": "🔒",
-        "color": "from-blue-500 to-cyan-600",
-        "gradient": "bg-gradient-to-r from-blue-500 to-cyan-600"
-    },
-    {
-        "id": "digital-education",
-        "name": "Digital Education",
-        "description": "Educational technology and digital literacy policies",
-        "icon": "🎓",
-        "color": "from-green-500 to-emerald-600",
-        "gradient": "bg-gradient-to-r from-green-500 to-emerald-600"
-    },
-    {
-        "id": "digital-inclusion",
-        "name": "Digital Inclusion",
-        "description": "Bridging the digital divide and ensuring equal access",
-        "icon": "🌐",
-        "color": "from-purple-500 to-indigo-600",
-        "gradient": "bg-gradient-to-r from-purple-500 to-indigo-600"
-    },
-    {
-        "id": "digital-leisure",
-        "name": "Digital Leisure",
-        "description": "Gaming, entertainment, and digital recreation policies",
-        "icon": "🎮",
-        "color": "from-yellow-500 to-orange-600",
-        "gradient": "bg-gradient-to-r from-yellow-500 to-orange-600"
-    },
-    {
-        "id": "disinformation",
-        "name": "(Dis)Information",
-        "description": "Combating misinformation and promoting truth",
-        "icon": "📰",
-        "color": "from-gray-500 to-slate-600",
-        "gradient": "bg-gradient-to-r from-gray-500 to-slate-600"
-    },
-    {
-        "id": "digital-work",
-        "name": "Digital Work",
-        "description": "Future of work and digital employment policies",
-        "icon": "💼",
-        "color": "from-teal-500 to-blue-600",
-        "gradient": "bg-gradient-to-r from-teal-500 to-blue-600"
-    },
-    {
-        "id": "mental-health",
-        "name": "Mental Health",
-        "description": "Digital wellness and mental health policies",
-        "icon": "🧠",
-        "color": "from-pink-500 to-rose-600",
-        "gradient": "bg-gradient-to-r from-pink-500 to-rose-600"
-    },
-    {
-        "id": "physical-health",
-        "name": "Physical Health",
-        "description": "Healthcare technology and physical wellness policies",
-        "icon": "❤️",
-        "color": "from-emerald-500 to-green-600",
-        "gradient": "bg-gradient-to-r from-emerald-500 to-green-600"
-    },
-    {
-        "id": "social-media-gaming",
-        "name": "Social Media/Gaming Regulation",
-        "description": "Social media platforms and gaming regulation",
-        "icon": "📱",
-        "color": "from-indigo-500 to-purple-600",
-        "gradient": "bg-gradient-to-r from-indigo-500 to-purple-600"
-    }
-]
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
+from config.constants import POLICY_AREAS, COUNTRIES, POLICY_STATUSES
 
 class SubPolicy(BaseModel):
     policyName: str = ""
@@ -141,10 +48,6 @@ class EnhancedSubmission(BaseModel):
 
     @validator('country')
     def validate_country(cls, v):
-<<<<<<< HEAD
-=======
-        from config.data_constants import COUNTRIES
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
         if v not in COUNTRIES:
             raise ValueError('Invalid country')
         return v
@@ -158,14 +61,8 @@ class PolicyStatusUpdate(BaseModel):
     
     @validator('status')
     def validate_status(cls, v):
-<<<<<<< HEAD
         if v not in POLICY_STATUSES:
             raise ValueError(f'Status must be one of: {POLICY_STATUSES}')
-=======
-        allowed_statuses = ['pending', 'approved', 'rejected', 'under_review', 'needs_revision']
-        if v not in allowed_statuses:
-            raise ValueError(f'Status must be one of: {allowed_statuses}')
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
         return v
 
     @validator('policy_index')
@@ -173,7 +70,6 @@ class PolicyStatusUpdate(BaseModel):
         if v < 0:
             raise ValueError('Policy index must be non-negative')
         return v
-<<<<<<< HEAD
 
 class PolicyResponse(BaseModel):
     id: str
@@ -185,5 +81,3 @@ class PolicyResponse(BaseModel):
     created_at: str
     policy_score: int = 0
     completeness_score: str = "basic"
-=======
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2

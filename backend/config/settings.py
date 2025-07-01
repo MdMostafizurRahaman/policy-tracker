@@ -59,3 +59,7 @@ class Settings:
 
 # Create a global settings instance
 settings = Settings()
+
+def get_settings() -> Settings:
+    """Get application settings instance"""
+    return settings

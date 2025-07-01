@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 Models initialization file.
 """
@@ -28,6 +27,3 @@ __all__ = [
     "ChatResponse",
     "ConversationResponse"
 ]
-=======
-# Models package
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
