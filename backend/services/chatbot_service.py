@@ -1,47 +1,23 @@
-from fastapi import HTTPException
-from pydantic import BaseModel
+"""
+Chatbot service for AI policy database queries.
+"""
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-import os
-from dotenv import load_dotenv
-import json
-import asyncio
-import motor.motor_asyncio
-from bson import ObjectId
 import re
 import difflib
+from bson import ObjectId
 
-# Load environment variables
-load_dotenv()
+from models.chat import ChatMessage, ChatRequest, ChatResponse, ChatConversation
+from config.database import database
+from utils.helpers import convert_objectid
 
-# Pydantic Models for Chatbot
-class ChatMessage(BaseModel):
-    role: str  # 'user' or 'assistant'
-    content: str
-    timestamp: Optional[datetime] = None
 
-class ChatRequest(BaseModel):
-    message: str
-    conversation_id: Optional[str] = None
-    context: Optional[str] = None
-
-class ChatResponse(BaseModel):
-    response: str
-    conversation_id: str
-    timestamp: datetime
-
-class ChatConversation(BaseModel):
-    conversation_id: str
-    messages: List[ChatMessage]
-    created_at: datetime
-    updated_at: datetime
-
-class DatabasePolicyChatbot:
-    def __init__(self, db_client):
-        self.db = db_client.ai_policy_database
-        self.conversations_collection = self.db.chat_conversations
-        self.master_policies_collection = self.db.master_policies
-        self.temp_submissions_collection = self.db.temp_submissions
+class ChatbotService:
+    def __init__(self):
+        self._db = None
+        self._conversations_collection = None
+        self._master_policies_collection = None
+        self._temp_submissions_collection = None
         
         # Common greetings and help responses
         self.greeting_responses = [
@@ -51,6 +27,30 @@ class DatabasePolicyChatbot:
         self.help_keywords = [
             "help", "what can you do", "commands", "how to use", "guide"
         ]
+
+    @property
+    def db(self):
+        if self._db is None:
+            self._db = database.db
+        return self._db
+
+    @property
+    def conversations_collection(self):
+        if self._conversations_collection is None:
+            self._conversations_collection = self.db.chat_conversations
+        return self._conversations_collection
+
+    @property
+    def master_policies_collection(self):
+        if self._master_policies_collection is None:
+            self._master_policies_collection = self.db.master_policies
+        return self._master_policies_collection
+
+    @property
+    def temp_submissions_collection(self):
+        if self._temp_submissions_collection is None:
+            self._temp_submissions_collection = self.db.temp_submissions
+        return self._temp_submissions_collection
         
         # Non-database query patterns (to reject)
         self.non_database_patterns = [
@@ -491,7 +491,7 @@ What AI policies would you like to learn about? 🚀"""
         if any(help_word in message_lower for help_word in self.help_keywords):
             return self.get_help_response()
         
-        # NEW: Handle "show me all policies" or similar broad queries
+        # Handle "show me all policies" or similar broad queries
         broad_queries = [
             "show me all policies", "all policies", "show all policies",
             "all ai policies", "show me all ai policies", "list all policies",
@@ -681,7 +681,7 @@ What AI policies would you like to explore? 🚀"""
             )
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+            raise Exception(f"Chat error: {str(e)}")
 
     async def get_conversation_history(self, conversation_id: str) -> List[ChatMessage]:
         """Get conversation history"""
@@ -723,104 +723,53 @@ What AI policies would you like to explore? 🚀"""
             print(f"Error getting user conversations: {e}")
             return []
 
-# Helper function to convert ObjectId to string for JSON serialization
-def convert_objectid_chat(obj):
-    if isinstance(obj, ObjectId):
-        return str(obj)
-    elif isinstance(obj, dict):
-        return {key: convert_objectid_chat(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_objectid_chat(item) for item in obj]
-    return obj
+    async def search_policies(self, query: str) -> List[Dict]:
+        """Enhanced policy search for the sidebar"""
+        try:
+            # Search across all policy fields
+            policies = []
+            
+            # Search by country
+            countries = await self.get_countries_list()
+            matched_country = self.find_closest_country_match(query, countries)
+            if matched_country:
+                country_policies = await self.search_policies_by_country(matched_country)
+                policies.extend(country_policies)
+            
+            # Search by policy name
+            name_policies = await self.search_policies_by_name(query)
+            policies.extend(name_policies)
+            
+            # Search by area
+            areas = await self.get_policy_areas_list()
+            matched_area = self.find_closest_area_match(query, areas)
+            if matched_area:
+                area_policies = await self.search_policies_by_area(matched_area)
+                policies.extend(area_policies)
+            
+            # Remove duplicates based on name and country
+            unique_policies = []
+            seen = set()
+            for policy in policies:
+                key = (policy['name'], policy['country'])
+                if key not in seen:
+                    seen.add(key)
+                    unique_policies.append({
+                        "id": f"{policy['country']}_{policy['name']}".replace(" ", "_"),
+                        "name": policy['name'],
+                        "country": policy['country'],
+                        "area": policy['area'],
+                        "description": policy['description'],
+                        "year": policy['year'],
+                        "area_icon": policy['area_icon']
+                    })
+            
+            return unique_policies[:10]  # Limit to 10 results
+            
+        except Exception as e:
+            print(f"Error in policy search: {e}")
+            return []
 
-# Initialize chatbot instance
-chatbot_instance = None
 
-def init_chatbot(db_client):
-    """Initialize chatbot with database client"""
-    global chatbot_instance
-    chatbot_instance = DatabasePolicyChatbot(db_client)
-    return chatbot_instance
-
-# FastAPI route functions remain the same...
-async def chat_endpoint(request: ChatRequest):
-    """Chat endpoint"""
-    if not chatbot_instance:
-        raise HTTPException(status_code=500, detail="Chatbot not initialized")
-    
-    response = await chatbot_instance.chat(request)
-    return response
-
-async def get_conversation_endpoint(conversation_id: str):
-    """Get conversation history endpoint"""
-    if not chatbot_instance:
-        raise HTTPException(status_code=500, detail="Chatbot not initialized")
-    
-    messages = await chatbot_instance.get_conversation_history(conversation_id)
-    return {"conversation_id": conversation_id, "messages": [convert_objectid_chat(msg.dict()) for msg in messages]}
-
-async def delete_conversation_endpoint(conversation_id: str):
-    """Delete conversation endpoint"""
-    if not chatbot_instance:
-        raise HTTPException(status_code=500, detail="Chatbot not initialized")
-    
-    success = await chatbot_instance.delete_conversation(conversation_id)
-    return {"success": success, "message": "Conversation deleted" if success else "Conversation not found"}
-
-async def get_conversations_endpoint(limit: int = 20):
-    """Get conversations list endpoint"""
-    if not chatbot_instance:
-        raise HTTPException(status_code=500, detail="Chatbot not initialized")
-    
-    conversations = await chatbot_instance.get_user_conversations(limit)
-    return {"conversations": convert_objectid_chat(conversations)}
-
-async def policy_search_endpoint(q: str):
-    """Enhanced policy search endpoint for the sidebar"""
-    if not chatbot_instance:
-        raise HTTPException(status_code=500, detail="Chatbot not initialized")
-    
-    try:
-        # Search across all policy fields
-        policies = []
-        
-        # Search by country
-        countries = await chatbot_instance.get_countries_list()
-        matched_country = chatbot_instance.find_closest_country_match(q, countries)
-        if matched_country:
-            country_policies = await chatbot_instance.search_policies_by_country(matched_country)
-            policies.extend(country_policies)
-        
-        # Search by policy name
-        name_policies = await chatbot_instance.search_policies_by_name(q)
-        policies.extend(name_policies)
-        
-        # Search by area
-        areas = await chatbot_instance.get_policy_areas_list()
-        matched_area = chatbot_instance.find_closest_area_match(q, areas)
-        if matched_area:
-            area_policies = await chatbot_instance.search_policies_by_area(matched_area)
-            policies.extend(area_policies)
-        
-        # Remove duplicates based on name and country
-        unique_policies = []
-        seen = set()
-        for policy in policies:
-            key = (policy['name'], policy['country'])
-            if key not in seen:
-                seen.add(key)
-                unique_policies.append({
-                    "id": f"{policy['country']}_{policy['name']}".replace(" ", "_"),
-                    "name": policy['name'],
-                    "country": policy['country'],
-                    "area": policy['area'],
-                    "description": policy['description'],
-                    "year": policy['year'],
-                    "area_icon": policy['area_icon']
-                })
-        
-        return {"policies": unique_policies[:10]}  # Limit to 10 results
-        
-    except Exception as e:
-        print(f"Error in policy search: {e}")
-        return {"policies": []}
+# Create singleton instance
+chatbot_service = ChatbotService()
