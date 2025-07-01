@@ -4,7 +4,7 @@ Handles HTTP requests for public endpoints (no authentication required)
 """
 from fastapi import APIRouter, HTTPException, Query
 from config.database import get_master_policies_collection
-from config.data_constants import POLICY_AREAS, COUNTRIES
+from config.constants import POLICY_AREAS, COUNTRIES
 from utils.converters import convert_objectid
 from datetime import datetime
 import logging

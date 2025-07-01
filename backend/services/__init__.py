@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 Services initialization file.
 """
@@ -11,6 +10,3 @@ __all__ = [
     "email_service",
     "policy_service"
 ]
-=======
-# Services package
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
