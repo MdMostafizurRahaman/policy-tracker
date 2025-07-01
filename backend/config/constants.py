@@ -1,9 +1,8 @@
 """
-Data Constants
-Contains policy areas, countries, and other data configurations
+Application constants and configuration data.
 """
 
-# Enhanced Policy Areas Configuration with full styling
+# Enhanced Policy Areas Configuration
 POLICY_AREAS = [
     {
         "id": "ai-safety",
@@ -87,7 +86,7 @@ POLICY_AREAS = [
     }
 ]
 
-# Enhanced Countries list
+# Countries list
 COUNTRIES = [
     "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
     "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan", "Bahamas",
@@ -123,10 +122,13 @@ COUNTRIES = [
     "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ]
 
-# Policy Status Options
-POLICY_STATUSES = [
-    "pending",
-    "approved", 
-    "rejected",
-    "needs_revision"
-]
+# Policy status options
+POLICY_STATUSES = ['pending', 'approved', 'rejected', 'under_review', 'needs_revision']
+
+# Admin Configuration
+SUPER_ADMIN_EMAIL = "admin@gmail.com"
+SUPER_ADMIN_PASSWORD = "admin123"
+
+# JWT Configuration
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+ALGORITHM = "HS256"

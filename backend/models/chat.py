@@ -3,6 +3,7 @@ Pydantic models for chatbot interactions.
 """
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 class ChatRequest(BaseModel):
     message: str
@@ -19,6 +20,12 @@ class ChatResponse(BaseModel):
     conversation_id: str
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     suggested_questions: List[str] = Field(default_factory=list)
+
+class ChatConversation(BaseModel):
+    conversation_id: str
+    messages: List[ChatMessage]
+    created_at: datetime
+    updated_at: datetime
 
 class ConversationResponse(BaseModel):
     id: str
