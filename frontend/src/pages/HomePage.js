@@ -1,7 +1,13 @@
 'use client'
 import { useState, useEffect } from "react"
 
+<<<<<<< HEAD
 export default function HomePage({ setView, darkMode, animate, navigationItems }) {
+=======
+export default function HomePage({ setView, darkMode, animate, navigationItems = [] }) {
+  // Ensure navigationItems is always an array
+  const safeNavigationItems = navigationItems || [];
+>>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
   return (
     <div className={`min-h-screen ${animate ? 'animate-fade-in' : ''}`}>
       {/* Hero Section */}
@@ -141,7 +147,11 @@ export default function HomePage({ setView, darkMode, animate, navigationItems }
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+<<<<<<< HEAD
             {navigationItems.map((item, index) => (
+=======
+            {safeNavigationItems.map((item, index) => (
+>>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
               <div
                 key={item.key}
                 onClick={() => setView(item.key)}
