@@ -3,7 +3,7 @@ Pydantic models for user authentication and management.
 """
 from pydantic import BaseModel, Field, validator, EmailStr
 from typing import Optional
-from core.constants import COUNTRIES
+from config.constants import COUNTRIES
 
 class UserRegistration(BaseModel):
     firstName: str
