@@ -3,8 +3,11 @@ services:
   - type: web
     name: policy-tracker-backend
     runtime: python3
-    buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && python -m uvicorn main_simple:app --host 0.0.0.0 --port $PORT
+    buildCommand: |
+      cd backend
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: ENVIRONMENT
         value: production
