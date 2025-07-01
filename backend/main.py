@@ -1,19 +1,4 @@
 """
-<<<<<<< HEAD
-Main entry point for the AI Policy Tracker API.
-This is the new structured version - the old main.py is preserved as main_old.py
-"""
-import uvicorn
-from app_main import app
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "app_main:app", 
-        host="0.0.0.0", 
-        port=8000, 
-        reload=True, 
-        log_level="info"
-=======
 AI Policy Tracker - Enhanced Main Application
 Refactored FastAPI application following layered architecture pattern
 """
@@ -80,7 +65,7 @@ async def startup_event():
         
         # Initialize the database-only chatbot
         try:
-            from services.chatbot_service_core import init_chatbot
+            from services.chatbot_service import init_chatbot
             init_chatbot(database.client)
             logger.info("Database-only chatbot initialized")
         except ImportError:
@@ -134,5 +119,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=port,
         reload=True if settings.ENVIRONMENT == "development" else False
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
     )
