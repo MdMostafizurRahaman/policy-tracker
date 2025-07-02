@@ -68,8 +68,59 @@
 .header-title p {
   color: #64748b;
   font-size: 1rem;
-  margin: 0;
+  margin: 0 0 0.75rem 0;
   font-weight: 500;
+}
+
+.map-stats {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: rgba(79, 70, 229, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.stat-number {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #4f46e5;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .map-stats {
+    gap: 1rem;
+  }
+  
+  .stat-item {
+    min-width: 60px;
+  }
+  
+  .stat-number {
+    font-size: 1rem;
+  }
+  
+  .stat-label {
+    font-size: 0.65rem;
+  }
 }
 
 .chat-toggle-btn {
@@ -626,9 +677,27 @@ button:focus-visible,
   padding: 8px 12px;
   cursor: pointer;
   font-size: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
+
 .country-suggestions li:hover {
   background: #f3f4f6;
+}
+
+.country-name {
+  font-weight: 500;
+}
+
+.country-count {
+  font-size: 0.8rem;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.country-suggestions li:hover .country-count {
+  color: #4f46e5;
 }
 .tooltip-floating {
   background: #fff;

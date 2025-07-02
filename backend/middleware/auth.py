@@ -30,12 +30,22 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     """Get current authenticated user"""
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         
         users_collection = get_users_collection()
-        user = await users_collection.find_one({"email": email})
+        from bson import ObjectId
+        try:
+            user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        except Exception:
+            # Fallback to email lookup if user_id format is invalid
+            email = payload.get("email")
+            if email:
+                user = await users_collection.find_one({"email": email})
+            else:
+                user = None
+                
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
         

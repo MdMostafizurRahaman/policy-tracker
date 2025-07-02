@@ -90,14 +90,14 @@ class AuthService:
                 print(f"🔑 DEVELOPMENT OTP for {to_email}: {extracted_otp}")
             
             # Check credentials
-            if not self.settings.smtp_username or not self.settings.smtp_password:
+            if not self.settings.SMTP_USERNAME or not self.settings.SMTP_PASSWORD:
                 logger.warning("⚠️ SMTP credentials missing")
                 if extracted_otp:
                     print(f"🔑 USE THIS OTP: {extracted_otp}")
                 return False
             
             logger.info(f"📧 Sending email to: {to_email}")
-            logger.info(f"📧 SMTP Config: {self.settings.smtp_username} via {self.settings.smtp_server}:{self.settings.smtp_port}")
+            logger.info(f"📧 SMTP Config: {self.settings.SMTP_USERNAME} via {self.settings.SMTP_SERVER}:{self.settings.SMTP_PORT}")
             
             # Create message with proper encoding
             msg = MIMEMultipart('alternative')
@@ -128,8 +128,8 @@ class AuthService:
                     server.starttls()
                     server.ehlo()
                 
-                logger.info(f"🔑 Authenticating as: {self.settings.smtp_username}")
-                server.login(self.settings.smtp_username, self.settings.smtp_password)
+                logger.info(f"🔑 Authenticating as: {self.settings.SMTP_USERNAME}")
+                server.login(self.settings.SMTP_USERNAME, self.settings.SMTP_PASSWORD)
                 
                 logger.info("📤 Sending message...")
                 text = msg.as_string()

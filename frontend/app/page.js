@@ -1,21 +1,12 @@
 'use client'
 import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
-<<<<<<< HEAD
-import WorldMap from "./components/Worldmap.js"
-import PolicySubmissionForm from "./Submission/PolicySubmissionForm.js"
-import AdminPanel from "./admin/AdminDashboard.js"
-import AuthSystem from "./AuthSystem.js"
-import AdminLogin from "./components/AdminLogin.js"
-import PolicyChatAssistant from "./chatBot/PolicyChatAssistant.js"
-=======
 import WorldMap from "../src/components/layout/Worldmap.js"
 import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
 import AdminPanel from "../src/components/admin/AdminDashboard.js"
 import AuthSystem from "../src/components/auth/AuthSystem.js"
 import AdminLogin from "../src/components/admin/AdminLogin.js"
 import PolicyChatAssistant from "../src/components/chatbot/PolicyChatAssistant.js"
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
 
 const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"), { ssr: false })
 
