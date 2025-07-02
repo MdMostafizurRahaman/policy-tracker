@@ -96,17 +96,33 @@ class AdminService:
             logger.error(f"Error initializing super admin: {e}")
             raise Exception(f"Failed to initialize admin: {str(e)}")
 
-    async def get_submissions(self, limit: int = 50) -> Dict[str, Any]:
-        """Get all submissions for admin review"""
+    async def get_submissions(self, page: int = 1, limit: int = 10, status: str = "all") -> Dict[str, Any]:
+        """Get all submissions for admin review with pagination"""
         try:
+            # Calculate skip for pagination
+            skip = (page - 1) * limit
+            
+            # Build query filter
+            query = {}
+            if status != "all":
+                query["submission_status"] = status
+            
+            # Get total count for pagination
+            total_count = await self.temp_submissions_collection.count_documents(query)
+            total_pages = (total_count + limit - 1) // limit  # Ceiling division
+            
+            # Get submissions with pagination
             submissions = []
-            async for submission in self.temp_submissions_collection.find({}).limit(limit).sort("created_at", -1):
+            async for submission in self.temp_submissions_collection.find(query).skip(skip).limit(limit).sort("created_at", -1):
                 submissions.append(convert_objectid(submission))
             
             return {
                 "success": True,
                 "submissions": submissions,
-                "total_count": len(submissions)
+                "total_count": total_count,
+                "total_pages": total_pages,
+                "current_page": page,
+                "limit": limit
             }
         
         except Exception as e:
@@ -336,6 +352,222 @@ class AdminService:
         except Exception as e:
             logger.error(f"Error repairing data: {str(e)}")
             raise Exception(f"Failed to repair data: {str(e)}")
+
+    async def update_policy_status(self, submission_id: str, area_id: str, policy_index: int, status: str, admin_notes: str, admin_user: Dict[str, Any]) -> Dict[str, Any]:
+        """Update the status of a specific policy within a submission"""
+        try:
+            # Find the submission
+            submission = await self.temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
+            if not submission:
+                raise Exception("Submission not found")
+            
+            # Find and update the policy in the policyAreas structure
+            policy_areas = submission.get("policyAreas", [])
+            area_found = False
+            
+            for i, area in enumerate(policy_areas):
+                if area.get("area_id") == area_id:
+                    if policy_index >= len(area.get("policies", [])):
+                        raise Exception(f"Policy index {policy_index} out of range")
+                    
+                    # Update policy status
+                    policy_areas[i]["policies"][policy_index]["status"] = status
+                    policy_areas[i]["policies"][policy_index]["admin_notes"] = admin_notes
+                    policy_areas[i]["policies"][policy_index]["updated_at"] = datetime.utcnow()
+                    policy_areas[i]["policies"][policy_index]["reviewed_by"] = admin_user.get("email")
+                    area_found = True
+                    break
+            
+            if not area_found:
+                raise Exception(f"Policy area '{area_id}' not found")
+            
+            # Update the submission with modified policy areas
+            await self.temp_submissions_collection.update_one(
+                {"_id": ObjectId(submission_id)},
+                {"$set": {"policyAreas": policy_areas, "updated_at": datetime.utcnow()}}
+            )
+            
+            # Log admin action
+            await self.admin_actions_collection.insert_one({
+                "action": "update_policy_status",
+                "admin_email": admin_user.get("email"),
+                "submission_id": submission_id,
+                "area_id": area_id,
+                "policy_index": policy_index,
+                "new_status": status,
+                "admin_notes": admin_notes,
+                "timestamp": datetime.utcnow()
+            })
+            
+            # If approved, move to master collection
+            if status == "approved":
+                await self._move_policy_to_master(submission_id, area_id, policy_index, admin_user)
+            
+            return {
+                "success": True,
+                "message": f"Policy status updated to {status}",
+                "moved_to_master": status == "approved"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error updating policy status: {str(e)}")
+            raise Exception(f"Failed to update policy status: {str(e)}")
+
+    async def _move_policy_to_master(self, submission_id: str, area_id: str, policy_index: int, admin_user: Dict[str, Any]):
+        """Move a specific approved policy to master collection"""
+        try:
+            # Get the submission and specific policy
+            submission = await self.temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
+            if not submission:
+                raise Exception(f"Submission not found: {submission_id}")
+            
+            # Check if the policyAreas structure exists (new format)
+            if "policyAreas" not in submission:
+                raise Exception(f"No policy areas found in submission: {submission_id}")
+            
+            # Find the policy area by area_id
+            area_found = False
+            policy = None
+            
+            for area in submission["policyAreas"]:
+                if area.get("area_id") == area_id:
+                    area_policies = area.get("policies", [])
+                    if policy_index >= len(area_policies):
+                        raise Exception(f"Policy index {policy_index} out of range for area '{area_id}' (has {len(area_policies)} policies)")
+                    
+                    policy = area_policies[policy_index]
+                    area_found = True
+                    break
+            
+            if not area_found:
+                raise Exception(f"Policy area '{area_id}' not found in submission: {submission_id}")
+                
+            if not policy:
+                raise Exception(f"Policy at index {policy_index} is empty or None")
+            
+            # Create master policy document
+            master_policy = {
+                "policyName": policy.get("policyName", ""),
+                "policyId": policy.get("policyId", ""),
+                "policyArea": area_id,
+                "targetGroups": policy.get("targetGroups", []),
+                "policyDescription": policy.get("policyDescription", ""),
+                "policyFile": policy.get("policyFile", {}),
+                "country": submission.get("country", ""),
+                "email": submission.get("email", ""),
+                "submittedAt": submission.get("submittedAt", datetime.utcnow()),
+                "master_status": "active",
+                "moved_to_master_at": datetime.utcnow(),
+                "approved_by": admin_user.get("email"),
+                "original_submission_id": submission_id,
+                "original_area_id": area_id,
+                "original_policy_index": policy_index
+            }
+            
+            # Insert into master collection
+            result = await self.master_policies_collection.insert_one(master_policy)
+            
+            # Log the action
+            await self.admin_actions_collection.insert_one({
+                "action": "move_to_master",
+                "admin_email": admin_user.get("email"),
+                "submission_id": submission_id,
+                "area_id": area_id,
+                "policy_index": policy_index,
+                "master_policy_id": str(result.inserted_id),
+                "timestamp": datetime.utcnow()
+            })
+            
+            logger.info(f"Moved policy to master: {result.inserted_id}")
+            
+        except Exception as e:
+            logger.error(f"Error moving policy to master: {str(e)}")
+            raise Exception(f"Failed to move policy to master: {str(e)}")
+
+    async def delete_master_policy(self, policy_id: str, admin_user: Dict[str, Any]) -> Dict[str, Any]:
+        """Delete a policy from master collection (both DB and map)"""
+        try:
+            # Find the policy first
+            policy = await self.master_policies_collection.find_one({"_id": ObjectId(policy_id)})
+            if not policy:
+                raise Exception("Policy not found")
+            
+            # Mark as deleted instead of hard delete (to maintain history)
+            await self.master_policies_collection.update_one(
+                {"_id": ObjectId(policy_id)},
+                {
+                    "$set": {
+                        "master_status": "deleted",
+                        "deleted_at": datetime.utcnow(),
+                        "deleted_by": admin_user.get("email")
+                    }
+                }
+            )
+            
+            # Log admin action
+            await self.admin_actions_collection.insert_one({
+                "action": "delete_master_policy",
+                "admin_email": admin_user.get("email"),
+                "policy_id": policy_id,
+                "policy_name": policy.get("policyName", ""),
+                "country": policy.get("country", ""),
+                "policy_area": policy.get("policyArea", ""),
+                "timestamp": datetime.utcnow()
+            })
+            
+            return {
+                "success": True,
+                "message": "Policy deleted successfully",
+                "policy_id": policy_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Error deleting policy: {str(e)}")
+            raise Exception(f"Failed to delete policy: {str(e)}")
+
+    async def delete_submission_policy(self, submission_id: str, area_id: str, policy_index: int, admin_user: Dict[str, Any]) -> Dict[str, Any]:
+        """Delete a specific policy from a submission"""
+        try:
+            # Find the submission
+            submission = await self.temp_submissions_collection.find_one({"_id": ObjectId(submission_id)})
+            if not submission:
+                raise Exception("Submission not found")
+            
+            # Mark the policy as deleted
+            status_path = f"policies.{area_id}.{policy_index}.status"
+            deleted_path = f"policies.{area_id}.{policy_index}.deleted_at"
+            deleted_by_path = f"policies.{area_id}.{policy_index}.deleted_by"
+            
+            await self.temp_submissions_collection.update_one(
+                {"_id": ObjectId(submission_id)},
+                {
+                    "$set": {
+                        status_path: "deleted",
+                        deleted_path: datetime.utcnow(),
+                        deleted_by_path: admin_user.get("email")
+                    }
+                }
+            )
+            
+            # Log admin action
+            await self.admin_actions_collection.insert_one({
+                "action": "delete_submission_policy",
+                "admin_email": admin_user.get("email"),
+                "submission_id": submission_id,
+                "area_id": area_id,
+                "policy_index": policy_index,
+                "timestamp": datetime.utcnow()
+            })
+            
+            return {
+                "success": True,
+                "message": "Policy deleted from submission",
+                "submission_id": submission_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Error deleting submission policy: {str(e)}")
+            raise Exception(f"Failed to delete submission policy: {str(e)}")
 
 
 # Create a global admin service instance
