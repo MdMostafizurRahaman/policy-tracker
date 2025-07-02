@@ -63,6 +63,14 @@ async def startup_event():
     if await database.connect():
         await initialize_super_admin()
         
+        # Initialize fast cache
+        try:
+            from cache_manager import init_cache
+            await init_cache()
+            logger.info("Fast cache initialized")
+        except Exception as e:
+            logger.error(f"Cache initialization failed: {e}")
+        
         # Initialize the database-only chatbot
         try:
             from services.chatbot_service import init_chatbot
