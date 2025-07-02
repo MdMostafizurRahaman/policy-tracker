@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { publicService } from '../../services/api'
 import "../../styles/CountryPolicyPopup.css"
 
 export default function CountryPolicyPopup({ country, onClose }) {
@@ -145,14 +146,17 @@ export default function CountryPolicyPopup({ country, onClose }) {
   useEffect(() => {
     if (country && country.name) {
       setLoading(true)
-      // Fetch from the public master policies endpoint
-      fetch(`${API_BASE_URL}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000`)
-        .then(res => res.json())
-        .then(data => {
+      
+      // Use the API service instead of direct fetch
+      const loadCountryPolicies = async () => {
+        try {
+          // Use the no-dedup endpoint with country filter
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000`);
+          const data = await response.json();
+          
           console.log("Country policies data:", data);
           
           if (data.success && data.policies) {
-            // FIXED: Don't filter by master_status since all returned policies should be valid
             const activePolicies = data.policies;
             
             console.log(`Found ${activePolicies.length} policies for ${country.name}`);
@@ -163,7 +167,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
             const areas = {}
             activePolicies.forEach((policy, index) => {
               const areaId = policy.policyArea || policy.area_id || "unknown"
-              console.log(`Policy ${index}: ${policy.policyName || policy.name} -> Area: ${areaId}`);
+              console.log(`Policy ${index}: ${policy.policyName || policy.name} -> Area: ${areaId}, Status: ${policy.status}`);
               
               if (!areas[areaId]) {
                 const areaInfo = policyTypes[areaId] || {
@@ -182,7 +186,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
                   policies: []
                 }
               }
-              // FIXED: Add the policy to the area
+              // Add the policy to the area
               areas[areaId].policies.push(policy)
             })
             
@@ -194,13 +198,15 @@ export default function CountryPolicyPopup({ country, onClose }) {
             setPolicyAreas([])
           }
           setLoading(false)
-        })
-        .catch(err => {
+        } catch (err) {
           console.error("Error fetching policy data:", err)
           setPolicies([])
           setPolicyAreas([])
           setLoading(false)
-        })
+        }
+      };
+      
+      loadCountryPolicies();
     }
   }, [country])
 

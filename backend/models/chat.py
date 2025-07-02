@@ -13,11 +13,12 @@ class ChatRequest(BaseModel):
 class ChatMessage(BaseModel):
     role: str  # 'user' or 'assistant'
     content: str
-    timestamp: str
+    timestamp: Optional[datetime] = None
 
 class ChatResponse(BaseModel):
     response: str
     conversation_id: str
+    timestamp: Optional[datetime] = None
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     suggested_questions: List[str] = Field(default_factory=list)
 

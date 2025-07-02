@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: policy-tracker-backend
+    env: python
+    buildCommand: "pip install -r PolicyTracker/backend/requirements.txt"
+    startCommand: "cd PolicyTracker/backend && python main.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: MONGODB_URI
+        sync: false
+    
+  - type: static
+    name: policy-tracker-frontend
+    buildCommand: "cd PolicyTracker/frontend && npm install && npm run build"
+    staticPublishPath: ./PolicyTracker/frontend/out
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://policy-tracker-backend.onrender.com/api
