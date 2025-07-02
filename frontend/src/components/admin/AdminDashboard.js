@@ -72,19 +72,14 @@ export default function AdminDashboard() {
         }
       }
       
-      // Add more reasonable timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-      
+      // Remove the aggressive timeout that's causing AbortError
       // Try the fast statistics endpoint first
       let data;
       try {
-        data = await publicService.getStatisticsFast(controller.signal);
-        clearTimeout(timeoutId);
+        data = await publicService.getStatisticsFast();
       } catch (fastError) {
         console.warn('Fast stats failed, trying admin endpoint:', fastError);
-        data = await apiService.admin.getStatistics(controller.signal);
-        clearTimeout(timeoutId);
+        data = await apiService.admin.getStatistics();
       }
       
       // Extract the statistics object from the response  
