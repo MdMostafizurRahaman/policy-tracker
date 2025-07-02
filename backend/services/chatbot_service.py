@@ -27,6 +27,19 @@ class ChatbotService:
         self.help_keywords = [
             "help", "what can you do", "commands", "how to use", "guide"
         ]
+        
+        # Non-database query patterns (to reject)
+        self.non_database_patterns = [
+            r'\btemperature\b', r'\bweather\b', r'\bclimate\b', r'\bhot\b', r'\bcold\b',
+            r'\blocation\b', r'\blatitude\b', r'\blongitude\b', r'\baddress\b',
+            r'\bpopulation\b', r'\beconomy\b', r'\bGDP\b', r'\bcurrency\b',
+            r'\btime\b', r'\bdate\b', r'\btimezone\b', r'\btoday\b',
+            r'\bsports\b', r'\bfootball\b', r'\bcricket\b', r'\bmovie\b',
+            r'\bfood\b', r'\brecipe\b', r'\bcooking\b', r'\brestaurant\b',
+            r'\bnews\b', r'\bcurrent events\b', r'\bbreaking\b',
+            r'\bhistory\b(?!\s+of\s+AI|AI)', r'\bculture\b', r'\btradition\b',
+            r'\btourism\b', r'\btravel\b', r'\bhotel\b', r'\bflight\b'
+        ]
 
     @property
     def db(self):
@@ -51,19 +64,6 @@ class ChatbotService:
         if self._temp_submissions_collection is None:
             self._temp_submissions_collection = self.db.temp_submissions
         return self._temp_submissions_collection
-        
-        # Non-database query patterns (to reject)
-        self.non_database_patterns = [
-            r'\btemperature\b', r'\bweather\b', r'\bclimate\b', r'\bhot\b', r'\bcold\b',
-            r'\blocation\b', r'\blatitude\b', r'\blongitude\b', r'\baddress\b',
-            r'\bpopulation\b', r'\beconomy\b', r'\bGDP\b', r'\bcurrency\b',
-            r'\btime\b', r'\bdate\b', r'\btimezone\b', r'\btoday\b',
-            r'\bsports\b', r'\bfootball\b', r'\bcricket\b', r'\bmovie\b',
-            r'\bfood\b', r'\brecipe\b', r'\bcooking\b', r'\brestaurant\b',
-            r'\bnews\b', r'\bcurrent events\b', r'\bbreaking\b',
-            r'\bhistory\b(?!\s+of\s+AI|AI)', r'\bculture\b', r'\btradition\b',
-            r'\btourism\b', r'\btravel\b', r'\bhotel\b', r'\bflight\b'
-        ]
 
     def is_non_database_query(self, message: str) -> bool:
         """Check if the query is asking for non-database information"""

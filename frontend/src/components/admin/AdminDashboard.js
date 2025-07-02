@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import '../../styles/admin-dashboard.css'
-import { apiService } from '../../services/api'
+import { apiService, publicService } from '../../services/api'
 import { policyAreas } from '../../utils/constants'
 import AdminLogin from './AdminLogin'
 
@@ -44,11 +44,7 @@ export default function AdminDashboard() {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      let url = `/admin/submissions?page=${currentPage}&limit=10`;
-      if (filterStatus !== "all") {
-        url += `&status=${filterStatus}`;
-      }
-      const data = await apiService.get(url);
+      const data = await apiService.admin.getSubmissions(currentPage, 10, filterStatus);
       setSubmissions(data.submissions || [])
       setTotalPages(data.total_pages || 1)
     } catch (error) {
@@ -60,46 +56,105 @@ export default function AdminDashboard() {
 
   const fetchStatistics = async () => {
     try {
-      const data = await apiService.get('/admin/statistics');
-      setStatistics(data)
+      // Try to load from cache first for instant display
+      const cached = localStorage.getItem('admin_stats_cache');
+      if (cached) {
+        try {
+          const cachedData = JSON.parse(cached);
+          const age = Date.now() - cachedData.timestamp;
+          if (age < 120000) { // Use cache if less than 2 minutes old
+            setStatistics(cachedData.statistics);
+            console.log('📊 Using cached statistics');
+            return; // Don't fetch new data if cache is fresh
+          }
+        } catch (e) {
+          console.warn('Cache parsing error:', e);
+        }
+      }
+      
+      // Add more reasonable timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+      
+      // Try the fast statistics endpoint first
+      let data;
+      try {
+        data = await publicService.getStatisticsFast(controller.signal);
+        clearTimeout(timeoutId);
+      } catch (fastError) {
+        console.warn('Fast stats failed, trying admin endpoint:', fastError);
+        data = await apiService.admin.getStatistics(controller.signal);
+        clearTimeout(timeoutId);
+      }
+      
+      // Extract the statistics object from the response  
+      const statisticsData = data.statistics || data;
+      
+      // Cache the successful response
+      localStorage.setItem('admin_stats_cache', JSON.stringify({
+        statistics: statisticsData,
+        timestamp: Date.now()
+      }));
+      
+      // Handle graceful errors from backend
+      if (data.error || data.note) {
+        console.warn('Statistics warning:', data.error || data.note);
+      }
+      setStatistics(statisticsData);
+      
     } catch (error) {
-      console.error('Error fetching statistics:', error)
+      if (error.name === 'AbortError' || error.message.includes('timeout')) {
+        console.warn('Statistics request timeout');
+        
+        // Try to use cache on timeout
+        const cached = localStorage.getItem('admin_stats_cache');
+        if (cached) {
+          try {
+            const cachedData = JSON.parse(cached);
+            setStatistics(cachedData.statistics);
+            console.log('📊 Using cached statistics due to timeout');
+            return;
+          } catch (e) {
+            console.warn('Cache error:', e);
+          }
+        }
+      } else {
+        console.error('Error fetching statistics:', error);
+      }
+      
+      // Set default values as last resort
+      setStatistics({
+        users: { total: 0, verified: 0, admin: 0 },
+        submissions: { total: 0, pending: 0 },
+        policies: { master: 0, approved: 0, rejected: 0, under_review: 0 }
+      });
     }
   }
 
   // Policy Management Functions
   const updatePolicyStatus = async (submissionId, policyArea, policyIndex, status, notes = "") => {
     try {
-      const result = await apiService.put('/admin/update-enhanced-policy-status', {
-        submission_id: submissionId,
-        area_id: policyArea,  // Changed from policy_area to area_id
-        policy_index: policyIndex,
-        status: status,
-        admin_notes: notes
-      });
+      const result = await apiService.admin.updatePolicyStatus(
+        submissionId, 
+        policyArea,
+        policyIndex, 
+        status, 
+        notes
+      );
       
       if (result.success) {
         setSuccess(`Policy status updated to ${status}`)
         fetchSubmissions()
         fetchStatistics()
-        
-        // If approved, move to master DB
-        if (status === 'approved') {
-          await movePolicyToMaster(submissionId, policyArea, policyIndex)
-        }
       }
     } catch (error) {
       setError(`Error updating policy: ${error.message}`)
     }
   }
 
-  const movePolicyToMaster = async (submissionId, policyArea, policyIndex) => {
+  const movePolicyToMaster = async (submissionId) => {
     try {
-      const result = await apiService.post('/admin/move-to-master', {
-        submission_id: submissionId,
-        area_id: policyArea,  // Ensure this matches backend expectation
-        policy_index: policyIndex
-      });
+      const result = await apiService.admin.moveToMaster(submissionId);
       
       if (result) {
         setSuccess("Policy approved and moved to master database")
@@ -112,13 +167,7 @@ export default function AdminDashboard() {
   const deletePolicy = async (submissionId, policyArea, policyIndex) => {
     if (window.confirm('Are you sure you want to delete this policy?')) {
       try {
-        await apiService.delete('/admin/delete-policy', {
-          body: JSON.stringify({
-            submission_id: submissionId,
-            policy_area: policyArea,
-            policy_index: policyIndex
-          })
-        });
+        await apiService.admin.deleteSubmissionPolicy(submissionId, policyArea, policyIndex);
         
         setSuccess("Policy deleted successfully")
         fetchSubmissions()
@@ -322,7 +371,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-600">Pending</p>
-                <p className="text-2xl font-bold text-slate-900">{statistics.pending_submissions || 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.submissions?.pending || 0}</p>
               </div>
             </div>
           </div>
@@ -335,8 +384,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600">Partially Approved</p>
-                <p className="text-2xl font-bold text-slate-900">{statistics.partially_approved || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Under Review</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.policies?.under_review || 0}</p>
               </div>
             </div>
           </div>
@@ -349,8 +398,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600">Fully Approved</p>
-                <p className="text-2xl font-bold text-slate-900">{statistics.fully_approved || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Approved Policies</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.policies?.approved || 0}</p>
               </div>
             </div>
           </div>
@@ -364,7 +413,7 @@ export default function AdminDashboard() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-600">Master Policies</p>
-                <p className="text-2xl font-bold text-slate-900">{statistics.total_approved_policies || 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{statistics.policies?.master || 0}</p>
               </div>
             </div>
           </div>
