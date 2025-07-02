@@ -199,7 +199,7 @@ async def get_master_policies(
 
 @router.get("/public/master-policies-fast")
 async def get_master_policies_fast(
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(1000, ge=1, le=2000),
     country: str = None
 ):
     """Fast master policies endpoint"""
