@@ -180,16 +180,16 @@ class PublicService extends ApiService {
     return this.get(`/public/master-policies?limit=${limit}`, { signal, timeout: 20000 });
   }
 
-  async getMasterPoliciesFast(signal = null) {
-    return this.get('/public/master-policies-fast', { signal, timeout: 15000 });
+  async getMasterPoliciesFast(limit = 1000, signal = null) {
+    return this.get(`/public/master-policies-fast?limit=${limit}`, { signal, timeout: 45000 }); // Increased to 45 seconds and 1000 limit
   }
 
   async getStatistics(signal = null) {
-    return this.get('/public/statistics', { signal, timeout: 10000 });
+    return this.get('/public/statistics', { signal, timeout: 20000 }); // Increased to 20 seconds
   }
 
   async getStatisticsFast(signal = null) {
-    return this.get('/public/statistics-fast', { signal, timeout: 10000 });
+    return this.get('/public/statistics-fast', { signal, timeout: 20000 }); // Increased to 20 seconds
   }
 }
 
