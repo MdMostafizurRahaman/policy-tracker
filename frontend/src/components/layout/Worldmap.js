@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { ComposableMap, Geographies, Geography } from "react-simple-maps"
 import dynamic from "next/dynamic"
 import { MessageCircle, X, Maximize2, Minimize2, Search } from "lucide-react"
@@ -129,7 +129,7 @@ const GlobeView = dynamic(() => import("./GlobeView"), {
 
 const geoUrl = "/countries-110m.json"
 
-export default function Worldmap() {
+function Worldmap() {
   const [viewMode, setViewMode] = useState("map")
   const [countries, setCountries] = useState([])
   const [geoFeatures, setGeoFeatures] = useState([])
@@ -259,18 +259,13 @@ export default function Worldmap() {
     loadStats();
   }, [masterPolicies, countries])
 
-  // Build country stats for coloring
-  useEffect(() => {
+  // Memoized country statistics calculation to prevent expensive recomputation
+  const countryStatsData = useMemo(() => {
     console.log('🔍 Building country stats. Policies loaded:', masterPolicies.length);
     
     if (!masterPolicies.length) {
-      console.log('⚠️ No policies loaded yet, keeping existing stats or setting empty');
-      // Don't clear existing stats immediately, give policies time to load
-      if (isLoadingPolicies) {
-        return; // Don't clear while still loading
-      }
-      setCountryStats({});
-      return;
+      console.log('⚠️ No policies loaded yet, returning empty stats');
+      return {};
     }
     
     const stats = {};
@@ -372,8 +367,13 @@ export default function Worldmap() {
     console.log(`🗺️ Country mapping debug - sample stats keys:`, Object.keys(stats).slice(0, 5));
     console.log(`🗺️ Total countries in stats: ${Object.keys(stats).length}`);
     
-    setCountryStats(stats);
+    return stats;
   }, [masterPolicies])
+
+  // Update country stats when memoized data changes
+  useEffect(() => {
+    setCountryStats(countryStatsData);
+  }, [countryStatsData])
 
   // Autocomplete suggestions
   useEffect(() => {
@@ -388,8 +388,8 @@ export default function Worldmap() {
     }
   }, [searchValue, countries])
 
-  // Handle hover (with flicker fix)
-  const handleMouseEnter = (geo, event) => {
+  // Handle hover (with flicker fix) - memoized to prevent re-creation
+  const handleMouseEnter = useCallback((geo, event) => {
     clearTimeout(tooltipTimeout.current)
     const countryName = geo.properties.name
     const stat = countryStats[countryName] || { count: 0, color: "#4B0082" }
@@ -400,16 +400,17 @@ export default function Worldmap() {
     })
     setMousePosition({ x: event.clientX, y: event.clientY })
     setHighlightedCountry(countryName)
-  }
-  const handleMouseLeave = () => {
+  }, [countryStats])
+
+  const handleMouseLeave = useCallback(() => {
     tooltipTimeout.current = setTimeout(() => {
       setTooltipContent(null)
       setHighlightedCountry(null)
     }, 120)
-  }
+  }, [])
 
-  // Handle country search/filter
-  const handleCountrySelect = (country) => {
+  // Handle country search/filter - memoized
+  const handleCountrySelect = useCallback((country) => {
     console.log('🔍 Searching for country:', country);
     const normalizedCountry = normalizeCountryName(country);
     
@@ -436,9 +437,9 @@ export default function Worldmap() {
     
     // Auto-hide tooltip after 5 seconds
     setTimeout(() => setTooltipContent(null), 5000)
-  }
+  }, [countryStats, masterPolicies])
 
-  const handleClick = (geo) => {
+  const handleClick = useCallback((geo) => {
     const countryName = geo.properties.name
     const stat = countryStats[countryName] || { color: "#d1d5db", count: 0 }
     
@@ -449,31 +450,31 @@ export default function Worldmap() {
       areas: stat.approvedAreas ? Array.from(stat.approvedAreas) : []
     })
     setShowPolicyPopup(true)
-  }
+  }, [countryStats])
 
-  const handleViewToggle = () => {
+  const handleViewToggle = useCallback(() => {
     setViewMode(viewMode === "map" ? "globe" : "map")
-  }
+  }, [viewMode])
 
-  const handleClosePolicyPopup = () => {
+  const handleClosePolicyPopup = useCallback(() => {
     setShowPolicyPopup(false)
     setSelectedCountry(null)
-  }
+  }, [])
 
-  const handleChatToggle = () => {
+  const handleChatToggle = useCallback(() => {
     if (chatFullscreen) setChatFullscreen(false)
     setShowChat(!showChat)
-  }
+  }, [chatFullscreen, showChat])
 
-  const handleChatFullscreen = () => {
+  const handleChatFullscreen = useCallback(() => {
     setChatFullscreen(!chatFullscreen)
     if (!showChat) setShowChat(true)
-  }
+  }, [chatFullscreen, showChat])
 
-  const handleChatClose = () => {
+  const handleChatClose = useCallback(() => {
     setShowChat(false)
     setChatFullscreen(false)
-  }
+  }, [])
 
   function getTooltipPosition(mouseX, mouseY) {
     const tooltipWidth = 220
@@ -719,3 +720,6 @@ export default function Worldmap() {
     </div>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(Worldmap)
