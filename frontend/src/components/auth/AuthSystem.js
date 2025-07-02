@@ -404,8 +404,9 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     try {
       const data = await apiService.auth.resetPassword({
         email: formData.email,
-        code: formData.otp,
-        newPassword: formData.newPassword
+        otp: formData.otp,
+        newPassword: formData.newPassword,
+        confirmPassword: formData.confirmPassword
       });
       
       setSuccess('Password reset successfully! 🎉 You can now log in.');
