@@ -10,25 +10,73 @@ import '../../styles/Worldmap.css'
 
 // Country name mapping to normalize database names to geojson names
 const COUNTRY_NAME_MAP = {
-  // Common variations
+  // United States variants
   'USA': 'United States of America',
   'United States': 'United States of America',
   'US': 'United States of America',
-  'Bagngladesh': 'Bangladesh', // Fix spelling error
-  'Bagnngladesh': 'Bangladesh', // Fix spelling error
-  'india': 'India', // Fix capitalization
-  'China': 'China',
+  
+  // Spelling corrections
+  'Bagngladesh': 'Bangladesh',
+  'Bagnngladesh': 'Bangladesh', 
+  'Soudi Arabia': 'Saudi Arabia',
+  
+  // Case corrections
+  'india': 'India',
+  
+  // UAE variants
+  'UAE': 'United Arab Emirates',
+  
+  // Direct mappings (ensure consistency)
+  'India': 'India',
+  'China': 'China', 
   'Pakistan': 'Pakistan',
   'Nepal': 'Nepal',
   'Russia': 'Russia',
-  'Russian Federation': 'Russia',
   'Mongolia': 'Mongolia',
   'Canada': 'Canada',
   'Brazil': 'Brazil',
   'Germany': 'Germany',
   'Greenland': 'Greenland',
-  'Soudi Arabia': 'Saudi Arabia', // Fix spelling
-  'Saudi Arabia': 'Saudi Arabia'
+  'Saudi Arabia': 'Saudi Arabia',
+  'Bangladesh': 'Bangladesh',
+  'Argentina': 'Argentina',
+  'Australia': 'Australia',
+  'Bulgaria': 'Bulgaria',
+  'Chile': 'Chile',
+  'Colombia': 'Colombia',
+  'Egypt': 'Egypt',
+  'Estonia': 'Estonia',
+  'Italy': 'Italy',
+  'Kenya': 'Kenya',
+  'Mexico': 'Mexico',
+  'Nigeria': 'Nigeria',
+  'Somalia': 'Somalia',
+  'Sweden': 'Sweden',
+  'Iran': 'Iran',
+  'United Arab Emirates': 'United Arab Emirates'
+};
+
+// Policy area name mapping to normalize different formats
+const POLICY_AREA_MAP = {
+  'ai-safety': 'AI Safety',
+  'cyber-safety': 'CyberSafety', 
+  'digital-education': 'Digital Education',
+  'digital-inclusion': 'Digital Inclusion',
+  'digital-work': 'Digital Work',
+  'mental-health': 'Mental Health',
+  'physical-health': 'Physical Health',
+  'social-media-gaming': 'Social Media/Gaming Regulation',
+  'disinformation': '(Dis)Information',
+  'AI Safety': 'AI Safety',
+  'CyberSafety': 'CyberSafety',
+  'Digital Education': 'Digital Education',
+  'Digital Inclusion': 'Digital Inclusion',
+  'Digital Work': 'Digital Work',
+  'Mental Health': 'Mental Health',
+  'Physical Health': 'Physical Health',
+  'Social Media/Gaming Regulation': 'Social Media/Gaming Regulation',
+  '(Dis)Information': '(Dis)Information',
+  'Digital Leisure': 'Digital Leisure'
 };
 
 function normalizeCountryName(countryName) {
@@ -49,6 +97,29 @@ function normalizeCountryName(countryName) {
   
   // Return original if no mapping found
   return countryName;
+}
+
+function normalizePolicyArea(areaName) {
+  if (!areaName) return null;
+  
+  // Trim whitespace
+  const trimmed = areaName.trim();
+  
+  // Try exact match first
+  if (POLICY_AREA_MAP[trimmed]) {
+    return POLICY_AREA_MAP[trimmed];
+  }
+  
+  // Try case-insensitive match
+  const lowerName = trimmed.toLowerCase();
+  for (const [key, value] of Object.entries(POLICY_AREA_MAP)) {
+    if (key.toLowerCase() === lowerName) {
+      return value;
+    }
+  }
+  
+  // Return original if no mapping found
+  return trimmed;
 }
 
 const GlobeView = dynamic(() => import("./GlobeView"), {
@@ -110,115 +181,53 @@ export default function Worldmap() {
       })
   }, [])
 
-  // Fetch admin-approved master policies
+  // Fetch admin-approved master policies from database
   useEffect(() => {
     setIsLoadingPolicies(true);
     
     const fetchPolicies = async (retryCount = 0) => {
-      // Try cache first for instant display
-      const cached = localStorage.getItem('cached_policies');
-      if (cached && retryCount === 0) {
-        try {
-          const cachedData = JSON.parse(cached);
-          const age = Date.now() - cachedData.timestamp;
-          // Always use cache first for immediate display
-          setMasterPolicies(cachedData.data || []);
-          console.log('📄 Loaded from cache instantly:', (cachedData.data || []).length, 'policies');
-          
-          // Only skip API call if cache is very fresh (less than 1 minute)
-          if (age < 60000) {
-            setIsLoadingPolicies(false);
-            return; // Don't fetch if cache is very fresh
-          }
-        } catch (e) {
-          console.warn('Cache parsing error:', e);
-        }
-      }
-      
       try {
-        // Use the fast API service
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        console.log(`🔄 Fetching policies from database (attempt ${retryCount + 1}/3)...`);
         
-        const data = await publicService.getMasterPoliciesFast(controller.signal);
-        clearTimeout(timeoutId);
+        // Use the fast API service without custom timeout to avoid conflicts, request more policies
+        const data = await publicService.getMasterPoliciesFast();
         
         const policies = data.policies || [];
         setMasterPolicies(policies);
         setIsLoadingPolicies(false);
         
-        // Cache policies in localStorage for faster loading
-        localStorage.setItem('cached_policies', JSON.stringify({
-          data: policies,
-          timestamp: Date.now()
-        }));
-        
         if (policies.length > 0) {
-          console.log(`✅ Loaded ${policies.length} real policies from database for countries:`, 
+          console.log(`✅ Successfully loaded ${policies.length} policies from database for countries:`, 
             [...new Set(policies.map(p => p.country))].slice(0, 5).join(', '), '...');
         } else {
-          console.warn('⚠️ API returned 0 policies - check database content');
+          console.warn('⚠️ API returned 0 policies - check if database has approved policies');
         }
       } catch (err) {
         console.error("❌ Error fetching master policies:", err);
         
         if (retryCount < 2) {
           console.log(`🔄 Retrying API call (attempt ${retryCount + 2}/3)...`);
-          setTimeout(() => fetchPolicies(retryCount + 1), 2000);
+          setTimeout(() => fetchPolicies(retryCount + 1), 3000); // Increased retry delay
           return;
         }
         
         setIsLoadingPolicies(false);
-        
-        // Try to load from cache on final error
-        const cached = localStorage.getItem('cached_policies');
-        if (cached) {
-          try {
-            const cachedData = JSON.parse(cached);
-            // Use cache even if older when there's an error
-            setMasterPolicies(cachedData.data || []);
-            console.log('📄 Using cached policies due to error:', (cachedData.data || []).length);
-          } catch (e) {
-            console.error('Cache error:', e);
-            // NO SAMPLE DATA - use empty array to force real data loading
-            setMasterPolicies([]);
-            console.log('📄 Cache failed - will retry API call');
-          }
-        } else {
-          // NO SAMPLE DATA - use empty array to show no policies until real data loads
-          setMasterPolicies([]);
-          console.log('📄 No cache available - will retry API call');
-        }
+        setMasterPolicies([]);
+        console.error('📄 Failed to load policies after 3 attempts. Check backend server and database.');
       }
     };
     
     fetchPolicies();
   }, [])
 
-  // Load map statistics
+  // Load map statistics from database
   useEffect(() => {
     const loadStats = async () => {
       setIsLoadingStats(true);
       
-      // Try to get stats from cache first
-      const cached = localStorage.getItem('cached_stats');
-      if (cached) {
-        try {
-          const cachedData = JSON.parse(cached);
-          const age = Date.now() - cachedData.timestamp;
-          if (age < 120000) // Use cache if less than 2 minutes old
-            setMapStats(cachedData.data);
-          setIsLoadingStats(false);
-          console.log('📊 Loaded stats from cache:', cachedData.data);
-          return;
-        } catch (e) {
-          console.warn('Stats cache parsing error:', e);
-        }
-      }
-      
       try {
-        const controller = new AbortController();
-        const data = await publicService.getStatisticsFast(controller.signal);
+        console.log('📊 Fetching statistics from database...');
+        const data = await publicService.getStatisticsFast();
         
         const stats = {
           countriesWithPolicies: data.countries_with_policies || 0,
@@ -229,36 +238,20 @@ export default function Worldmap() {
         setMapStats(stats);
         setIsLoadingStats(false);
         
-        // Cache the stats
-        localStorage.setItem('cached_stats', JSON.stringify({
-          data: stats,
-          timestamp: Date.now()
-        }));
-        
-        console.log('📊 Loaded fresh stats:', stats);
+        console.log('📊 Loaded fresh stats from database:', stats);
       } catch (error) {
-        console.warn('Failed to load statistics:', error);
+        console.warn('Failed to load statistics from database:', error);
         setIsLoadingStats(false);
         
-        // Try to use old cache on error
-        if (cached) {
-          try {
-            const cachedData = JSON.parse(cached);
-            setMapStats(cachedData.data);
-            console.log('📊 Using old cached stats due to error:', cachedData.data);
-          } catch (e) {
-            console.error('Failed to parse old cache:', e);
-            // Set fallback stats if we have policies loaded
-            if (masterPolicies.length > 0) {
-              const fallbackStats = {
-                countriesWithPolicies: [...new Set(masterPolicies.map(p => p.country))].length,
-                totalPolicies: masterPolicies.length,
-                totalCountries: countries.length || 195 // Approximate world countries
-              };
-              setMapStats(fallbackStats);
-              console.log('📊 Using fallback stats from loaded policies:', fallbackStats);
-            }
-          }
+        // Set fallback stats if we have policies loaded
+        if (masterPolicies.length > 0) {
+          const fallbackStats = {
+            countriesWithPolicies: [...new Set(masterPolicies.map(p => p.country))].length,
+            totalPolicies: masterPolicies.length,
+            totalCountries: countries.length || 195 // Approximate world countries
+          };
+          setMapStats(fallbackStats);
+          console.log('📊 Using fallback stats from loaded policies:', fallbackStats);
         }
       }
     };
@@ -283,14 +276,21 @@ export default function Worldmap() {
     const stats = {};
     const countryNameMismatches = new Set();
     
-    // Group policies by country
+    // Group policies by country and count unique policy areas
+    const areaRenameLog = new Set();
+    
     masterPolicies.forEach((policy) => {
       const rawCountry = policy.country;
-      const area = policy.policyArea || policy.area_id;
+      const rawArea = policy.policyArea || policy.area_id;
       
       if (!rawCountry) {
         console.warn('Policy missing country:', policy);
         return;
+      }
+      
+      if (!rawArea || rawArea.trim() === '') {
+        console.warn('Policy missing policy area:', policy.policyName, 'in', rawCountry);
+        return; // Skip policies without policy areas
       }
       
       // Normalize country name for map display
@@ -299,20 +299,40 @@ export default function Worldmap() {
         countryNameMismatches.add(`${rawCountry} → ${country}`);
       }
       
+      // Normalize policy area name
+      const area = normalizePolicyArea(rawArea);
+      if (area !== rawArea) {
+        areaRenameLog.add(`${rawArea} → ${area}`);
+      }
+      
       if (!stats[country]) {
         stats[country] = { 
           approvedAreas: new Set(),
           totalPolicies: 0,
-          policies: []
+          policies: [],
+          originalPolicies: [] // Keep original policies for popup
         };
       }
       
-      if (area) {
-        stats[country].approvedAreas.add(area);
-      }
+      // Add the normalized policy area (only admin-approved policies reach here due to backend filtering)
+      stats[country].approvedAreas.add(area);
       stats[country].totalPolicies++;
-      stats[country].policies.push(policy);
+      
+      // Store policy with normalized area for consistency
+      const normalizedPolicy = {
+        ...policy,
+        policyArea: area,
+        country: country
+      };
+      
+      stats[country].policies.push(normalizedPolicy);
+      stats[country].originalPolicies.push(policy); // Keep original for reference
     });
+    
+    // Log normalization results
+    if (areaRenameLog.size > 0) {
+      console.log('🔧 Policy area normalizations:', Array.from(areaRenameLog).join(', '));
+    }
     
     // Log country name normalizations
     if (countryNameMismatches.size > 0) {
@@ -326,21 +346,31 @@ export default function Worldmap() {
       stats[country].score = approvedAreasCount;
       stats[country].count = approvedAreasCount;
       
-      // Color coding based on policy areas
+      // Color coding based on policy areas (as per requirement)
       if (approvedAreasCount >= 8) {
-        stats[country].color = "#22c55e"; // Green - Excellent
+        stats[country].color = "#22c55e"; // Green - Excellent (8-10 areas)
       } else if (approvedAreasCount >= 4) {
-        stats[country].color = "#eab308"; // Yellow - Moderate  
+        stats[country].color = "#eab308"; // Yellow - Moderate (4-7 areas)
       } else if (approvedAreasCount >= 1) {
-        stats[country].color = "#ef4444"; // Red - Basic
+        stats[country].color = "#ef4444"; // Red - Basic (1-3 areas)
       } else {
-        stats[country].color = "#d1d5db"; // Gray - No policies
+        stats[country].color = "#d1d5db"; // Gray - No policies (0 areas)
       }
     });
     
-    console.log(`📊 Country stats built:`, Object.keys(stats).map(country => 
-      `${country}: ${stats[country].totalPolicies} policies, ${stats[country].count} areas`
-    ).join(' | '));
+    console.log(`📊 Country stats built for ${Object.keys(stats).length} countries:`);
+    Object.keys(stats).forEach(country => {
+      const countryData = stats[country];
+      const areas = Array.from(countryData.approvedAreas);
+      const colorName = countryData.color === "#22c55e" ? "GREEN" : 
+                       countryData.color === "#eab308" ? "YELLOW" : 
+                       countryData.color === "#ef4444" ? "RED" : "GRAY";
+      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} unique areas [${areas.join(', ')}] - ${colorName}`);
+    });
+    
+    // Log a few geojson country matches for debugging
+    console.log(`🗺️ Country mapping debug - sample stats keys:`, Object.keys(stats).slice(0, 5));
+    console.log(`🗺️ Total countries in stats: ${Object.keys(stats).length}`);
     
     setCountryStats(stats);
   }, [masterPolicies])
@@ -414,7 +444,9 @@ export default function Worldmap() {
     
     setSelectedCountry({
       name: countryName,
-      color: stat.color
+      color: stat.color,
+      policies: stat.policies || [], // Pass the normalized policies to the popup
+      areas: stat.approvedAreas ? Array.from(stat.approvedAreas) : []
     })
     setShowPolicyPopup(true)
   }
@@ -556,8 +588,14 @@ export default function Worldmap() {
                   {({ geographies }) =>
                     geographies.map(geo => {
                       const countryName = geo.properties.name
-                      const stat = countryStats[countryName] || { color: "#F5DEB3", count: 0 }
+                      const stat = countryStats[countryName] || { color: "#e5e7eb", count: 0 } // Light gray for no data
                       const isHighlighted = highlightedCountry === countryName || filteredCountry === countryName
+                      
+                      // Debug first few countries
+                      if (Object.keys(countryStats).length > 0 && Math.random() < 0.1) {
+                        console.log(`🗺️ Map render: ${countryName} -> Color: ${stat.color}, Areas: ${stat.count}`);
+                      }
+                      
                       return (
                         <Geography
                           key={geo.rsmKey}
