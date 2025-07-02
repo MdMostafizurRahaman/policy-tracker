@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import WorldMap from "../src/components/layout/Worldmap.js"
 import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
@@ -36,17 +36,17 @@ export default function Page() {
     if (userData) setUser(JSON.parse(userData))
   }, [])
 
-  const navigateBack = () => {
+  const navigateBack = useCallback(() => {
     setView("home")
     setMobileMenuOpen(false)
-  }
+  }, [])
   
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setUser(null)
     localStorage.removeItem('userData')
     localStorage.removeItem('access_token')
     setView('home')
-  }
+  }, [])
 
   const navigationItems = [
     { 
