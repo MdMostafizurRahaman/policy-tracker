@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { countries, policyAreas } from '../../utils/constants';
+import { countries, policyAreas as POLICY_AREAS } from '../../utils/constants';
 import { apiService } from '../../services/api';
 
 const TARGET_GROUPS = [
@@ -79,7 +79,7 @@ const PolicySubmissionForm = () => {
   const [user, setUser] = useState(null);
   const [policyAreasState, setPolicyAreasState] = useState(() => {
     const areas = {};
-    policyAreas.forEach(area => {
+    POLICY_AREAS.forEach(area => {
       areas[area.id] = [];
     });
     return areas;
@@ -274,7 +274,7 @@ const PolicySubmissionForm = () => {
         country: formData.country,
         policyAreas: Object.entries(policyAreasState).map(([area_id, policies]) => ({
           area_id,
-          area_name: policyAreas.find(a => a.id === area_id)?.name || area_id,
+          area_name: POLICY_AREAS.find(a => a.id === area_id)?.name || area_id,
           policies: policies.map(policy => ({
             ...policy,
             policyName: policy.policyName || "",
@@ -301,7 +301,7 @@ const PolicySubmissionForm = () => {
       // Reset form
       setPolicyAreasState(() => {
         const areas = {};
-        policyAreas.forEach(area => {
+        POLICY_AREAS.forEach(area => {
           areas[area.id] = [];
         });
         return areas;
@@ -447,7 +447,7 @@ const PolicySubmissionForm = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold">{selectedArea.name}</h3>
-              <p className="text-sm opacity-90">Policy {selectedPolicyIndex + 1} of {policyAreas[selectedPolicyArea].length}</p>
+              <p className="text-sm opacity-90">Policy {selectedPolicyIndex + 1} of {policyAreasState[selectedPolicyArea].length}</p>
             </div>
           </div>
         </div>
@@ -970,7 +970,7 @@ const PolicySubmissionForm = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Areas Covered</p>
-                <p className="text-2xl font-bold text-gray-900">{Object.values(policyAreas).filter(policies => policies.length > 0).length}</p>
+                <p className="text-2xl font-bold text-gray-900">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</p>
               </div>
             </div>
           </div>

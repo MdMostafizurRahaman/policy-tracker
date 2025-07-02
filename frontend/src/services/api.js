@@ -3,10 +3,13 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.defaultTimeout = 30000; // 30 seconds
   }
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
+    const timeout = options.timeout || this.defaultTimeout;
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -21,8 +24,15 @@ class ApiService {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    config.signal = options.signal || controller.signal;
+    
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
       const response = await fetch(url, config);
+      clearTimeout(timeoutId);
       
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
@@ -39,6 +49,7 @@ class ApiService {
 
       return data;
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error('API request failed:', error);
       throw error;
     }
@@ -74,18 +85,6 @@ class ApiService {
       body: JSON.stringify(data),
       ...options,
     });
-  }
-
-  async put(endpoint, data, options = {}) {
-    return this.request(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-      ...options,
-    });
-  }
-
-  async delete(endpoint, options = {}) {
-    return this.request(endpoint, { method: 'DELETE', ...options });
   }
 }
 
@@ -171,6 +170,29 @@ class ChatService extends ApiService {
   }
 }
 
+// Public Service for map and general public data
+class PublicService extends ApiService {
+  async getCountries(signal = null) {
+    return this.get('/countries', { signal, timeout: 15000 });
+  }
+
+  async getMasterPolicies(limit = 200, signal = null) {
+    return this.get(`/public/master-policies?limit=${limit}`, { signal, timeout: 20000 });
+  }
+
+  async getMasterPoliciesFast(signal = null) {
+    return this.get('/public/master-policies-fast', { signal, timeout: 15000 });
+  }
+
+  async getStatistics(signal = null) {
+    return this.get('/public/statistics', { signal, timeout: 10000 });
+  }
+
+  async getStatisticsFast(signal = null) {
+    return this.get('/public/statistics-fast', { signal, timeout: 10000 });
+  }
+}
+
 // Admin Service
 class AdminService extends ApiService {
   async getPendingPolicies() {
@@ -188,21 +210,105 @@ class AdminService extends ApiService {
   async getAdminStats() {
     return this.get('/admin/stats');
   }
+
+  // New methods for enhanced admin functionality
+  async getSubmissions(page = 1, limit = 10, status = 'all') {
+    return this.get(`/admin/submissions?page=${page}&limit=${limit}&status=${status}`);
+  }
+
+  async getStatistics(signal = null) {
+    return this.get('/admin/statistics', { signal });
+  }
+
+  async getStatisticsFast(signal = null) {
+    return this.get('/admin/statistics-fast', { signal });
+  }
+
+  async updatePolicyStatus(submissionId, areaId, policyIndex, status, adminNotes = '') {
+    return this.put('/admin/update-policy-status', {
+      submission_id: submissionId,
+      area_id: areaId,
+      policy_index: policyIndex,
+      status,
+      admin_notes: adminNotes
+    });
+  }
+
+  async deleteMasterPolicy(policyId) {
+    return this.delete(`/admin/master-policy/${policyId}`);
+  }
+
+  async deleteSubmissionPolicy(submissionId, areaId, policyIndex) {
+    return this.delete('/admin/submission-policy', {
+      body: JSON.stringify({
+        submission_id: submissionId,
+        area_id: areaId,
+        policy_index: policyIndex
+      })
+    });
+  }
+
+  async getMasterPolicies(page = 1, limit = 10) {
+    return this.get(`/admin/master-policies?page=${page}&limit=${limit}`);
+  }
+
+  async moveToMaster(submissionId) {
+    return this.post('/admin/move-to-master', {
+      submission_id: submissionId
+    });
+  }
 }
 
 // Create service instances
 export const authService = new AuthService();
 export const policyService = new PolicyService();
 export const chatService = new ChatService();
+export const publicService = new PublicService();
 export const adminService = new AdminService();
 
 // Export combined API service for backwards compatibility
 export const apiService = {
-  ...authService,
+  // Auth methods
+  register: authService.register.bind(authService),
+  login: authService.login.bind(authService),
+  adminLogin: authService.adminLogin.bind(authService),
+  verifyEmail: authService.verifyEmail.bind(authService),
+  forgotPassword: authService.forgotPassword.bind(authService),
+  resetPassword: authService.resetPassword.bind(authService),
+  resendOtp: authService.resendOtp.bind(authService),
+  getCurrentUser: authService.getCurrentUser.bind(authService),
+  googleAuth: authService.googleAuth.bind(authService),
+  
+  // Policy methods
+  submitPolicy: policyService.submitPolicy.bind(policyService),
+  searchPolicies: policyService.searchPolicies.bind(policyService),
+  getPolicy: policyService.getPolicy.bind(policyService),
+  getCountriesWithPolicies: policyService.getCountriesWithPolicies.bind(policyService),
+  
+  // Chat methods
+  sendMessage: chatService.sendMessage.bind(chatService),
+  getConversation: chatService.getConversation.bind(chatService),
+  deleteConversation: chatService.deleteConversation.bind(chatService),
+  getUserConversations: chatService.getUserConversations.bind(chatService),
+  
+  // Admin methods
+  getPendingPolicies: adminService.getPendingPolicies.bind(adminService),
+  approvePolicy: adminService.approvePolicy.bind(adminService),
+  getAdminStats: adminService.getAdminStats.bind(adminService),
+  
+  // Generic HTTP methods
+  get: authService.get.bind(authService),
+  post: authService.post.bind(authService),
+  put: authService.put.bind(authService),
+  delete: authService.delete.bind(authService),
+  patch: authService.patch.bind(authService),
+  
+  // Service instances
   auth: authService,
   policy: policyService,
   chat: chatService,
   admin: adminService,
+  public: publicService,
 };
 
 export default {
@@ -210,4 +316,5 @@ export default {
   policy: policyService,
   chat: chatService,
   admin: adminService,
+  public: publicService,
 };

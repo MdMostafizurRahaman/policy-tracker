@@ -348,6 +348,36 @@ class PolicyService:
         except Exception as e:
             logger.error(f"Error getting public policies: {str(e)}")
             return []
+    
+    async def get_public_master_policies(self, limit: int = 1000, country: Optional[str] = None, area: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get public master policies with filtering options"""
+        try:
+            # Ensure limit is a valid integer
+            if limit is None:
+                limit = 1000
+            limit = int(limit)
+            
+            collections = self._get_collections()
+            
+            # Filter for active master policies
+            master_filter = {"master_status": "active"}
+            
+            if country:
+                master_filter["country"] = country
+            if area:
+                master_filter["policyArea"] = area
+            
+            # Get policies from master collection
+            master_policies = await collections["master_policies"].find(
+                master_filter
+            ).limit(limit).to_list(length=limit)
+            
+            # Convert ObjectIds and return
+            return [convert_objectid(policy) for policy in master_policies]
+            
+        except Exception as e:
+            logger.error(f"Error getting public master policies: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to get policies: {str(e)}")
 
 # Global policy service instance
 policy_service = PolicyService()

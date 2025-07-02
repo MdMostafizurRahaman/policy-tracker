@@ -22,47 +22,23 @@ async def submit_enhanced_form(
 ):
     """Submit enhanced policy form"""
     try:
-        return await policy_service.submit_enhanced_form(submission, str(current_user["_id"]))
+        return await policy_service.submit_enhanced_form(submission.dict(), current_user)
     except Exception as e:
         logger.error(f"Policy submission error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/admin/update-enhanced-policy-status")
+@router.put("/update-enhanced-policy-status")
 async def update_enhanced_policy_status(
     status_update: PolicyStatusUpdate,
     admin_user: dict = Depends(get_admin_user)
 ):
-    """Update policy status (admin only)"""
+    """Update policy status (admin only) - DEPRECATED: Use /admin/update-policy-status instead"""
     try:
         return await policy_service.update_policy_status(status_update, admin_user)
     except Exception as e:
         logger.error(f"Policy status update error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/public/master-policies")
-async def get_public_master_policies(
-    limit: int = Query(1000, ge=1, le=1000),
-    country: Optional[str] = None,
-    area: Optional[str] = None
-):
-    """Get public master policies with filtering"""
-    try:
-        return await policy_service.get_public_master_policies(limit, country, area)
-    except Exception as e:
-        logger.error(f"Get master policies error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/public/master-policies-no-dedup")
-async def get_master_policies_no_dedup():
-    """Get master policies without deduplication"""
-    try:
-        return await policy_service.get_master_policies_no_dedup()
-    except Exception as e:
-        logger.error(f"Get master policies no dedup error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/public/country-policies/{country_name}")
