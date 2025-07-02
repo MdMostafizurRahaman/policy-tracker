@@ -98,6 +98,10 @@ class PolicyService:
             logger.error(f"Enhanced submission error: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Submission failed: {str(e)}")
     
+    async def submit_enhanced_form(self, submission_data: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
+        """Submit enhanced form - alias for submit_policy for backward compatibility"""
+        return await self.submit_policy(submission_data, user)
+    
     async def update_policy_status(self, update_data: Dict[str, Any], admin_user: Dict[str, Any]) -> Dict[str, Any]:
         """Update policy status (admin only)"""
         try:
