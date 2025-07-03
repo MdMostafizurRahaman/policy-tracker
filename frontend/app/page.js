@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
+import { MapDataProvider } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
 import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
 import AdminPanel from "../src/components/admin/AdminDashboard.js"
@@ -358,7 +359,8 @@ export default function Page() {
   }
   
   return (
-    <div className={`min-h-screen transition-all duration-500 ${darkMode ? 'dark' : ''}`}>
+    <MapDataProvider>
+      <div className={`min-h-screen transition-all duration-500 ${darkMode ? 'dark' : ''}`}>
       {/* Enhanced Header/Navigation */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -676,5 +678,6 @@ export default function Page() {
         }
       `}</style>
     </div>
+    </MapDataProvider>
   )
 }
