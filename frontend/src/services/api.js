@@ -24,15 +24,25 @@ class ApiService {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    config.signal = options.signal || controller.signal;
+    // Create abort controller for timeout only if no signal is provided
+    let controller;
+    let timeoutId;
     
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    if (!options.signal) {
+      controller = new AbortController();
+      config.signal = controller.signal;
+      timeoutId = setTimeout(() => {
+        if (controller && !controller.signal.aborted) {
+          controller.abort();
+        }
+      }, timeout);
+    } else {
+      config.signal = options.signal;
+    }
 
     try {
       const response = await fetch(url, config);
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
@@ -49,8 +59,14 @@ class ApiService {
 
       return data;
     } catch (error) {
-      clearTimeout(timeoutId);
-      console.error('API request failed:', error);
+      if (timeoutId) clearTimeout(timeoutId);
+      
+      // Only log non-abort errors to reduce noise
+      if (error.name !== 'AbortError') {
+        console.error('API request failed:', error);
+      } else {
+        console.warn(`API request to ${endpoint} was aborted`);
+      }
       throw error;
     }
   }
