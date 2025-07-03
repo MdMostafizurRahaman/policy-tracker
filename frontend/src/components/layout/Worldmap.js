@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import { MessageCircle, X, Maximize2, Minimize2, Search } from "lucide-react"
 import CountryPolicyPopup from "./CountryPolicyPopup"
 import PolicyChatAssistant from "../chatbot/PolicyChatAssistant"
-import { publicService } from '../../services/api'
+import { useMapData } from '../../context/MapDataContext'
 import '../../styles/Worldmap.css'
 
 // Country name mapping to normalize database names to geojson names
@@ -130,12 +130,19 @@ const GlobeView = dynamic(() => import("./GlobeView"), {
 const geoUrl = "/countries-110m.json"
 
 function Worldmap() {
+  // Get map data from context
+  const { 
+    countries, 
+    geoFeatures, 
+    masterPolicies, 
+    mapStats, 
+    isLoaded, 
+    isLoading, 
+    fetchMapData 
+  } = useMapData()
+
   const [viewMode, setViewMode] = useState("map")
-  const [countries, setCountries] = useState([])
-  const [geoFeatures, setGeoFeatures] = useState([])
-  const [masterPolicies, setMasterPolicies] = useState([])
   const [countryStats, setCountryStats] = useState({})
-  const [isLoadingPolicies, setIsLoadingPolicies] = useState(true)
   const [tooltipContent, setTooltipContent] = useState(null)
   const [highlightedCountry, setHighlightedCountry] = useState(null)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -144,13 +151,6 @@ function Worldmap() {
   const [searchValue, setSearchValue] = useState("")
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const [filteredCountry, setFilteredCountry] = useState(null)
-  // Map statistics states
-  const [mapStats, setMapStats] = useState({
-    countriesWithPolicies: 0,
-    totalPolicies: 0,
-    totalCountries: 0
-  })
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
   // Chat-related states
   const [showChat, setShowChat] = useState(false)
   const [chatFullscreen, setChatFullscreen] = useState(false)
@@ -159,105 +159,15 @@ function Worldmap() {
   const mapRef = useRef(null)
   let tooltipTimeout = useRef(null)
 
-  // Fetch all country names for suggestions
+  // Fetch data when component mounts if not already loaded
   useEffect(() => {
-    publicService.getCountries()
-      .then(data => setCountries(data.countries || []))
-      .catch(error => {
-        console.error('Failed to load countries:', error)
-        setCountries([])
-      })
-  }, [])
-
-  // Fetch geo features
-  useEffect(() => {
-    fetch(geoUrl)
-      .then(res => res.json())
-      .then(data => {
-        import("topojson-client").then(topojson => {
-          const features = topojson.feature(data, data.objects.countries).features
-          setGeoFeatures(features)
-        })
-      })
-  }, [])
-
-  // Fetch admin-approved master policies from database
-  useEffect(() => {
-    setIsLoadingPolicies(true);
-    
-    const fetchPolicies = async (retryCount = 0) => {
-      try {
-        console.log(`🔄 Fetching policies from database (attempt ${retryCount + 1}/3)...`);
-        
-        // Use the fast API service without custom timeout to avoid conflicts, request more policies
-        const data = await publicService.getMasterPoliciesFast();
-        
-        const policies = data.policies || [];
-        setMasterPolicies(policies);
-        setIsLoadingPolicies(false);
-        
-        if (policies.length > 0) {
-          console.log(`✅ Successfully loaded ${policies.length} policies from database for countries:`, 
-            [...new Set(policies.map(p => p.country))].slice(0, 5).join(', '), '...');
-        } else {
-          console.warn('⚠️ API returned 0 policies - check if database has approved policies');
-        }
-      } catch (err) {
-        console.error("❌ Error fetching master policies:", err);
-        
-        if (retryCount < 2) {
-          console.log(`🔄 Retrying API call (attempt ${retryCount + 2}/3)...`);
-          setTimeout(() => fetchPolicies(retryCount + 1), 3000); // Increased retry delay
-          return;
-        }
-        
-        setIsLoadingPolicies(false);
-        setMasterPolicies([]);
-        console.error('📄 Failed to load policies after 3 attempts. Check backend server and database.');
-      }
-    };
-    
-    fetchPolicies();
-  }, [])
-
-  // Load map statistics from database
-  useEffect(() => {
-    const loadStats = async () => {
-      setIsLoadingStats(true);
-      
-      try {
-        console.log('📊 Fetching statistics from database...');
-        const data = await publicService.getStatisticsFast();
-        
-        const stats = {
-          countriesWithPolicies: data.countries_with_policies || 0,
-          totalPolicies: data.total_policies || 0,
-          totalCountries: data.total_countries || 0
-        };
-        
-        setMapStats(stats);
-        setIsLoadingStats(false);
-        
-        console.log('📊 Loaded fresh stats from database:', stats);
-      } catch (error) {
-        console.warn('Failed to load statistics from database:', error);
-        setIsLoadingStats(false);
-        
-        // Set fallback stats if we have policies loaded
-        if (masterPolicies.length > 0) {
-          const fallbackStats = {
-            countriesWithPolicies: [...new Set(masterPolicies.map(p => p.country))].length,
-            totalPolicies: masterPolicies.length,
-            totalCountries: countries.length || 195 // Approximate world countries
-          };
-          setMapStats(fallbackStats);
-          console.log('📊 Using fallback stats from loaded policies:', fallbackStats);
-        }
-      }
-    };
-    
-    loadStats();
-  }, [masterPolicies, countries])
+    if (!isLoaded && !isLoading) {
+      console.log('�️ WorldMap mounting - fetching data via context')
+      fetchMapData()
+    } else if (isLoaded) {
+      console.log('�️ WorldMap mounting - using cached data from context')
+    }
+  }, [isLoaded, isLoading, fetchMapData])
 
   // Memoized country statistics calculation to prevent expensive recomputation
   const countryStatsData = useMemo(() => {
@@ -505,23 +415,23 @@ function Worldmap() {
           <div className="map-stats">
             <div className="stat-item">
               <span className="stat-number">
-                {isLoadingStats ? '...' : mapStats.countriesWithPolicies}
+                {isLoading ? '...' : mapStats.countriesWithPolicies}
               </span>
               <span className="stat-label">Countries with Policies</span>
             </div>
             <div className="stat-item">
               <span className="stat-number">
-                {isLoadingStats ? '...' : mapStats.totalPolicies}
+                {isLoading ? '...' : mapStats.totalPolicies}
               </span>
               <span className="stat-label">Total Policies</span>
             </div>
             <div className="stat-item">
               <span className="stat-number">
-                {isLoadingStats ? '...' : mapStats.totalCountries || countries.length || '...'}
+                {isLoading ? '...' : mapStats.totalCountries || countries.length || '...'}
               </span>
               <span className="stat-label">Countries Available</span>
             </div>
-            {(isLoadingPolicies || isLoadingStats) && (
+            {isLoading && (
               <div className="stat-item">
                 <span className="stat-number">🔄</span>
                 <span className="stat-label">Loading...</span>
