@@ -78,50 +78,39 @@ class ChatbotService:
 
     def find_closest_country_match(self, query: str, countries: List[str]) -> Optional[str]:
         """Find the closest matching country name using fuzzy matching"""
-        query_lower = query.lower().strip()
+        query_lower = query.lower()
         
-        # First try exact match
+        # First try exact matches
         for country in countries:
-            if country.lower() == query_lower:
+            if query_lower == country.lower():
                 return country
         
-        # Try partial match
+        # Then try partial matches
         for country in countries:
             if query_lower in country.lower() or country.lower() in query_lower:
                 return country
         
-        # Try fuzzy matching for typos
-        matches = difflib.get_close_matches(query_lower, [c.lower() for c in countries], n=1, cutoff=0.6)
-        if matches:
-            # Find the original country name
-            for country in countries:
-                if country.lower() == matches[0]:
-                    return country
-        
-        return None
+        # Finally try fuzzy matching
+        matches = difflib.get_close_matches(query, countries, n=1, cutoff=0.6)
+        return matches[0] if matches else None
 
     def find_closest_area_match(self, query: str, areas: List[str]) -> Optional[str]:
         """Find the closest matching area name using fuzzy matching"""
-        query_lower = query.lower().strip()
+        query_lower = query.lower()
         
-        # First try exact match
+        # First try exact matches
         for area in areas:
-            if area.lower() == query_lower:
+            if query_lower == area.lower():
                 return area
         
-        # Try partial match
+        # Then try partial matches
         for area in areas:
             if query_lower in area.lower() or area.lower() in query_lower:
                 return area
         
-        # Try fuzzy matching
-        matches = difflib.get_close_matches(query_lower, [a.lower() for a in areas], n=1, cutoff=0.6)
-        if matches:
-            for area in areas:
-                if area.lower() == matches[0]:
-                    return area
-        
-        return None
+        # Finally try fuzzy matching
+        matches = difflib.get_close_matches(query, areas, n=1, cutoff=0.6)
+        return matches[0] if matches else None
 
     async def search_policies_by_country(self, country_name: str) -> List[Dict]:
         """Search policies by country name - Enhanced with better matching"""
@@ -189,6 +178,7 @@ class ChatbotService:
                     unique_policies.append(policy)
             
             return unique_policies
+            
         except Exception as e:
             print(f"Error searching policies by country: {e}")
             return []
@@ -341,139 +331,229 @@ class ChatbotService:
             return []
 
     async def format_policies_response(self, policies: List[Dict], query_type: str, query: str) -> str:
-        """Format policies into a readable response"""
+        """Format policies into a readable response with Ithra-inspired colors"""
         if not policies:
-            return f"""❌ **Sorry, I couldn't find any policies {query_type} '{query}' in our AI policy database.**
-
-🔍 **Try searching for:**
-• **Country names**: United States, Germany, Japan, etc.
-• **Policy areas**: AI Safety, Digital Education, Cybersafety, etc.
-• **Specific policy names**: AI Act, National AI Strategy, etc.
-
-📊 **Quick commands:**
-• Type **"countries"** to see all available countries
-• Type **"areas"** to see all policy areas  
-• Type **"help"** for more search options
-
-💡 **Example searches that work:**
-• "United States"
-• "AI Safety"
-• "Digital Education policies"
-• "European Union"
-
-⚠️ **Important**: I only provide information from our AI policy database. I cannot answer questions about weather, temperature, current events, or other topics not related to AI policies."""
+            return f"""<div class="policy-response">
+<div class="policy-header error">
+    <span class="policy-icon">❌</span>
+    <span class="policy-title">No Policies Found</span>
+</div>
+<div class="policy-content">
+    <p>Sorry, I couldn't find any policies {query_type} '<strong>{query}</strong>' in our AI policy database.</p>
+    
+    <div class="search-suggestions">
+        <h4>🔍 Try searching for:</h4>
+        <ul>
+            <li><strong>Country names:</strong> United States, Germany, Japan, etc.</li>
+            <li><strong>Policy areas:</strong> AI Safety, Digital Education, Cybersafety, etc.</li>
+            <li><strong>Specific policy names:</strong> AI Act, National AI Strategy, etc.</li>
+        </ul>
         
-        response = f"🔍 **Found {len(policies)} AI policies {query_type} '{query}':**\n\n"
-        
-        # Group by country for better organization
+        <div class="quick-commands">
+            <h4>📊 Quick commands:</h4>
+            <ul>
+                <li>Type <strong>"countries"</strong> to see all available countries</li>
+                <li>Type <strong>"areas"</strong> to see all policy areas</li>
+                <li>Type <strong>"help"</strong> for more search options</li>
+            </ul>
+        </div>
+    </div>
+</div>
+</div>"""
+
+        # Group policies by country for better organization
         policies_by_country = {}
         for policy in policies:
             country = policy["country"]
             if country not in policies_by_country:
                 policies_by_country[country] = []
             policies_by_country[country].append(policy)
-        
+
+        # Build the response with Ithra-inspired styling
+        response = f"""<div class="policy-response">
+<div class="policy-header success">
+    <span class="policy-icon">🌍</span>
+    <span class="policy-title">Found {len(policies)} AI Policies {query_type} "{query}"</span>
+</div>
+<div class="policy-content">"""
+
         for country, country_policies in policies_by_country.items():
-            response += f"🌍 **{country}** ({len(country_policies)} policies):\n"
+            response += f"""
+    <div class="country-section">
+        <div class="country-header">
+            <span class="country-flag">🏛️</span>
+            <span class="country-name">{country}</span>
+            <span class="policy-count">({len(country_policies)} policies)</span>
+        </div>
+        <div class="policies-grid">"""
             
             for policy in country_policies:
-                response += f"  {policy['area_icon']} **{policy['name']}**\n"
-                response += f"     📋 Area: {policy['area']}\n"
-                response += f"     📅 Year: {policy['year']}\n"
-                response += f"     ✅ Status: {policy['status']}\n"
-                if policy['description'] and len(policy['description']) > 10:
-                    desc = policy['description'][:150] + "..." if len(policy['description']) > 150 else policy['description']
-                    response += f"     📝 Description: {desc}\n"
-                response += "\n"
-            response += "\n"
-        
-        # Add helpful suggestions
-        response += "💡 **Need more information?** Try searching for:\n"
-        response += "• Specific country names (e.g., 'United States', 'Germany')\n"
-        response += "• Policy areas (e.g., 'AI Safety', 'Digital Education')\n"
-        response += "• Specific policy names\n"
-        response += "• Type 'countries' to see all available countries\n"
-        response += "• Type 'areas' to see all policy areas"
-        
+                response += f"""
+            <div class="policy-card">
+                <div class="policy-card-header">
+                    <span class="policy-area-icon">{policy['area_icon']}</span>
+                    <div class="policy-meta">
+                        <span class="policy-year">{policy['year']}</span>
+                        <span class="policy-status">{policy['status']}</span>
+                    </div>
+                </div>
+                <h4 class="policy-name">{policy['name']}</h4>
+                <div class="policy-area">{policy['area']}</div>
+                <p class="policy-description">{policy['description'][:200]}{'...' if len(policy['description']) > 200 else ''}</p>
+            </div>"""
+            
+            response += "</div></div>"
+
+        response += """
+    <div class="search-tips">
+        <h4>💡 Search Tips:</h4>
+        <ul>
+            <li>Type any country name to see all its AI policies</li>
+            <li>Search by policy area (e.g., "AI Safety", "Digital Education")</li>
+            <li>Type "countries" to see all available countries</li>
+            <li>Type "areas" to see all policy areas</li>
+        </ul>
+    </div>
+</div>
+</div>"""
+
         return response
 
     def get_help_response(self) -> str:
-        """Generate help response"""
-        return """🤖 **AI Policy Database Assistant Help**
-
-I can help you find AI policies from our database! Here's what I can do:
-
-**🔍 Search Commands:**
-• **Country Search**: Type any country name (e.g., "United States", "Germany", "Japan")
-• **Policy Name Search**: Type part of a policy name (e.g., "AI Act", "Strategy")
-• **Policy Area Search**: Type policy areas (e.g., "AI Safety", "Digital Education")
-
-**📊 List Commands:**
-• **"countries"** - See all countries with policies in our database
-• **"areas"** - See all policy areas available
-• **"help"** - Show this help message
-
-**💡 Example Searches:**
-• "United States" → Find all US AI policies
-• "AI Safety" → Find all AI safety policies
-• "GDPR" → Find GDPR-related policies
-• "Digital Education" → Find digital education policies
-
-**⚠️ Important Limitations:**
-• I ONLY provide information from our AI policy database
-• I cannot answer questions about weather, temperature, current events, news, or other non-policy topics
-• If information isn't in our AI policy database, I'll let you know
-• All policy information is sourced from official government submissions
-
-Just type your search term and I'll find relevant AI policies for you! 🚀"""
+        """Generate help response with Ithra-inspired styling"""
+        return """<div class="policy-response">
+<div class="policy-header info">
+    <span class="policy-icon">🤖</span>
+    <span class="policy-title">AI Policy Database Assistant Help</span>
+</div>
+<div class="policy-content">
+    <p>I can help you find AI policies from our database! Here's what I can do:</p>
+    
+    <div class="help-section">
+        <h4>🔍 Search Commands:</h4>
+        <ul>
+            <li><strong>Country Search:</strong> Type any country name (e.g., "United States", "Germany", "Japan")</li>
+            <li><strong>Policy Name Search:</strong> Type part of a policy name (e.g., "AI Act", "Strategy")</li>
+            <li><strong>Policy Area Search:</strong> Type policy areas (e.g., "AI Safety", "Digital Education")</li>
+        </ul>
+    </div>
+    
+    <div class="help-section">
+        <h4>📊 List Commands:</h4>
+        <ul>
+            <li><strong>"countries"</strong> - See all countries with policies in our database</li>
+            <li><strong>"areas"</strong> - See all policy areas available</li>
+            <li><strong>"help"</strong> - Show this help message</li>
+        </ul>
+    </div>
+    
+    <div class="help-section">
+        <h4>💡 Example Searches:</h4>
+        <ul>
+            <li>"United States" → Find all US AI policies</li>
+            <li>"AI Safety" → Find all AI safety policies</li>
+            <li>"GDPR" → Find GDPR-related policies</li>
+            <li>"Digital Education" → Find digital education policies</li>
+        </ul>
+    </div>
+    
+    <div class="important-note">
+        <h4>⚠️ Important Limitations:</h4>
+        <ul>
+            <li>I ONLY provide information from our AI policy database</li>
+            <li>I cannot answer questions about weather, temperature, current events, news, or other non-policy topics</li>
+            <li>If information isn't in our AI policy database, I'll let you know</li>
+            <li>All policy information is sourced from official government submissions</li>
+        </ul>
+    </div>
+    
+    <p class="help-footer">Just type your search term and I'll find relevant AI policies for you! 🚀</p>
+</div>
+</div>"""
 
     def get_greeting_response(self) -> str:
-        """Generate greeting response"""
-        return """👋 **Hello! Welcome to the AI Policy Database Assistant!**
-
-I'm here to help you explore AI policies from around the world. I have access to a comprehensive database of AI governance frameworks, regulations, and policy initiatives.
-
-🔍 **What would you like to search for?**
-• Type a **country name** to see all its AI policies
-• Type a **policy name** to find specific policies  
-• Type a **policy area** like "AI Safety" or "Digital Education"
-• Type **"help"** for detailed search options
-• Type **"countries"** to see all available countries
-
-**Example searches:**
-• "European Union" 
-• "AI Safety policies"
-• "Digital Education"
-• "National AI Strategy"
-
-⚠️ **Important**: I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.
-
-What AI policies would you like to explore? 🚀"""
+        """Generate greeting response with Ithra-inspired styling"""
+        return """<div class="policy-response">
+<div class="policy-header welcome">
+    <span class="policy-icon">👋</span>
+    <span class="policy-title">Welcome to the AI Policy Database Assistant!</span>
+</div>
+<div class="policy-content">
+    <p>I'm here to help you explore AI policies from around the world. I have access to a comprehensive database of AI governance frameworks, regulations, and policy initiatives.</p>
+    
+    <div class="search-options">
+        <h4>🔍 What would you like to search for?</h4>
+        <ul>
+            <li>Type a <strong>country name</strong> to see all its AI policies</li>
+            <li>Type a <strong>policy name</strong> to find specific policies</li>
+            <li>Type a <strong>policy area</strong> like "AI Safety" or "Digital Education"</li>
+            <li>Type <strong>"help"</strong> for detailed search options</li>
+            <li>Type <strong>"countries"</strong> to see all available countries</li>
+        </ul>
+    </div>
+    
+    <div class="example-searches">
+        <h4>💡 Example searches:</h4>
+        <div class="examples-grid">
+            <div class="example-item">European Union</div>
+            <div class="example-item">AI Safety policies</div>
+            <div class="example-item">Digital Education</div>
+            <div class="example-item">National AI Strategy</div>
+        </div>
+    </div>
+    
+    <div class="important-note">
+        <p><strong>⚠️ Important:</strong> I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.</p>
+    </div>
+    
+    <p class="welcome-footer">What AI policies would you like to explore? 🚀</p>
+</div>
+</div>"""
 
     def get_non_database_response(self) -> str:
-        """Response for non-database queries"""
-        return """❌ **Sorry, I can only help with AI policy information from our database.**
-
-I'm specifically designed to assist with:
-• 🏛️ **AI Policies by Country** (e.g., "United States AI policies")
-• 📋 **Policy Areas** (e.g., "AI Safety", "Digital Education")
-• 📝 **Specific Policies** (e.g., "AI Act", "National AI Strategy")
-• 🌍 **Countries with AI Policies** (type "countries")
-
-⚠️ **I cannot help with:**
-• Weather, temperature, or climate information
-• Current news or events
-• Location or geographic details
-• Sports, entertainment, or general knowledge
-• Any topics not related to AI policies
-
-🔍 **Try asking about AI policies instead:**
-• "What AI policies does Bangladesh have?"
-• "Show me AI Safety policies"
-• "List all countries with AI policies"
-• Type "help" for more options
-
-What AI policies would you like to learn about? 🚀"""
+        """Response for non-database queries with Ithra-inspired styling"""
+        return """<div class="policy-response">
+<div class="policy-header error">
+    <span class="policy-icon">❌</span>
+    <span class="policy-title">Sorry, I can only help with AI policy information</span>
+</div>
+<div class="policy-content">
+    <p>I'm specifically designed to assist with AI policy information from our database.</p>
+    
+    <div class="can-help">
+        <h4>🏛️ I can help with:</h4>
+        <ul>
+            <li><strong>AI Policies by Country</strong> (e.g., "United States AI policies")</li>
+            <li><strong>Policy Areas</strong> (e.g., "AI Safety", "Digital Education")</li>
+            <li><strong>Specific Policies</strong> (e.g., "AI Act", "National AI Strategy")</li>
+            <li><strong>Countries with AI Policies</strong> (type "countries")</li>
+        </ul>
+    </div>
+    
+    <div class="cannot-help">
+        <h4>⚠️ I cannot help with:</h4>
+        <ul>
+            <li>Weather, temperature, or climate information</li>
+            <li>Current news or events</li>
+            <li>Location or geographic details</li>
+            <li>Sports, entertainment, or general knowledge</li>
+            <li>Any topics not related to AI policies</li>
+        </ul>
+    </div>
+    
+    <div class="try-instead">
+        <h4>🔍 Try asking about AI policies instead:</h4>
+        <ul>
+            <li>"What AI policies does Bangladesh have?"</li>
+            <li>"Show me AI Safety policies"</li>
+            <li>"List all countries with AI policies"</li>
+            <li>Type "help" for more options</li>
+        </ul>
+    </div>
+    
+    <p class="help-footer">What AI policies would you like to learn about? 🚀</p>
+</div>
+</div>"""
 
     async def process_query(self, message: str) -> str:
         """Process user query and return database-based response"""
@@ -491,57 +571,19 @@ What AI policies would you like to learn about? 🚀"""
         if any(help_word in message_lower for help_word in self.help_keywords):
             return self.get_help_response()
         
-        # Handle "show me all policies" or similar broad queries
-        broad_queries = [
-            "show me all policies", "all policies", "show all policies",
-            "all ai policies", "show me all ai policies", "list all policies",
-            "all countries policies", "show me all countries", "policies from all countries"
-        ]
-        
-        if any(broad_query in message_lower for broad_query in broad_queries):
-            # Get a sample of policies from multiple countries
-            countries = await self.get_countries_list()
-            all_policies = []
-            
-            # Get policies from first few countries to avoid overwhelming response
-            for country in countries[:5]:  # Limit to first 5 countries
-                country_policies = await self.search_policies_by_country(country)
-                all_policies.extend(country_policies[:3])  # Max 3 policies per country
-            
-            if all_policies:
-                response = f"🌍 **Sample of AI policies from our database (showing {len(all_policies)} from {min(5, len(countries))} countries):**\n\n"
-                
-                # Group by country
-                policies_by_country = {}
-                for policy in all_policies:
-                    country = policy["country"]
-                    if country not in policies_by_country:
-                        policies_by_country[country] = []
-                    policies_by_country[country].append(policy)
-                
-                for country, country_policies in policies_by_country.items():
-                    response += f"🌍 **{country}** ({len(country_policies)} policies):\n"
-                    for policy in country_policies:
-                        response += f"  {policy['area_icon']} **{policy['name']}**\n"
-                        response += f"     📋 Area: {policy['area']}\n"
-                        response += f"     📅 Year: {policy['year']}\n"
-                    response += "\n"
-                
-                response += f"💡 **For complete coverage:**\n"
-                response += f"• Type **'countries'** to see all {len(countries)} countries with policies\n"
-                response += f"• Type any specific country name to see all its policies\n"
-                response += f"• Type **'areas'** to see all policy areas available\n"
-                
-                return response
-            else:
-                return "❌ No policies found in our database."
-        
         # Handle list commands
         if message_lower in ["countries", "list countries", "show countries"]:
             countries = await self.get_countries_list()
             if countries:
-                response = f"🌍 **Countries with AI policies in our database ({len(countries)} total):**\n\n"
-                # Group countries by first letter for better organization
+                response = f"""<div class="policy-response">
+<div class="policy-header info">
+    <span class="policy-icon">🌍</span>
+    <span class="policy-title">Countries with AI policies in our database ({len(countries)} total)</span>
+</div>
+<div class="policy-content">
+    <div class="countries-grid">"""
+                
+                # Group countries by first letter
                 countries_by_letter = {}
                 for country in countries:
                     first_letter = country[0].upper()
@@ -550,9 +592,19 @@ What AI policies would you like to learn about? 🚀"""
                     countries_by_letter[first_letter].append(country)
                 
                 for letter in sorted(countries_by_letter.keys()):
-                    response += f"**{letter}:** {', '.join(countries_by_letter[letter])}\n"
+                    response += f"""
+        <div class="country-group">
+            <h4 class="letter-header">{letter}</h4>
+            <div class="country-list">"""
+                    for country in countries_by_letter[letter]:
+                        response += f'<span class="country-item">{country}</span>'
+                    response += "</div></div>"
                 
-                response += f"\n💡 Type any country name to see its AI policies!"
+                response += """
+    </div>
+    <p class="search-tip">💡 Type any country name to see its AI policies!</p>
+</div>
+</div>"""
                 return response
             else:
                 return "Sorry, no countries found in our database."
@@ -560,10 +612,22 @@ What AI policies would you like to learn about? 🚀"""
         if message_lower in ["areas", "policy areas", "list areas", "show areas"]:
             areas = await self.get_policy_areas_list()
             if areas:
-                response = f"📋 **Policy areas in our database ({len(areas)} total):**\n\n"
+                response = f"""<div class="policy-response">
+<div class="policy-header info">
+    <span class="policy-icon">📋</span>
+    <span class="policy-title">Policy areas in our database ({len(areas)} total)</span>
+</div>
+<div class="policy-content">
+    <div class="areas-grid">"""
+                
                 for i, area in enumerate(areas, 1):
-                    response += f"{i}. {area}\n"
-                response += f"\n💡 Type any policy area to see related policies!"
+                    response += f'<div class="area-item"><span class="area-number">{i}</span><span class="area-name">{area}</span></div>'
+                
+                response += """
+    </div>
+    <p class="search-tip">💡 Type any policy area to see related policies!</p>
+</div>
+</div>"""
                 return response
             else:
                 return "Sorry, no policy areas found in our database."
@@ -590,48 +654,65 @@ What AI policies would you like to learn about? 🚀"""
             return await self.format_policies_response(policies, "matching", message)
         
         # If nothing found, provide helpful response
-        return f"""❌ **Sorry, I couldn't find any AI policies related to '{message}' in our database.**
-
-🔍 **Try searching for:**
-• **Country names**: United States, Germany, Japan, etc.
-• **Policy areas**: AI Safety, Digital Education, Cybersafety, etc.
-• **Specific policy names**: AI Act, National AI Strategy, etc.
-
-📊 **Quick commands:**
-• Type **"countries"** to see all available countries
-• Type **"areas"** to see all policy areas  
-• Type **"help"** for more search options
-
-💡 **Example searches that work:**
-• "United States" (even if you type "United staes" - I'll fix typos!)
-• "AI Safety"
-• "Digital Education policies"
-• "European Union"
-
-⚠️ **Remember**: I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.
-
-What AI policies would you like to explore? 🚀"""
+        return f"""<div class="policy-response">
+<div class="policy-header error">
+    <span class="policy-icon">❌</span>
+    <span class="policy-title">No AI policies found for "{message}"</span>
+</div>
+<div class="policy-content">
+    <div class="search-suggestions">
+        <h4>🔍 Try searching for:</h4>
+        <ul>
+            <li><strong>Country names:</strong> United States, Germany, Japan, etc.</li>
+            <li><strong>Policy areas:</strong> AI Safety, Digital Education, Cybersafety, etc.</li>
+            <li><strong>Specific policy names:</strong> AI Act, National AI Strategy, etc.</li>
+        </ul>
+    </div>
+    
+    <div class="quick-commands">
+        <h4>📊 Quick commands:</h4>
+        <ul>
+            <li>Type <strong>"countries"</strong> to see all available countries</li>
+            <li>Type <strong>"areas"</strong> to see all policy areas</li>
+            <li>Type <strong>"help"</strong> for more search options</li>
+        </ul>
+    </div>
+    
+    <div class="example-searches">
+        <h4>💡 Example searches that work:</h4>
+        <ul>
+            <li>"United States" (even if you type "United staes" - I'll fix typos!)</li>
+            <li>"AI Safety"</li>
+            <li>"Digital Education policies"</li>
+            <li>"European Union"</li>
+        </ul>
+    </div>
+    
+    <div class="important-note">
+        <p><strong>⚠️ Remember:</strong> I only provide information from our AI policy database. I cannot help with weather, current events, or other non-policy topics.</p>
+    </div>
+    
+    <p class="help-footer">What AI policies would you like to explore? 🚀</p>
+</div>
+</div>"""
 
     async def get_conversation(self, conversation_id: str) -> Optional[ChatConversation]:
         """Retrieve a conversation from the database"""
         try:
-            conversation_doc = await self.conversations_collection.find_one(
-                {"conversation_id": conversation_id}
-            )
-            if conversation_doc:
-                return ChatConversation(**conversation_doc)
+            doc = await self.conversations_collection.find_one({"conversation_id": conversation_id})
+            if doc:
+                return ChatConversation(**convert_objectid(doc))
             return None
         except Exception as e:
-            print(f"Error retrieving conversation: {e}")
+            print(f"Error getting conversation: {e}")
             return None
 
     async def save_conversation(self, conversation: ChatConversation):
         """Save or update a conversation in the database"""
         try:
-            conversation_dict = conversation.dict()
-            await self.conversations_collection.update_one(
+            await self.conversations_collection.replace_one(
                 {"conversation_id": conversation.conversation_id},
-                {"$set": conversation_dict},
+                conversation.dict(),
                 upsert=True
             )
         except Exception as e:
@@ -773,3 +854,8 @@ What AI policies would you like to explore? 🚀"""
 
 # Create singleton instance
 chatbot_service = ChatbotService()
+
+# Initialize function (if needed by main.py)
+def init_chatbot(database_client):
+    """Initialize chatbot with database client"""
+    pass  # We're using the global database instance
