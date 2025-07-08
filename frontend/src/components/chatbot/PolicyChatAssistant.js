@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Search, MessageCircle, Trash2, Plus, FileText, Globe, Shield, Brain, Loader2, ChevronDown, X, Menu, EyeOff, Eye, MapPin, Calendar, Tag, Sparkles, Database, Zap } from 'lucide-react';
+import '../../styles/chat-responses.css'
 
 const PolicyChatAssistant = () => {
   const [messages, setMessages] = useState([]);
@@ -237,7 +238,12 @@ const PolicyChatAssistant = () => {
   };
 
   const formatMessage = (content) => {
-    // Enhanced message formatting for markdown-like content
+    // Check if content contains HTML tags
+    if (content.includes('<div class="')) {
+      return <div dangerouslySetInnerHTML={{ __html: content }} />;
+    }
+    
+    // Fallback to existing markdown-like formatting
     return content
       .split('\n')
       .map(line => line.trim())
