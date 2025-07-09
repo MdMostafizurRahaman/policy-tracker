@@ -9,6 +9,7 @@ from controllers.admin_controller import router as admin_router
 from controllers.public_controller import router as public_router
 from controllers.debug_controller import router as debug_router
 from controllers.chat_controller import router as chat_router
+from controllers.ai_analysis_controller import router as ai_analysis_router
 
 def setup_routes(app):
     """Setup all application routes"""
@@ -23,6 +24,7 @@ def setup_routes(app):
     api_router.include_router(public_router)
     api_router.include_router(debug_router)
     api_router.include_router(chat_router)
+    api_router.include_router(ai_analysis_router)
     
     # Include the main router in the app
     app.include_router(api_router)

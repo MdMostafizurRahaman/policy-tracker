@@ -3,10 +3,13 @@ Application Configuration Settings
 Centralized configuration management for the AI Policy Tracker application
 """
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the backend directory
+backend_dir = Path(__file__).parent.parent
+env_path = backend_dir / '.env'
+load_dotenv(dotenv_path=env_path)
 
 class Settings:
     """Application settings and configuration"""
@@ -56,6 +59,12 @@ class Settings:
     
     # Environment
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    
+    # AI Analysis Configuration
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+    MAX_FILE_SIZE_MB = 10
+    SUPPORTED_FILE_TYPES = [".pdf", ".doc", ".docx", ".txt"]
 
 # Create a global settings instance
 settings = Settings()
