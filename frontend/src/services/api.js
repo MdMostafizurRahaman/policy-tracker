@@ -12,11 +12,15 @@ class ApiService {
     
     const config = {
       headers: {
-        'Content-Type': 'application/json',
         ...options.headers,
       },
       ...options,
     };
+
+    // Don't set Content-Type for FormData - let browser handle it
+    if (!(options.body instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
+    }
 
     // Add auth token if available
     const token = localStorage.getItem('access_token');
@@ -76,19 +80,35 @@ class ApiService {
   }
 
   async post(endpoint, data, options = {}) {
-    return this.request(endpoint, {
+    const config = {
       method: 'POST',
-      body: JSON.stringify(data),
       ...options,
-    });
+    };
+
+    // Handle FormData vs JSON differently
+    if (data instanceof FormData) {
+      config.body = data;
+    } else {
+      config.body = JSON.stringify(data);
+    }
+
+    return this.request(endpoint, config);
   }
 
   async put(endpoint, data, options = {}) {
-    return this.request(endpoint, {
+    const config = {
       method: 'PUT',
-      body: JSON.stringify(data),
       ...options,
-    });
+    };
+
+    // Handle FormData vs JSON differently
+    if (data instanceof FormData) {
+      config.body = data;
+    } else {
+      config.body = JSON.stringify(data);
+    }
+
+    return this.request(endpoint, config);
   }
 
   async delete(endpoint, options = {}) {
@@ -96,11 +116,19 @@ class ApiService {
   }
 
   async patch(endpoint, data, options = {}) {
-    return this.request(endpoint, {
+    const config = {
       method: 'PATCH',
-      body: JSON.stringify(data),
       ...options,
-    });
+    };
+
+    // Handle FormData vs JSON differently
+    if (data instanceof FormData) {
+      config.body = data;
+    } else {
+      config.body = JSON.stringify(data);
+    }
+
+    return this.request(endpoint, config);
   }
 }
 
