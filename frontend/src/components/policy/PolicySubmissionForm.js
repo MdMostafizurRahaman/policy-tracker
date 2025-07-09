@@ -17,6 +17,18 @@ const PRINCIPLES = [
 
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "INR", "CAD", "AUD", "CHF", "SEK", "Others"];
 
+// AI Analysis Service for document extraction
+const analyzeDocumentWithAI = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // This would call your backend AI analysis endpoint
+  // Don't set Content-Type header - let browser set it automatically with boundary
+  const response = await apiService.post('/ai/analyze-policy-document', formData);
+  
+  return response; // Return the full response, not just response.data
+};
+
 // Create empty policy template
 const createEmptyPolicy = () => ({
   policyName: "",
@@ -96,6 +108,9 @@ const PolicySubmissionForm = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [fileUploading, setFileUploading] = useState({});
+  const [showAutoFillModal, setShowAutoFillModal] = useState(false);
+  const [autoFillLoading, setAutoFillLoading] = useState(false);
+  const [autoFillFile, setAutoFillFile] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -225,6 +240,101 @@ const PolicySubmissionForm = () => {
     } finally {
       setFileUploading(prev => ({ ...prev, [uploadKey]: false }));
     }
+  };
+
+  const handleAutoFillFromDocument = async (file) => {
+    if (!file) return;
+
+    setAutoFillLoading(true);
+    setError("");
+
+    try {
+      // Analyze document with AI
+      const extractedData = await analyzeDocumentWithAI(file);
+      
+      // Debug: Log the response to see what we're getting
+      console.log("AI Analysis Response:", extractedData);
+      console.log("extractedData.data:", extractedData.data);
+      
+      // Check if the response contains the extracted data
+      if (!extractedData || !extractedData.data) {
+        console.error("Invalid response structure:", extractedData);
+        throw new Error("No data extracted from document");
+      }
+      
+      // Determine appropriate policy area based on extracted data
+      const suggestedArea = determinePolicyArea(extractedData.data);
+      
+      // Create new policy with extracted data
+      const newPolicy = {
+        ...createEmptyPolicy(),
+        ...extractedData.data,
+        policyFile: {
+          name: file.name,
+          file_id: `file_${Date.now()}`,
+          size: file.size,
+          type: file.type,
+          upload_date: new Date().toISOString()
+        }
+      };
+
+      // Add to the appropriate policy area
+      setPolicyAreasState(prev => {
+        // Ensure the policy area exists and is an array
+        const currentAreaPolicies = prev[suggestedArea] || [];
+        return {
+          ...prev,
+          [suggestedArea]: [...currentAreaPolicies, newPolicy]
+        };
+      });
+
+      // Select the newly created policy for editing
+      setSelectedPolicyArea(suggestedArea);
+      const currentAreaLength = (policyAreasState[suggestedArea] || []).length;
+      setSelectedPolicyIndex(currentAreaLength);
+      setActiveTab("basic");
+      
+      setShowAutoFillModal(false);
+      setAutoFillFile(null);
+      setSuccess("Policy successfully auto-filled from document! You can now review and modify the extracted information.");
+
+    } catch (error) {
+      console.error("Auto-fill error:", error);
+      let errorMessage = "Auto-fill failed: " + error.message;
+      
+      if (error.message.includes("503")) {
+        errorMessage = "AI analysis service is not configured. Please contact your administrator to set up the GROQ_API_KEY.";
+      } else if (error.message.includes("404")) {
+        errorMessage = "AI analysis endpoint not found. Please ensure the backend server is running with the latest updates.";
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setAutoFillLoading(false);
+    }
+  };
+
+  const determinePolicyArea = (extractedData) => {
+    // Simple logic to determine policy area based on content
+    // You can enhance this with more sophisticated classification
+    const description = extractedData.policyDescription?.toLowerCase() || "";
+    const name = extractedData.policyName?.toLowerCase() || "";
+    const content = `${name} ${description}`;
+
+    // Check for keywords to classify into policy areas (using actual IDs from constants)
+    if (content.includes("healthcare") || content.includes("medical") || content.includes("health")) return "physical-health";
+    if (content.includes("education") || content.includes("learning")) return "digital-education";
+    if (content.includes("work") || content.includes("employment") || content.includes("job")) return "digital-work";
+    if (content.includes("mental") || content.includes("wellness")) return "mental-health";
+    if (content.includes("cyber") || content.includes("security")) return "cyber-safety";
+    if (content.includes("inclusion") || content.includes("accessibility") || content.includes("digital divide")) return "digital-inclusion";
+    if (content.includes("leisure") || content.includes("gaming") || content.includes("entertainment")) return "digital-leisure";
+    if (content.includes("social media") || content.includes("gaming")) return "social-media-gaming";
+    if (content.includes("disinformation") || content.includes("misinformation") || content.includes("fake news")) return "disinformation";
+    if (content.includes("ai") || content.includes("artificial intelligence") || content.includes("machine learning")) return "ai-safety";
+    
+    // Default to ai-safety if no specific area is detected (since most policies will be AI-related)
+    return "ai-safety";
   };
 
   const validateForm = () => {
@@ -575,6 +685,50 @@ const PolicySubmissionForm = () => {
               accept=".pdf,.doc,.docx,.txt"
               disabled={fileUploading[uploadKey]}
             />
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const fileInput = document.createElement('input');
+                  fileInput.type = 'file';
+                  fileInput.accept = '.pdf,.doc,.docx,.txt';
+                  fileInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      handleFileUpload(selectedPolicyArea, selectedPolicyIndex, file);
+                    }
+                  };
+                  fileInput.click();
+                }}
+                className="flex-1 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all font-medium flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                Manual Upload
+              </button>
+              <button
+                onClick={() => {
+                  const fileInput = document.createElement('input');
+                  fileInput.type = 'file';
+                  fileInput.accept = '.pdf,.doc,.docx,.txt';
+                  fileInput.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setAutoFillFile(file);
+                      setShowAutoFillModal(true);
+                    }
+                  };
+                  fileInput.click();
+                }}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:from-purple-600 hover:to-blue-600 transition-all font-medium flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                AI Auto-Fill
+              </button>
+            </div>
             
             {fileUploading[uploadKey] && (
               <div className="flex items-center gap-2 p-3 bg-yellow-50 text-yellow-700 rounded-lg">
@@ -945,6 +1099,33 @@ const PolicySubmissionForm = () => {
         {/* User Info Card */}
         <UserSubmissionCard user={user} />
 
+        {/* Auto-Fill Quick Action */}
+        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 rounded-2xl shadow-xl border border-gray-200 p-6 mb-8 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold mb-2">AI-Powered Auto-Fill</h3>
+                <p className="text-lg opacity-90">Upload a policy document and let AI extract all the information automatically</p>
+                <p className="text-sm opacity-75 mt-1">Supports PDF, DOC, DOCX, and TXT files</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAutoFillModal(true)}
+              className="px-8 py-4 bg-white text-purple-600 font-bold rounded-xl hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg flex items-center gap-3"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              Auto-Fill from Document
+            </button>
+          </div>
+        </div>
+
         {/* User Info and Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
@@ -1079,6 +1260,143 @@ const PolicySubmissionForm = () => {
 
         {/* Policy Editor */}
         {renderPolicyEditor()}
+
+        {/* Auto-Fill Modal */}
+        {showAutoFillModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-3xl font-bold text-gray-800">AI Auto-Fill from Document</h2>
+                  <button
+                    onClick={() => {
+                      setShowAutoFillModal(false);
+                      setAutoFillFile(null);
+                    }}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-blue-800 mb-2">How AI Auto-Fill Works</h3>
+                        <ul className="text-sm text-blue-700 space-y-1">
+                          <li>• Upload your policy document (PDF, DOC, DOCX, TXT)</li>
+                          <li>• AI analyzes the content and extracts structured information</li>
+                          <li>• All form fields are automatically populated</li>
+                          <li>• Review and modify the extracted data as needed</li>
+                          <li>• Submit your complete policy information</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-amber-800">Note</p>
+                        <p className="text-xs text-amber-700">AI extraction is best-effort. Always review and verify the extracted information before submission.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      Select Policy Document
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-blue-400 transition-all">
+                      <input
+                        type="file"
+                        id="autoFillFile"
+                        onChange={(e) => setAutoFillFile(e.target.files[0])}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.txt"
+                      />
+                      <label htmlFor="autoFillFile" className="cursor-pointer">
+                        <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                          <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-medium text-gray-700 mb-2">
+                          Click to upload or drag and drop
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          PDF, DOC, DOCX, TXT files up to 10MB
+                        </p>
+                      </label>
+                    </div>
+
+                    {autoFillFile && (
+                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium text-green-800">{autoFillFile.name}</p>
+                            <p className="text-sm text-green-600">
+                              {(autoFillFile.size / 1024).toFixed(1)} KB - Ready for analysis
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-4 pt-4">
+                    <button
+                      onClick={() => {
+                        setShowAutoFillModal(false);
+                        setAutoFillFile(null);
+                      }}
+                      className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleAutoFillFromDocument(autoFillFile)}
+                      disabled={!autoFillFile || autoFillLoading}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                    >
+                      {autoFillLoading ? (
+                        <>
+                          <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                          Analyzing Document...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Start AI Analysis
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Submit Button */}
         <div className="flex justify-center pt-8">
