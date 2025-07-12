@@ -402,6 +402,9 @@ class AdminService:
             # If approved, move to master collection
             if status == "approved":
                 await self._move_policy_to_master(submission_id, area_id, policy_index, admin_user)
+            # If rejected or deleted, remove from master collection if it exists there
+            elif status in ["rejected", "deleted"]:
+                await self._remove_policy_from_master_if_exists(submission_id, area_id, policy_index, admin_user)
             
             return {
                 "success": True,
@@ -483,6 +486,49 @@ class AdminService:
         except Exception as e:
             logger.error(f"Error moving policy to master: {str(e)}")
             raise Exception(f"Failed to move policy to master: {str(e)}")
+
+    async def _remove_policy_from_master_if_exists(self, submission_id: str, area_id: str, policy_index: int, admin_user: Dict[str, Any]):
+        """Remove a policy from master collection if it exists there (for rejected/deleted policies)"""
+        try:
+            # Find policies in master collection that match this submission and policy
+            master_policy = await self.master_policies_collection.find_one({
+                "submission_id": submission_id,
+                "area_id": area_id, 
+                "policy_index": policy_index,
+                "master_status": "active"
+            })
+            
+            if master_policy:
+                # Mark as deleted in master collection
+                await self.master_policies_collection.update_one(
+                    {"_id": master_policy["_id"]},
+                    {
+                        "$set": {
+                            "master_status": "deleted",
+                            "deleted_at": datetime.utcnow(),
+                            "deleted_by": admin_user.get("email"),
+                            "deletion_reason": "Policy rejected/deleted in submission review"
+                        }
+                    }
+                )
+                
+                # Log the removal action
+                await self.admin_actions_collection.insert_one({
+                    "action": "remove_from_master_on_rejection",
+                    "admin_email": admin_user.get("email"),
+                    "submission_id": submission_id,
+                    "area_id": area_id,
+                    "policy_index": policy_index,
+                    "master_policy_id": str(master_policy["_id"]),
+                    "timestamp": datetime.utcnow()
+                })
+                
+                logger.info(f"Removed policy from master due to rejection: {master_policy['_id']}")
+            
+        except Exception as e:
+            logger.error(f"Error removing policy from master: {str(e)}")
+            # Don't raise exception here - this is a cleanup operation
+            logger.warning(f"Failed to remove policy from master on rejection: {str(e)}")
 
     async def delete_master_policy(self, policy_id: str, admin_user: Dict[str, Any]) -> Dict[str, Any]:
         """Delete a policy from master collection (both DB and map)"""
