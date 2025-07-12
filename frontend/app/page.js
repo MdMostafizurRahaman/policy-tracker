@@ -364,7 +364,7 @@ export default function Page() {
       {/* Enhanced Header/Navigation */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-20 flex-nowrap min-w-0">
             {/* Logo */}
             <div 
               className="flex items-center gap-4 cursor-pointer group"
@@ -379,7 +379,7 @@ export default function Page() {
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent group-hover:from-indigo-600 group-hover:to-purple-600 transition-all duration-300">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent group-hover:from-indigo-600 group-hover:to-purple-600 transition-all duration-300 flex-nowrap whitespace-nowrap">
                   Policy Tracker
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Global Policy Platform</p>
@@ -387,7 +387,7 @@ export default function Page() {
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center space-x-2">
+            <div className="hidden lg:flex items-center space-x-2 flex-nowrap whitespace-nowrap">
               {navigationItems.map((item) => (
                 <button
                   key={item.key}
@@ -401,7 +401,7 @@ export default function Page() {
                   <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
                   </svg>
-                  <span className="hidden xl:inline">{item.label}</span>
+                  <span>{item.label}</span>
                   {view === item.key && (
                     <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse"></div>
                   )}
@@ -413,7 +413,7 @@ export default function Page() {
             <div className="flex items-center gap-4">
               {/* User Info */}
               {user && (
-                <div className="hidden md:flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2">
+                <div className="hidden md:flex items-center gap-3 bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2 min-w-0 overflow-x-auto">
                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
                     <span className="text-white text-sm font-bold">
                       {user.firstName?.[0]?.toUpperCase() || 'U'}
