@@ -16,7 +16,7 @@ async def check_database_directly():
     """Check the database directly for any inconsistencies"""
     try:
         # Connect to MongoDB
-        MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://bsse1320:Ff123456@cluster0.cqlgs.mongodb.net/?retryWrites=true&w=majority")
+        MONGODB_URL = os.getenv("MONGODB_URL")
         client = AsyncIOMotorClient(MONGODB_URL)
         db = client.policy_tracker
         master_policies = db.master_policies
