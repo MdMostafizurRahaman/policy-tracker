@@ -9,6 +9,8 @@ export default function CountryPolicyPopup({ country, onClose }) {
   const [policies, setPolicies] = useState([])
   const [loading, setLoading] = useState(true)
   const [policyAreas, setPolicyAreas] = useState([])
+  const [refreshKey, setRefreshKey] = useState(0) // Force refresh mechanism
+  const [lastRefresh, setLastRefresh] = useState(null) // Track last refresh time
 
   // Define policy types with their icons and colors
   const policyTypes = {
@@ -150,16 +152,52 @@ export default function CountryPolicyPopup({ country, onClose }) {
       // Use the API service instead of direct fetch
       const loadCountryPolicies = async () => {
         try {
-          // Use the no-dedup endpoint with country filter
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000`);
+          // Add timestamp and refresh key to prevent any caching
+          const timestamp = new Date().getTime();
+          const cacheBuster = `${timestamp}_${refreshKey}_${Math.random()}`;
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000&_t=${cacheBuster}`, {
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
           const data = await response.json();
           
           console.log("Country policies data:", data);
           
           if (data.success && data.policies) {
-            const activePolicies = data.policies;
+            // Enhanced filtering - remove any policies that should be hidden
+            const activePolicies = data.policies.filter(policy => {
+              // Must have active master status
+              if (policy.master_status !== 'active') {
+                console.log(`Filtering out policy ${policy.policyName} - master_status: ${policy.master_status}`);
+                return false;
+              }
+              
+              // Must not be deleted or rejected
+              if (policy.status === 'deleted' || policy.status === 'rejected') {
+                console.log(`Filtering out policy ${policy.policyName} - status: ${policy.status}`);
+                return false;
+              }
+              
+              // Must not have deleted master status (double check)
+              if (policy.master_status === 'deleted') {
+                console.log(`Filtering out policy ${policy.policyName} - master_status deleted`);
+                return false;
+              }
+              
+              return true;
+            });
             
-            console.log(`Found ${activePolicies.length} policies for ${country.name}`);
+            console.log(`Found ${activePolicies.length} active policies for ${country.name} (filtered from ${data.policies.length})`);
+            
+            // Log any filtered policies for debugging
+            const filteredOut = data.policies.length - activePolicies.length;
+            if (filteredOut > 0) {
+              console.log(`⚠️ Filtered out ${filteredOut} policies that should not be displayed`);
+            }
             
             setPolicies(activePolicies)
             
@@ -198,17 +236,19 @@ export default function CountryPolicyPopup({ country, onClose }) {
             setPolicyAreas([])
           }
           setLoading(false)
+          setLastRefresh(new Date().toLocaleTimeString()) // Update last refresh time
         } catch (err) {
           console.error("Error fetching policy data:", err)
           setPolicies([])
           setPolicyAreas([])
           setLoading(false)
+          setLastRefresh(new Date().toLocaleTimeString()) // Update even on error
         }
       };
       
       loadCountryPolicies();
     }
-  }, [country])
+  }, [country, refreshKey]) // Add refreshKey as dependency
 
   const handlePolicyClick = (policy) => {
     setSelectedPolicy(policy)
@@ -275,14 +315,35 @@ export default function CountryPolicyPopup({ country, onClose }) {
             />
             <h2 className="text-2xl font-bold text-white">{country.name}</h2>
           </div>
-          <button 
-            onClick={handleClose}
-            className="text-white hover:text-red-300 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Refresh button */}
+            <button 
+              onClick={() => {
+                console.log('🔄 Manually refreshing policies for', country.name);
+                setRefreshKey(prev => prev + 1);
+                setLoading(true);
+                setPolicies([]); // Clear existing data
+                setPolicyAreas([]); // Clear areas
+                setSelectedPolicy(null); // Reset selection
+              }}
+              className="text-white hover:text-blue-300 transition-colors p-2 rounded-lg hover:bg-white/10"
+              title="Refresh policies"
+              disabled={loading}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            {/* Close button */}
+            <button 
+              onClick={handleClose}
+              className="text-white hover:text-red-300 transition-colors p-2 rounded-lg hover:bg-white/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Content area with scroll */}
@@ -302,6 +363,11 @@ export default function CountryPolicyPopup({ country, onClose }) {
                     ? "Click on a policy area to view policies"
                     : "No approved policies available for this country"}
                 </p>
+                {lastRefresh && (
+                  <p className="text-blue-300 text-xs mt-2">
+                    Last updated: {lastRefresh}
+                  </p>
+                )}
               </div>
 
               {/* Policy Score Bar */}

@@ -31,8 +31,15 @@ async def get_approved_policies(
     try:
         master_policies_collection = get_master_policies_collection()
         
-        # Build filter - only approved policies shown on map (master_status: active)
-        filter_query = {"master_status": "active"}
+        # Enhanced filter - only approved policies shown on map (master_status: active)
+        filter_query = {
+            "master_status": "active",
+            "$and": [
+                {"$or": [{"status": {"$exists": False}}, {"status": {"$ne": "deleted"}}]},
+                {"$or": [{"status": {"$exists": False}}, {"status": {"$ne": "rejected"}}]}
+            ]
+        }
+        
         if country:
             filter_query["country"] = country
         if policy_area:
@@ -40,7 +47,10 @@ async def get_approved_policies(
         
         policies = []
         async for policy in master_policies_collection.find(filter_query).limit(limit):
-            policies.append(convert_objectid(policy))
+            # Double-check each policy before adding
+            if (policy.get("master_status") == "active" and 
+                policy.get("status") not in ["deleted", "rejected"]):
+                policies.append(convert_objectid(policy))
         
         return {
             "success": True,
@@ -235,14 +245,22 @@ async def get_master_policies_fast(
 async def get_master_policies_no_dedup(
     limit: int = Query(1000, ge=1, le=2000),
     country: str = None,
-    area: str = None
+    area: str = None,
+    _t: str = Query(None)  # Timestamp parameter to prevent caching
 ):
     """Get master policies without deduplication"""
     try:
         master_policies_collection = get_master_policies_collection()
         
-        # Build filter - only approved policies (master_status: active)
-        filter_query = {"master_status": "active"}
+        # Enhanced filter - ensure we only get truly active policies
+        filter_query = {
+            "master_status": "active",
+            "$and": [
+                {"$or": [{"status": {"$exists": False}}, {"status": {"$ne": "deleted"}}]},
+                {"$or": [{"status": {"$exists": False}}, {"status": {"$ne": "rejected"}}]}
+            ]
+        }
+        
         if country:
             filter_query["country"] = country
         if area:
@@ -250,7 +268,10 @@ async def get_master_policies_no_dedup(
         
         policies = []
         async for policy in master_policies_collection.find(filter_query).limit(limit):
-            policies.append(convert_objectid(policy))
+            # Double-check each policy before adding
+            if (policy.get("master_status") == "active" and 
+                policy.get("status") not in ["deleted", "rejected"]):
+                policies.append(convert_objectid(policy))
         
         return {
             "success": True,
