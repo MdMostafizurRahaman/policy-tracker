@@ -34,10 +34,35 @@ export default function AdminDashboard() {
   // Get token for authenticated requests
   const token = localStorage.getItem('access_token');
 
+  // Check authentication on mount
+  useEffect(() => {
+    if (!token) {
+      setView('admin-login');
+      return;
+    }
+    
+    // Try to get user data from localStorage
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+        // Clear invalid data and redirect to login
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userData');
+        setView('admin-login');
+        return;
+      }
+    }
+  }, [token]);
+
   // Fetch data on component mount and dependencies
   useEffect(() => {
-    fetchSubmissions()
-    fetchStatistics()
+    if (token && view === 'dashboard') {
+      fetchSubmissions()
+      fetchStatistics()
+    }
   }, [currentPage, filterStatus])
 
   // API Functions
@@ -48,6 +73,12 @@ export default function AdminDashboard() {
       setSubmissions(data.submissions || [])
       setTotalPages(data.total_pages || 1)
     } catch (error) {
+      // Handle authentication errors
+      if (error.message.includes('Invalid token')) {
+        setView('admin-login');
+        setError('Session expired. Please login again.');
+        return;
+      }
       setError(`Error fetching submissions: ${error.message}`)
     } finally {
       setLoading(false);

@@ -18,12 +18,14 @@ class Database:
     async def connect(self):
         """Connect to MongoDB"""
         try:
-            self.client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URL)
+            # Use MONGO_URI from environment variables
+            mongo_uri = settings.MONGODB_URL
+            self.client = motor.motor_asyncio.AsyncIOMotorClient(mongo_uri)
             self.db = self.client[settings.DATABASE_NAME]
             
             # Test connection
             await self.db.command("ping")
-            logger.info("Database connection successful")
+            logger.info(f"Database connection successful to: {settings.DATABASE_NAME}")
             return True
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
