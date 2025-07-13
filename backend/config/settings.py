@@ -67,8 +67,8 @@ class Settings:
     SUPPORTED_FILE_TYPES = [".pdf", ".doc", ".docx", ".txt"]
     
     # AWS Configuration
-    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "AKIA6NLFCC7CTMIGOT5X")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")  # Should be set in .env
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")  # Should be set in .env
     AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
     AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "policy-tracker-files")
     
