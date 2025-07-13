@@ -14,6 +14,9 @@ from config.database import database
 from middleware.cors import add_cors_middleware
 from routes.main import setup_routes
 
+# Import AWS service for initialization
+from services.aws_service import aws_service
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,6 +41,36 @@ def create_app() -> FastAPI:
     # Setup routes
     setup_routes(app)
     
+    # Initialize AWS service on startup
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize services on application startup"""
+        try:
+            # Initialize database connection
+            await database.connect()
+            
+            # Initialize AWS S3 service
+            await aws_service.initialize()
+            
+            logger.info("Application startup completed successfully")
+        except Exception as e:
+            logger.error(f"Startup error: {str(e)}")
+            raise
+    
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Cleanup on application shutdown"""
+        try:
+            # Close AWS service connections
+            await aws_service.close()
+            
+            # Close database connections
+            await database.disconnect()
+            
+            logger.info("Application shutdown completed")
+        except Exception as e:
+            logger.error(f"Shutdown error: {str(e)}")
+
     return app
 
 # Create the app instance
