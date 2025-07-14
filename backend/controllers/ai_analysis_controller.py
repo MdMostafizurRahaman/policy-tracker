@@ -3,7 +3,7 @@ AI Analysis Controller for Policy Document Processing
 Handles document upload and AI-powered information extraction.
 """
 
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Form
 from fastapi.responses import JSONResponse
 import logging
 from typing import Dict, Any
@@ -27,6 +27,118 @@ router = APIRouter(prefix="/api/ai", tags=["ai-analysis"])
 
 # Maximum file size (10MB)
 MAX_FILE_SIZE = 10 * 1024 * 1024
+
+@router.post("/analyze-uploaded-file")
+async def analyze_uploaded_file(
+    file_id: str = Form(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    Analyze an already uploaded file by file_id using AI.
+    """
+    try:
+        # Check if Groq API key is configured
+        groq_api_key = os.getenv('GROQ_API_KEY')
+        if not groq_api_key or groq_api_key == "gsk_placeholder_key_replace_with_actual_key":
+            raise HTTPException(
+                status_code=503, 
+                detail="AI analysis service is not configured. Please set GROQ_API_KEY in environment variables."
+            )
+
+        # Validate file_id format
+        if not file_id or len(file_id) != 24:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file ID format. Please upload the file first."
+            )
+
+        # Get file metadata from database
+        from config.database import get_files_collection
+        from bson import ObjectId
+        
+        try:
+            files_collection = get_files_collection()
+            file_doc = await files_collection.find_one({"_id": ObjectId(file_id)})
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file ID format. Please upload the file first."
+            )
+        
+        if not file_doc:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Read file content based on storage type
+        file_content = None
+        filename = file_doc.get('filename', 'unknown')
+        
+        if file_doc.get('storage_type') == 'local':
+            # Read from local storage
+            local_path = file_doc.get('local_path')
+            if not local_path or not os.path.exists(local_path):
+                raise HTTPException(status_code=404, detail="Local file not found")
+            
+            with open(local_path, 'rb') as f:
+                file_content = f.read()
+                
+        else:
+            # Read from S3
+            s3_key = file_doc.get('s3_key')
+            if not s3_key:
+                raise HTTPException(status_code=404, detail="S3 key not found")
+            
+            try:
+                from services.aws_service import aws_service
+                s3_result = await aws_service.get_file(s3_key)
+                file_content = s3_result['content']
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to retrieve file from S3: {str(e)}")
+        
+        if not file_content:
+            raise HTTPException(status_code=404, detail="File content could not be retrieved")
+
+        logger.info(f"Processing uploaded file: {filename} (file_id: {file_id})")
+        
+        # Extract text from file
+        try:
+            text_content = ai_analysis_service.extract_text_from_file(file_content, filename)
+        except Exception as e:
+            logger.error(f"Text extraction failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Failed to extract text from document: {str(e)}")
+        
+        if not text_content.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in the document")
+        
+        # Analyze with AI
+        try:
+            extracted_data = ai_analysis_service.analyze_policy_document(text_content)
+        except Exception as e:
+            logger.error(f"AI analysis failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
+        
+        logger.info(f"Successfully analyzed uploaded file: {filename}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "File analyzed successfully",
+                "data": extracted_data,
+                "metadata": {
+                    "filename": filename,
+                    "file_id": file_id,
+                    "text_length": len(text_content),
+                    "storage_type": file_doc.get('storage_type', 'unknown')
+                }
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error analyzing uploaded file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 @router.post("/analyze-policy-document")
 async def analyze_policy_document(
