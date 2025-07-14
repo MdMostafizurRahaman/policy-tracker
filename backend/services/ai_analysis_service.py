@@ -217,28 +217,80 @@ Output example format:
             # Clean the response to extract JSON
             response = response.strip()
             
-            # Find JSON content between curly braces
+            # Try to find JSON content between curly braces
             start_idx = response.find('{')
             end_idx = response.rfind('}') + 1
             
             if start_idx == -1 or end_idx == 0:
-                raise ValueError("No valid JSON found in AI response")
+                # If no JSON braces found, try to extract from code blocks
+                import re
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response, re.DOTALL)
+                if json_match:
+                    json_content = json_match.group(1)
+                else:
+                    logger.error(f"No valid JSON found in AI response: {response}")
+                    # Return default empty structure if JSON parsing fails
+                    return self._get_default_extracted_data()
+            else:
+                json_content = response[start_idx:end_idx]
             
-            json_content = response[start_idx:end_idx]
-            extracted_data = json.loads(json_content)
+            # Attempt to parse JSON
+            try:
+                extracted_data = json.loads(json_content)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing failed: {str(e)}")
+                logger.error(f"Attempted to parse: {json_content}")
+                # Return default structure if parsing fails
+                return self._get_default_extracted_data()
             
             # Validate and set defaults for required fields
             validated_data = self._validate_extracted_data(extracted_data)
             
             return validated_data
             
-        except json.JSONDecodeError as e:
-            logger.error(f"Error parsing JSON from AI response: {str(e)}")
-            logger.error(f"Response content: {response}")
-            raise ValueError(f"Invalid JSON in AI response: {str(e)}")
         except Exception as e:
             logger.error(f"Error processing AI response: {str(e)}")
-            raise
+            logger.error(f"Full response: {response}")
+            # Return default structure on any error
+            return self._get_default_extracted_data()
+    
+    def _get_default_extracted_data(self) -> Dict[str, Any]:
+        """Return default extracted data structure when AI parsing fails."""
+        return {
+            "policyName": "",
+            "policyId": "",
+            "policyDescription": "",
+            "targetGroups": [],
+            "policyLink": "",
+            "implementation": {
+                "yearlyBudget": "",
+                "budgetCurrency": "USD",
+                "privateSecFunding": False,
+                "deploymentYear": 2025
+            },
+            "evaluation": {
+                "isEvaluated": False,
+                "evaluationType": "",
+                "riskAssessment": False,
+                "transparencyScore": 0,
+                "explainabilityScore": 0,
+                "accountabilityScore": 0
+            },
+            "participation": {
+                "hasConsultation": False,
+                "consultationStartDate": "",
+                "consultationEndDate": "",
+                "commentsPublic": False,
+                "stakeholderScore": 0
+            },
+            "alignment": {
+                "aiPrinciples": [],
+                "humanRightsAlignment": False,
+                "environmentalConsiderations": False,
+                "internationalCooperation": False
+            },
+            "error": "AI analysis returned invalid JSON - using default structure"
+        }
     
     def _validate_extracted_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and set defaults for extracted data."""

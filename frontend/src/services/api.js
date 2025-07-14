@@ -17,14 +17,32 @@ class ApiService {
       ...options,
     };
 
-    // Don't set Content-Type for FormData - let browser handle it
-    if (!(options.body instanceof FormData)) {
+    // Don't set Content-Type for FormData - let browser handle it with boundary
+    if (!(config.body instanceof FormData)) {
       config.headers['Content-Type'] = 'application/json';
     }
+    // For FormData, browser automatically sets: Content-Type: multipart/form-data; boundary=...
 
     // Add auth token if available
     const token = localStorage.getItem('access_token');
     if (token) {
+      // Check if token looks expired (basic check)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const currentTime = Date.now() / 1000;
+        if (payload.exp && payload.exp < currentTime) {
+          // Token is expired, remove it
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('userData');
+          throw new Error('Token expired - please login again');
+        }
+      } catch (e) {
+        // If token parsing fails, it's invalid
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userData');
+        throw new Error('Invalid token - please login again');
+      }
+      
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -47,6 +65,13 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       if (timeoutId) clearTimeout(timeoutId);
+      
+      // Handle authentication errors
+      if (response.status === 401) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('userData');
+        throw new Error('Invalid token - please login again');
+      }
       
       // Handle non-JSON responses
       const contentType = response.headers.get('content-type');
@@ -88,8 +113,10 @@ class ApiService {
     // Handle FormData vs JSON differently
     if (data instanceof FormData) {
       config.body = data;
+      // Don't set Content-Type for FormData - browser will set it with boundary
     } else {
       config.body = JSON.stringify(data);
+      // Content-Type will be set in request method for JSON
     }
 
     return this.request(endpoint, config);
@@ -104,8 +131,10 @@ class ApiService {
     // Handle FormData vs JSON differently
     if (data instanceof FormData) {
       config.body = data;
+      // Don't set Content-Type for FormData - browser will set it with boundary
     } else {
       config.body = JSON.stringify(data);
+      // Content-Type will be set in request method for JSON
     }
 
     return this.request(endpoint, config);
@@ -124,8 +153,10 @@ class ApiService {
     // Handle FormData vs JSON differently
     if (data instanceof FormData) {
       config.body = data;
+      // Don't set Content-Type for FormData - browser will set it with boundary
     } else {
       config.body = JSON.stringify(data);
+      // Content-Type will be set in request method for JSON
     }
 
     return this.request(endpoint, config);
@@ -328,6 +359,20 @@ export const apiService = {
   searchPolicies: policyService.searchPolicies.bind(policyService),
   getPolicy: policyService.getPolicy.bind(policyService),
   getCountriesWithPolicies: policyService.getCountriesWithPolicies.bind(policyService),
+  
+  // File upload methods
+  uploadPolicyFile: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return authService.post('/upload-policy-file', formData);
+  },
+  
+  // AI Analysis methods
+  analyzeUploadedFile: (fileId) => {
+    const formData = new FormData();
+    formData.append('file_id', fileId);
+    return authService.post('/ai/analyze-uploaded-file', formData);
+  },
   
   // Chat methods
   sendMessage: chatService.sendMessage.bind(chatService),

@@ -652,27 +652,8 @@ What AI policies would you like to learn about?"""
             search_type = "matching"
             search_term = message
         
-        # If we found specific policies, use AI if available, otherwise fallback to structured format
+        # If we found specific policies, return structured database response only
         if policies_found:
-            if self.groq_api_key:
-                # Limit policies for AI to prevent token overflow, but include summary stats
-                limited_policies = policies_found[:15]  # Limit to first 15 policies
-                total_count = len(policies_found)
-                
-                # Add summary information for AI context
-                policy_summary = {
-                    "total_policies_found": total_count,
-                    "showing_sample": len(limited_policies),
-                    "search_type": search_type,
-                    "search_term": search_term,
-                    "policies": limited_policies
-                }
-                
-                # Always use AI for natural conversational responses
-                ai_response = await self.get_simple_ai_response(message, policy_summary)
-                if ai_response:
-                    return ai_response
-            # Fallback to structured format if AI is not available
             return await self.format_policies_response(policies_found, search_type, search_term)
         
         # For queries with no specific matches, try AI analysis with general context
