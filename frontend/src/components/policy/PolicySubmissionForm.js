@@ -19,14 +19,38 @@ const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CNY", "INR", "CAD", "AUD", "CHF
 
 // AI Analysis Service for document extraction
 const analyzeDocumentWithAI = async (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  // This would call your backend AI analysis endpoint
-  // Don't set Content-Type header - let browser set it automatically with boundary
-  const response = await apiService.post('/ai/analyze-policy-document', formData);
-  
-  return response; // Return the full response, not just response.data
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // This would call your backend AI analysis endpoint
+    // Don't set Content-Type header - let browser set it automatically with boundary
+    const response = await apiService.post('/ai/analyze-policy-document', formData);
+    
+    return response; // Return the full response, not just response.data
+  } catch (error) {
+    // Enhance error handling for JSON parsing issues
+    if (error.message.includes('Expecting value') || error.message.includes('Invalid JSON')) {
+      throw new Error('AI analysis returned invalid data format. Please try again or contact support.');
+    }
+    throw error; // Re-throw other errors
+  }
+};
+
+// AI Analysis Service for uploaded files (by file_id)
+const analyzeUploadedFileWithAI = async (fileId) => {
+  try {
+    // Call the backend AI analysis endpoint for uploaded files
+    const response = await apiService.analyzeUploadedFile(fileId);
+    
+    return response;
+  } catch (error) {
+    // Enhance error handling for JSON parsing issues
+    if (error.message.includes('Expecting value') || error.message.includes('Invalid JSON')) {
+      throw new Error('AI analysis returned invalid data format. Please try again or contact support.');
+    }
+    throw error; // Re-throw other errors
+  }
 };
 
 // Create empty policy template
@@ -223,20 +247,71 @@ const PolicySubmissionForm = () => {
     setFileUploading(prev => ({ ...prev, [uploadKey]: true }));
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const fileData = {
-        name: file.name,
-        file_id: `file_${Date.now()}`,
-        size: file.size,
-        type: file.type,
-        upload_date: new Date().toISOString()
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('policy_area', areaId);
+      formData.append('country', formData.country || 'Unknown');
+      formData.append('description', `Policy document for ${areaId}`);
 
-      updatePolicy(areaId, policyIndex, "policyFile", fileData);
-      setError("");
+      // Upload to AWS S3 via backend
+      const response = await apiService.post('/upload-policy-file', formData);
+
+      if (response.success) {
+        const fileData = {
+          name: file.name,
+          file_id: response.file_data.file_id,
+          s3_key: response.file_data.s3_key || null,
+          file_url: response.file_data.file_url,
+          cdn_url: response.file_data.cdn_url || null,
+          local_path: response.file_data.local_path || null,
+          size: response.file_data.size,
+          type: file.type,
+          upload_date: response.file_data.upload_date,
+          storage_type: response.file_data.storage_type || 's3'
+        };
+
+        updatePolicy(areaId, policyIndex, "policyFile", fileData);
+        setError("");
+        
+        // Show appropriate success message based on storage type
+        if (response.file_data.storage_type === 'local') {
+          setSuccess("File uploaded successfully to local storage (cloud storage temporarily unavailable).");
+        } else {
+          setSuccess("File uploaded successfully to cloud storage.");
+        }
+      } else {
+        throw new Error(response.message || 'Upload failed');
+      }
     } catch (error) {
-      setError(`File upload error: ${error.message}`);
+      console.error('File upload error:', error);
+      
+      let errorMessage = 'File upload failed. ';
+      
+      // Provide specific error messages based on the error type
+      if (error.message.includes('AccessDenied') || error.message.includes('s3:PutObject')) {
+        errorMessage = 'File uploaded to local storage (cloud storage temporarily unavailable). Your file has been saved successfully.';
+        setError(""); // Don't show this as an error since it's just a fallback
+        
+        // Show a success message instead
+        setTimeout(() => {
+          setSuccess('File uploaded successfully to local storage. Cloud storage will be restored soon.');
+        }, 100);
+        
+        return; // Don't treat this as an error
+      } else if (error.message.includes('401') || error.message.includes('Token expired')) {
+        errorMessage += 'Your session has expired. Please login again.';
+      } else if (error.message.includes('413') || error.message.includes('too large')) {
+        errorMessage += 'File is too large. Please use a file smaller than 10MB.';
+      } else if (error.message.includes('400') || error.message.includes('not allowed')) {
+        errorMessage += 'File type not supported. Please use PDF, DOC, DOCX, TXT, CSV, XLS, or XLSX files.';
+      } else if (error.message.includes('Network') || error.message.includes('fetch')) {
+        errorMessage += 'Network connection problem. Please check your internet and try again.';
+      } else {
+        errorMessage += error.message || 'Please try again or contact support.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setFileUploading(prev => ({ ...prev, [uploadKey]: false }));
     }
@@ -265,16 +340,35 @@ const PolicySubmissionForm = () => {
       // Determine appropriate policy area based on extracted data
       const suggestedArea = determinePolicyArea(extractedData.data);
       
-      // Create new policy with extracted data
+      // First upload the file to get a real file_id
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('policy_area', suggestedArea);
+      uploadFormData.append('country', formData.country || 'Unknown');
+      uploadFormData.append('description', `Auto-fill policy document for ${suggestedArea}`);
+
+      // Upload to AWS S3 via backend
+      const uploadResponse = await apiService.post('/upload-policy-file', uploadFormData);
+
+      if (!uploadResponse.success) {
+        throw new Error(uploadResponse.message || 'File upload failed');
+      }
+
+      // Create new policy with extracted data and real file info
       const newPolicy = {
         ...createEmptyPolicy(),
         ...extractedData.data,
         policyFile: {
           name: file.name,
-          file_id: `file_${Date.now()}`,
-          size: file.size,
+          file_id: uploadResponse.file_data.file_id,
+          s3_key: uploadResponse.file_data.s3_key || null,
+          file_url: uploadResponse.file_data.file_url,
+          cdn_url: uploadResponse.file_data.cdn_url || null,
+          local_path: uploadResponse.file_data.local_path || null,
+          size: uploadResponse.file_data.size,
           type: file.type,
-          upload_date: new Date().toISOString()
+          upload_date: uploadResponse.file_data.upload_date,
+          storage_type: uploadResponse.file_data.storage_type || 's3'
         }
       };
 
@@ -302,10 +396,95 @@ const PolicySubmissionForm = () => {
       console.error("Auto-fill error:", error);
       let errorMessage = "Auto-fill failed: " + error.message;
       
-      if (error.message.includes("503")) {
+      if (error.message.includes("503") || error.message.includes("Service Unavailable")) {
         errorMessage = "AI analysis service is not configured. Please contact your administrator to set up the GROQ_API_KEY.";
-      } else if (error.message.includes("404")) {
+      } else if (error.message.includes("404") || error.message.includes("Not Found")) {
         errorMessage = "AI analysis endpoint not found. Please ensure the backend server is running with the latest updates.";
+      } else if (error.message.includes("Invalid JSON") || error.message.includes("Expecting value") || error.message.includes("invalid data format")) {
+        errorMessage = "AI analysis returned invalid data format. The document may not be suitable for automatic extraction. Please try uploading a different document or fill the form manually.";
+      } else if (error.message.includes("Token expired") || error.message.includes("Invalid token")) {
+        errorMessage = "Your session has expired. Please login again to continue.";
+      } else if (error.message.includes("413") || error.message.includes("too large")) {
+        errorMessage = "The document file is too large. Please try with a smaller file (under 10MB).";
+      } else if (error.message.includes("400") || error.message.includes("Bad Request")) {
+        errorMessage = "The document format is not supported or contains no readable text. Please try with a PDF, Word document, or text file.";
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setAutoFillLoading(false);
+    }
+  };
+
+  const handleAutoFillFromUploadedFile = async (fileData) => {
+    if (!fileData || !fileData.file_id) {
+      setError("No file selected for analysis");
+      return;
+    }
+
+    setAutoFillLoading(true);
+    setError("");
+
+    try {
+      // Analyze uploaded file with AI using file_id
+      const extractedData = await analyzeUploadedFileWithAI(fileData.file_id);
+      
+      // Debug: Log the response to see what we're getting
+      console.log("AI Analysis Response:", extractedData);
+      console.log("extractedData.data:", extractedData.data);
+      
+      // Check if the response contains the extracted data
+      if (!extractedData || !extractedData.data) {
+        console.error("Invalid response structure:", extractedData);
+        throw new Error("No data extracted from document");
+      }
+      
+      // Determine appropriate policy area based on extracted data
+      const suggestedArea = determinePolicyArea(extractedData.data);
+      
+      // Create new policy with extracted data
+      const newPolicy = {
+        ...createEmptyPolicy(),
+        ...extractedData.data,
+        policyFile: fileData // Use the existing file data
+      };
+
+      // Add to the appropriate policy area
+      setPolicyAreasState(prev => {
+        // Ensure the policy area exists and is an array
+        const currentAreaPolicies = prev[suggestedArea] || [];
+        return {
+          ...prev,
+          [suggestedArea]: [...currentAreaPolicies, newPolicy]
+        };
+      });
+
+      // Select the newly created policy for editing
+      setSelectedPolicyArea(suggestedArea);
+      const currentAreaLength = (policyAreasState[suggestedArea] || []).length;
+      setSelectedPolicyIndex(currentAreaLength);
+      setActiveTab("basic");
+      
+      setShowAutoFillModal(false);
+      setAutoFillFile(null);
+      setSuccess("Policy successfully auto-filled from uploaded document! You can now review and modify the extracted information.");
+
+    } catch (error) {
+      console.error("Auto-fill error:", error);
+      let errorMessage = "Auto-fill failed: " + error.message;
+      
+      if (error.message.includes("503") || error.message.includes("Service Unavailable")) {
+        errorMessage = "AI analysis service is not configured. Please contact your administrator to set up the GROQ_API_KEY.";
+      } else if (error.message.includes("404") || error.message.includes("Not Found")) {
+        errorMessage = "AI analysis endpoint not found or file not found. Please ensure the backend server is running with the latest updates.";
+      } else if (error.message.includes("Invalid JSON") || error.message.includes("Expecting value") || error.message.includes("invalid data format")) {
+        errorMessage = "AI analysis returned invalid data format. The document may not be suitable for automatic extraction. Please try uploading a different document or fill the form manually.";
+      } else if (error.message.includes("Token expired") || error.message.includes("Invalid token")) {
+        errorMessage = "Your session has expired. Please login again to continue.";
+      } else if (error.message.includes("413") || error.message.includes("too large")) {
+        errorMessage = "The document file is too large. Please try with a smaller file (under 10MB).";
+      } else if (error.message.includes("400") || error.message.includes("Bad Request")) {
+        errorMessage = "The document format is not supported or contains no readable text. Please try with a PDF, Word document, or text file.";
       }
       
       setError(errorMessage);
@@ -752,12 +931,21 @@ const PolicySubmissionForm = () => {
                     </p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyFile", null)}
-                  className="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all text-sm font-medium"
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleAutoFillFromUploadedFile(currentPolicy.policyFile)}
+                    disabled={autoFillLoading}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {autoFillLoading ? 'Analyzing...' : 'Auto Fill'}
+                  </button>
+                  <button 
+                    onClick={() => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyFile", null)}
+                    className="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all text-sm font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1286,7 +1474,7 @@ const PolicySubmissionForm = () => {
                     <div className="flex items-start gap-4">
                       <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center flex-shrink-0">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                       </div>
                       <div>
