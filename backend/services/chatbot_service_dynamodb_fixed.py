@@ -1,0 +1,310 @@
+"""
+DynamoDB Chatbot service for AI policy database queries.
+"""
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+import re
+import difflib
+import json
+import os
+import requests
+import uuid
+
+from models.chat import ChatMessage, ChatRequest, ChatResponse, ChatConversation
+from config.dynamodb import get_dynamodb
+from utils.helpers import convert_objectid
+
+
+class ChatbotService:
+    def __init__(self):
+        self._db = None
+        
+        # AI API configuration
+        self.groq_api_key = os.getenv('GROQ_API_KEY')
+        self.groq_api_url = "https://api.groq.com/openai/v1/chat/completions"
+        
+        # Common greetings and help responses
+        self.greeting_responses = [
+            "Hello! I'm your AI Policy Assistant. How can I help you explore global AI policies today?",
+            "Hi there! I can help you find information about AI policies worldwide. What would you like to know?",
+            "Welcome! I'm here to assist you with AI policy information. What questions do you have?",
+        ]
+        
+        self.help_responses = [
+            "I can help you with:\n• Finding AI policies by country\n• Searching policy content\n• Comparing policies across regions\n• Understanding policy frameworks\n\nWhat would you like to explore?",
+            "Here's what I can do:\n• Search for specific AI policies\n• Provide policy summaries\n• Compare different countries' approaches\n• Answer questions about AI governance\n\nHow can I assist you?",
+        ]
+
+    async def get_db(self):
+        """Get DynamoDB client"""
+        if not self._db:
+            self._db = await get_dynamodb()
+        return self._db
+
+    async def chat(self, request: ChatRequest) -> ChatResponse:
+        """Process chat request and return response"""
+        try:
+            # Get or create conversation
+            conversation = await self._get_or_create_conversation(request.conversation_id, request.user_id)
+            
+            # Add user message to conversation
+            user_message = ChatMessage(
+                id=str(uuid.uuid4()),
+                content=request.message,
+                is_user=True,
+                timestamp=datetime.utcnow()
+            )
+            conversation.messages.append(user_message)
+            
+            # Generate AI response
+            response_text = await self._generate_response(request.message, conversation.messages)
+            
+            # Add AI response to conversation
+            ai_message = ChatMessage(
+                id=str(uuid.uuid4()),
+                content=response_text,
+                is_user=False,
+                timestamp=datetime.utcnow()
+            )
+            conversation.messages.append(ai_message)
+            
+            # Save updated conversation
+            await self._save_conversation(conversation)
+            
+            return ChatResponse(
+                response=response_text,
+                conversation_id=conversation.id,
+                timestamp=datetime.utcnow().isoformat()
+            )
+            
+        except Exception as e:
+            print(f"Chat error: {e}")
+            return ChatResponse(
+                response="I'm experiencing some technical difficulties. Please try again.",
+                conversation_id=request.conversation_id or str(uuid.uuid4()),
+                timestamp=datetime.utcnow().isoformat()
+            )
+
+    async def _get_or_create_conversation(self, conversation_id: Optional[str], user_id: Optional[str]) -> ChatConversation:
+        """Get existing conversation or create new one"""
+        try:
+            if conversation_id:
+                db = await self.get_db()
+                conversation_data = await db.get_item('chat_sessions', {'session_id': conversation_id})
+                if conversation_data:
+                    return ChatConversation.from_dict(conversation_data)
+            
+            # Create new conversation
+            new_conversation = ChatConversation(
+                id=str(uuid.uuid4()),
+                user_id=user_id,
+                title="New Conversation",
+                messages=[],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+            return new_conversation
+            
+        except Exception as e:
+            print(f"Error getting/creating conversation: {e}")
+            return ChatConversation(
+                id=str(uuid.uuid4()),
+                user_id=user_id,
+                title="New Conversation",
+                messages=[],
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
+            )
+
+    async def _save_conversation(self, conversation: ChatConversation):
+        """Save conversation to database"""
+        try:
+            db = await self.get_db()
+            conversation.updated_at = datetime.utcnow()
+            
+            conversation_data = {
+                'session_id': conversation.id,
+                'user_id': conversation.user_id,
+                'title': conversation.title,
+                'messages': [msg.to_dict() for msg in conversation.messages],
+                'created_at': conversation.created_at.isoformat(),
+                'updated_at': conversation.updated_at.isoformat()
+            }
+            
+            await db.insert_item('chat_sessions', conversation_data)
+            
+        except Exception as e:
+            print(f"Error saving conversation: {e}")
+
+    async def _generate_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+        """Generate response to user message"""
+        message_lower = message.lower().strip()
+        
+        # Check for greetings
+        if any(word in message_lower for word in ['hello', 'hi', 'hey', 'greetings']):
+            return self.greeting_responses[0]
+        
+        # Check for help requests
+        if any(word in message_lower for word in ['help', 'what can you do', 'assist']):
+            return self.help_responses[0]
+        
+        # Try policy search
+        policies = await self._search_policies(message)
+        if policies:
+            return self._format_policy_response(policies, message)
+        
+        # Fallback to AI response if available
+        if self.groq_api_key:
+            return await self._get_ai_response(message, conversation_history)
+        
+        # Default response
+        return "I can help you find information about AI policies. Try asking about specific countries or policy topics!"
+
+    async def _search_policies(self, query: str) -> List[Dict]:
+        """Search for policies in the database"""
+        try:
+            db = await self.get_db()
+            
+            # Get all policies from database
+            policies = await db.scan_table('policies')
+            
+            # Simple text matching
+            matching_policies = []
+            query_lower = query.lower()
+            
+            for policy in policies:
+                # Search in various fields
+                searchable_text = f"{policy.get('country', '')} {policy.get('title', '')} {policy.get('description', '')}"
+                if query_lower in searchable_text.lower():
+                    matching_policies.append(policy)
+            
+            return matching_policies[:5]  # Limit to 5 results
+            
+        except Exception as e:
+            print(f"Policy search error: {e}")
+            return []
+
+    def _format_policy_response(self, policies: List[Dict], query: str) -> str:
+        """Format policy search results into readable response"""
+        if not policies:
+            return "I couldn't find any policies matching your query."
+        
+        response = f"I found {len(policies)} relevant policies:\n\n"
+        
+        for i, policy in enumerate(policies, 1):
+            title = policy.get('title', 'Untitled Policy')
+            country = policy.get('country', 'Unknown')
+            description = policy.get('description', 'No description available')
+            
+            response += f"{i}. **{title}** ({country})\n"
+            response += f"   {description[:200]}...\n\n"
+        
+        response += "Would you like more details about any of these policies?"
+        return response
+
+    async def _get_ai_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+        """Get AI response from GROQ API"""
+        try:
+            # Prepare conversation context
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are an AI Policy Assistant. Help users understand global AI policies, regulations, and governance frameworks. Provide accurate, helpful information about AI policy topics."
+                }
+            ]
+            
+            # Add recent conversation history
+            for msg in conversation_history[-10:]:  # Last 10 messages
+                role = "user" if msg.is_user else "assistant"
+                messages.append({"role": role, "content": msg.content})
+            
+            # Add current message
+            messages.append({"role": "user", "content": message})
+            
+            # Make API request
+            headers = {
+                "Authorization": f"Bearer {self.groq_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": "mixtral-8x7b-32768",
+                "messages": messages,
+                "max_tokens": 500,
+                "temperature": 0.7
+            }
+            
+            response = requests.post(self.groq_api_url, headers=headers, json=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                return "I'm having trouble connecting to my knowledge base right now. Please try again in a moment."
+                
+        except Exception as e:
+            return "I'm experiencing some technical difficulties. Please try rephrasing your question about AI policies."
+
+    async def get_conversation_history(self, conversation_id: str) -> List[ChatMessage]:
+        """Get conversation history by ID"""
+        try:
+            db = await self.get_db()
+            conversation_data = await db.get_item('chat_sessions', {'session_id': conversation_id})
+            if conversation_data:
+                messages = conversation_data.get('messages', [])
+                return [ChatMessage.from_dict(msg) for msg in messages]
+            return []
+        except Exception as e:
+            print(f"Error getting conversation history: {e}")
+            return []
+
+    async def get_user_conversations(self, limit: int = 20, user_id: Optional[str] = None) -> List[Dict]:
+        """Get list of conversations for a user or all conversations"""
+        try:
+            db = await self.get_db()
+            
+            # Get all chat sessions and limit them
+            sessions = await db.scan_table('chat_sessions')
+            
+            # Filter by user_id if provided
+            if user_id:
+                sessions = [s for s in sessions if s.get('user_id') == user_id]
+            
+            # Sort by created_at descending and limit
+            sorted_sessions = sorted(sessions, 
+                                   key=lambda x: x.get('created_at', ''), 
+                                   reverse=True)[:limit]
+            
+            # Convert to simple format for frontend
+            conversations = []
+            for session in sorted_sessions:
+                conversations.append({
+                    'conversation_id': session.get('session_id'),
+                    'title': session.get('title', 'New Conversation'),
+                    'created_at': session.get('created_at'),
+                    'updated_at': session.get('updated_at'),
+                    'message_count': len(session.get('messages', []))
+                })
+            
+            return conversations
+        except Exception as e:
+            print(f"Error getting user conversations: {e}")
+            return []
+
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        """Delete a conversation"""
+        try:
+            db = await self.get_db()
+            success = await db.delete_item('chat_sessions', {'session_id': conversation_id})
+            return success
+        except Exception as e:
+            print(f"Error deleting conversation: {e}")
+            return False
+
+    async def search_policies(self, query: str) -> List[Dict]:
+        """Search for policies based on query"""
+        return await self._search_policies(query)
+
+
+# Global instance
+chatbot_service = ChatbotService()

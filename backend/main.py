@@ -56,14 +56,8 @@ async def lifespan(app: FastAPI):
             # Initialize super admin
             await initialize_super_admin()
             
-            # Initialize the DynamoDB chatbot
-            try:
-                from services.chatbot_service import init_chatbot
-                dynamodb_client = await get_dynamodb()
-                init_chatbot(dynamodb_client)
-                logger.info("DynamoDB chatbot initialized")
-            except ImportError:
-                logger.info("Chatbot module not found, skipping chatbot initialization")
+            # Chatbot service is initialized automatically when imported by controllers
+            logger.info("Chatbot service available via controllers")
             
             logger.info("Application startup completed successfully")
         else:
