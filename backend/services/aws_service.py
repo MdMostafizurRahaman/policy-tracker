@@ -108,15 +108,20 @@ class AWSService:
         
         # Initialize Redis for caching (optional)
         try:
+            # Create Redis client but don't test connection during init
             self.redis_client = redis.Redis(
                 host=os.getenv('REDIS_HOST', 'localhost'),
                 port=int(os.getenv('REDIS_PORT', 6379)),
                 db=0,
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=1,  # Quick timeout
+                socket_timeout=1
             )
             self.cache_enabled = True
-        except:
-            logger.warning("Redis not available, caching disabled")
+            logger.info("Redis client created, caching enabled (will test on first use)")
+        except Exception as e:
+            logger.warning(f"Redis client creation failed ({str(e)}), caching disabled")
+            self.redis_client = None
             self.cache_enabled = False
         
         # Thread pool for async operations
@@ -131,6 +136,20 @@ class AWSService:
         }
         
         self.max_file_size = 50 * 1024 * 1024  # 50MB
+        
+    def _test_redis_connection(self):
+        """Test Redis connection on first use and disable if it fails"""
+        if not self.cache_enabled or not self.redis_client:
+            return False
+        
+        try:
+            self.redis_client.ping()
+            return True
+        except Exception as e:
+            logger.warning(f"Redis connection test failed: {e}, disabling cache")
+            self.cache_enabled = False
+            self.redis_client = None
+            return False
 
     def _ensure_env_loaded(self):
         """Ensure environment variables are loaded, try multiple approaches"""
@@ -269,11 +288,15 @@ class AWSService:
             
             # Check cache first
             cache_key = f"file_upload:{hashlib.md5(s3_key.encode()).hexdigest()}"
-            if self.cache_enabled:
-                cached_result = self.redis_client.get(cache_key)
-                if cached_result:
-                    logger.info(f"File found in cache: {s3_key}")
-                    return json.loads(cached_result)
+            if self.cache_enabled and self.redis_client and self._test_redis_connection():
+                try:
+                    cached_result = self.redis_client.get(cache_key)
+                    if cached_result:
+                        logger.info(f"File found in cache: {s3_key}")
+                        return json.loads(cached_result)
+                except Exception as e:
+                    logger.warning(f"Cache read failed: {e}")
+                    # Continue without cache
             
             # Read file content
             file_content = await file.read()
@@ -292,8 +315,12 @@ class AWSService:
             )
             
             # Cache result
-            if self.cache_enabled:
-                self.redis_client.setex(cache_key, 3600, json.dumps(upload_result))
+            if self.cache_enabled and self.redis_client and self._test_redis_connection():
+                try:
+                    self.redis_client.setex(cache_key, 3600, json.dumps(upload_result))
+                except Exception as e:
+                    logger.warning(f"Cache write failed: {e}")
+                    # Continue without cache
             
             logger.info(f"File uploaded successfully: {s3_key}")
             return upload_result
@@ -445,10 +472,14 @@ class AWSService:
         try:
             # Check cache first
             cache_key = f"file_get:{s3_key}"
-            if self.cache_enabled:
-                cached_result = self.redis_client.get(cache_key)
-                if cached_result:
-                    return json.loads(cached_result)
+            if self.cache_enabled and self.redis_client:
+                try:
+                    cached_result = self.redis_client.get(cache_key)
+                    if cached_result:
+                        return json.loads(cached_result)
+                except Exception as e:
+                    logger.warning(f"Cache read failed: {e}")
+                    # Continue without cache
             
             def get_object():
                 return self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
@@ -467,9 +498,13 @@ class AWSService:
             }
             
             # Cache metadata (not content for large files)
-            if self.cache_enabled and result['size'] < 1024 * 1024:  # Only cache files < 1MB
-                cache_data = {k: v for k, v in result.items() if k != 'content'}
-                self.redis_client.setex(cache_key, 1800, json.dumps(cache_data, default=str))
+            if self.cache_enabled and self.redis_client and result['size'] < 1024 * 1024:  # Only cache files < 1MB
+                try:
+                    cache_data = {k: v for k, v in result.items() if k != 'content'}
+                    self.redis_client.setex(cache_key, 1800, json.dumps(cache_data, default=str))
+                except Exception as e:
+                    logger.warning(f"Cache write failed: {e}")
+                    # Continue without cache
             
             return result
             
@@ -488,12 +523,16 @@ class AWSService:
             await loop.run_in_executor(self.executor, delete_object)
             
             # Clear from cache
-            if self.cache_enabled:
-                cache_keys = [f"file_get:{s3_key}", f"file_upload:*{s3_key}*"]
-                for pattern in cache_keys:
-                    keys = self.redis_client.keys(pattern)
-                    if keys:
-                        self.redis_client.delete(*keys)
+            if self.cache_enabled and self.redis_client:
+                try:
+                    cache_keys = [f"file_get:{s3_key}", f"file_upload:*{s3_key}*"]
+                    for pattern in cache_keys:
+                        keys = self.redis_client.keys(pattern)
+                        if keys:
+                            self.redis_client.delete(*keys)
+                except Exception as e:
+                    logger.warning(f"Cache clear failed: {e}")
+                    # Continue without cache
             
             logger.info(f"File deleted: {s3_key}")
             return True

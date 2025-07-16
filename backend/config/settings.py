@@ -19,73 +19,72 @@ class Settings:
     APP_VERSION = "4.0.0"
     APP_DESCRIPTION = "Complete AI Policy Management System with Authentication, Submissions, and Admin Dashboard"
     
+    # All configuration loaded from .env file
     # JWT and Security Configuration
-    SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-super-secret-key-here-change-in-production")
-    ALGORITHM = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+    SECRET_KEY = os.getenv("JWT_SECRET_KEY")  # Legacy alias
+    ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")  # Legacy alias
     
-    # Enhanced Email Configuration with fallback
-    SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    # Email Configuration
+    SMTP_SERVER = os.getenv("SMTP_SERVER")
     SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
-    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-    FROM_EMAIL = os.getenv("FROM_EMAIL", "noreply@aipolicytracker.com")
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL")
+    FROM_EMAIL = os.getenv("FROM_EMAIL")  # Legacy alias
     
-    # Google OAuth Configuration with fallback
+    # Frontend Configuration
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    
+    # Google OAuth
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     
-    # MongoDB Configuration
-    MONGODB_URL = os.getenv("MONGO_URI", "mongodb://localhost:27017/ai_policy_db")
-    DATABASE_NAME = "ai_policy_database"
+    # Database
+    DATABASE_NAME = os.getenv("DATABASE_NAME")
     
-    # CORS Configuration
-    ALLOWED_ORIGINS = [
-        "https://policy-tracker-5.onrender.com",
-        "https://policy-tracker-f.onrender.com", 
-        "http://localhost:3000", 
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "https://localhost:3000",
-        "http://192.168.56.1:3000"
-    ]
+    # DynamoDB Configuration
+    DYNAMODB_TABLE_PREFIX = os.getenv("DYNAMODB_TABLE_PREFIX", "")
+    AWS_DYNAMODB_REGION = os.getenv("AWS_DYNAMODB_REGION", "us-east-1")
     
-    # Admin Configuration
-    SUPER_ADMIN_EMAIL = "admin@gmail.com"
-    SUPER_ADMIN_PASSWORD = "admin123"
+    # CORS
+    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
     
-    # File Upload Configuration
-    UPLOAD_DIR = "uploads"
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    # Admin
+    SUPER_ADMIN_EMAIL = os.getenv("SUPER_ADMIN_EMAIL")
+    SUPER_ADMIN_PASSWORD = os.getenv("SUPER_ADMIN_PASSWORD")
+    
+    # File Upload
+    UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+    MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))
+    ALLOWED_FILE_TYPES = os.getenv("ALLOWED_FILE_TYPES", "pdf,doc,docx,txt").split(",")
     
     # Environment
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     
-    # AI Analysis Configuration
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-    GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-    MAX_FILE_SIZE_MB = 10
-    SUPPORTED_FILE_TYPES = [".pdf", ".doc", ".docx", ".txt"]
+    # AI Analysis
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    GROQ_API_URL = os.getenv("GROQ_API_URL")
+    MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "10"))
+    SUPPORTED_FILE_TYPES = os.getenv("SUPPORTED_FILE_TYPES", ".pdf,.doc,.docx,.txt").split(",")
     
     # AWS Configuration
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")  # Should be set in .env
-    AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-    AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "policy-tracker-files")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_REGION = os.getenv("AWS_REGION")
+    AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET")
     
-    # CloudFront CDN (optional)
-    CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN", "")  # e.g. "d123456789.cloudfront.net"
+    # CloudFront
+    CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN")
     
-    # Redis Configuration
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    REDIS_TTL_DEFAULT = int(os.getenv("REDIS_TTL_DEFAULT", "3600"))  # 1 hour
+    # Redis
+    REDIS_URL = os.getenv("REDIS_URL")
+    REDIS_TTL_DEFAULT = int(os.getenv("REDIS_TTL_DEFAULT", "3600"))
     
-    # File Upload Settings
-    MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", "10485760"))  # 10MB
-    ALLOWED_FILE_TYPES = os.getenv("ALLOWED_FILE_TYPES", "pdf,doc,docx,txt,csv,xls,xlsx").split(",")
-    
-    # S3 Storage Configuration
-    S3_PREFIX_UPLOADS = os.getenv("S3_PREFIX_UPLOADS", "policy-uploads/")
-    S3_PREFIX_PROCESSED = os.getenv("S3_PREFIX_PROCESSED", "policy-processed/")
+    # S3 Storage
+    S3_PREFIX_UPLOADS = os.getenv("S3_PREFIX_UPLOADS")
+    S3_PREFIX_PROCESSED = os.getenv("S3_PREFIX_PROCESSED")
     
     @classmethod
     def get_aws_config(cls):
@@ -99,11 +98,17 @@ class Settings:
     @classmethod
     def validate_aws_config(cls):
         """Validate that required AWS configuration is present"""
+        if not cls.AWS_ACCESS_KEY_ID:
+            raise ValueError("AWS_ACCESS_KEY_ID must be set in environment variables")
+            
         if not cls.AWS_SECRET_ACCESS_KEY:
             raise ValueError("AWS_SECRET_ACCESS_KEY must be set in environment variables")
         
         if not cls.AWS_S3_BUCKET:
             raise ValueError("AWS_S3_BUCKET must be set in environment variables")
+            
+        if not cls.AWS_REGION:
+            raise ValueError("AWS_REGION must be set in environment variables")
         
         return True
 

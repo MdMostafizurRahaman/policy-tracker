@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 
 from models.chat import ChatRequest, ChatResponse, ChatMessage
-from services.chatbot_service import chatbot_service
+from services.chatbot_service_dynamodb import chatbot_service
 from utils.helpers import convert_objectid
 from middleware.auth import get_optional_user
 import logging
