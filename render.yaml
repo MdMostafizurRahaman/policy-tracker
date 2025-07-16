@@ -2,8 +2,9 @@ services:
   - type: web
     name: policy-tracker-backend
     env: python
-    buildCommand: "cd PolicyTracker/backend && pip install -r requirements.txt"
-    startCommand: "cd PolicyTracker/backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    rootDir: ./PolicyTracker/backend
+    buildCommand: "pip install --no-cache-dir -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     plan: free
     envVars:
       - key: PYTHON_VERSION
@@ -12,6 +13,10 @@ services:
         value: "production"
       - key: DEBUG
         value: "false"
+      - key: DISABLE_POETRY
+        value: "1"
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
     
   - type: static
     name: policy-tracker-frontend
