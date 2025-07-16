@@ -25,7 +25,7 @@ const analyzeDocumentWithAI = async (file) => {
     
     // This would call your backend AI analysis endpoint
     // Don't set Content-Type header - let browser set it automatically with boundary
-    const response = await apiService.post('/ai/analyze-policy-document', formData);
+    const response = await apiService.post('/ai-analysis/analyze-policy-document', formData);
     
     return response; // Return the full response, not just response.data
   } catch (error) {
@@ -255,7 +255,7 @@ const PolicySubmissionForm = () => {
       formData.append('description', `Policy document for ${areaId}`);
 
       // Upload to AWS S3 via backend
-      const response = await apiService.post('/upload-policy-file', formData);
+      const response = await apiService.post('/policy/upload-policy-file', formData);
 
       if (response.success) {
         const fileData = {
@@ -324,73 +324,79 @@ const PolicySubmissionForm = () => {
     setError("");
 
     try {
-      // Analyze document with AI
-      const extractedData = await analyzeDocumentWithAI(file);
+      // Determine appropriate policy area (will be refined after AI analysis)
+      const suggestedArea = "AI and Technology"; // default
       
-      // Debug: Log the response to see what we're getting
-      console.log("AI Analysis Response:", extractedData);
-      console.log("extractedData.data:", extractedData.data);
-      
-      // Check if the response contains the extracted data
-      if (!extractedData || !extractedData.data) {
-        console.error("Invalid response structure:", extractedData);
-        throw new Error("No data extracted from document");
-      }
-      
-      // Determine appropriate policy area based on extracted data
-      const suggestedArea = determinePolicyArea(extractedData.data);
-      
-      // First upload the file to get a real file_id
+      // Upload file and get AI analysis in one call using the improved endpoint
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
       uploadFormData.append('policy_area', suggestedArea);
       uploadFormData.append('country', formData.country || 'Unknown');
-      uploadFormData.append('description', `Auto-fill policy document for ${suggestedArea}`);
+      uploadFormData.append('description', `Policy document uploaded for analysis`);
 
-      // Upload to AWS S3 via backend
-      const uploadResponse = await apiService.post('/upload-policy-file', uploadFormData);
+      // Upload and analyze in one call (no double upload!)
+      const response = await apiService.post('/policy/upload-policy-file', uploadFormData, {
+        timeout: 60000 // 60 seconds for file upload and AI analysis
+      });
 
-      if (!uploadResponse.success) {
-        throw new Error(uploadResponse.message || 'File upload failed');
+      if (!response.success) {
+        throw new Error(response.message || 'File upload and analysis failed');
       }
 
-      // Create new policy with extracted data and real file info
+      // Extract AI analysis results
+      const extractedData = response.ai_analysis || {};
+      
+      // Debug: Log the response to see what we're getting
+      console.log("AI Analysis Response:", { success: true, data: extractedData });
+      console.log("extractedData.data:", extractedData);
+      
+      // Check if we have useful extracted data
+      let finalSuggestedArea = suggestedArea;
+      if (extractedData && Object.keys(extractedData).length > 0) {
+        finalSuggestedArea = determinePolicyArea(extractedData);
+      }
+
+      // Create new policy with extracted data and file info
       const newPolicy = {
         ...createEmptyPolicy(),
-        ...extractedData.data,
+        ...(extractedData || {}), // Use extracted data if available
         policyFile: {
           name: file.name,
-          file_id: uploadResponse.file_data.file_id,
-          s3_key: uploadResponse.file_data.s3_key || null,
-          file_url: uploadResponse.file_data.file_url,
-          cdn_url: uploadResponse.file_data.cdn_url || null,
-          local_path: uploadResponse.file_data.local_path || null,
-          size: uploadResponse.file_data.size,
+          file_id: response.file_data.file_id,
+          s3_key: response.file_data.s3_key || null,
+          file_url: response.file_data.file_url,
+          cdn_url: response.file_data.cdn_url || null,
+          size: response.file_data.size,
           type: file.type,
-          upload_date: uploadResponse.file_data.upload_date,
-          storage_type: uploadResponse.file_data.storage_type || 's3'
+          upload_date: response.file_data.upload_date,
+          storage_type: response.file_data.storage_type || 's3'
         }
       };
 
       // Add to the appropriate policy area
       setPolicyAreasState(prev => {
         // Ensure the policy area exists and is an array
-        const currentAreaPolicies = prev[suggestedArea] || [];
+        const currentAreaPolicies = prev[finalSuggestedArea] || [];
         return {
           ...prev,
-          [suggestedArea]: [...currentAreaPolicies, newPolicy]
+          [finalSuggestedArea]: [...currentAreaPolicies, newPolicy]
         };
       });
 
       // Select the newly created policy for editing
-      setSelectedPolicyArea(suggestedArea);
-      const currentAreaLength = (policyAreasState[suggestedArea] || []).length;
+      setSelectedPolicyArea(finalSuggestedArea);
+      const currentAreaLength = (policyAreasState[finalSuggestedArea] || []).length;
       setSelectedPolicyIndex(currentAreaLength);
       setActiveTab("basic");
       
       setShowAutoFillModal(false);
       setAutoFillFile(null);
-      setSuccess("Policy successfully auto-filled from document! You can now review and modify the extracted information.");
+      
+      if (extractedData && Object.keys(extractedData).length > 0) {
+        setSuccess("Policy successfully auto-filled from document! You can now review and modify the extracted information.");
+      } else {
+        setSuccess("File uploaded successfully! AI analysis was not available, please fill in the details manually.");
+      }
 
     } catch (error) {
       console.error("Auto-fill error:", error);
@@ -554,7 +560,7 @@ const PolicySubmissionForm = () => {
     setSuccess("");
 
     try {
-      const userId = String(user.id || user._id);
+      const userId = String(user.user_id || user.id || user._id);
       
       const submissionData = {
         user_id: userId,
@@ -583,7 +589,7 @@ const PolicySubmissionForm = () => {
         submission_status: "pending"
       };
 
-      await apiService.post('/submit-enhanced-form', submissionData);
+      await apiService.post('/policy/submit-enhanced-form', submissionData);
       
       setSuccess("Policies submitted successfully! Your submission is now pending admin review.");
 

@@ -105,12 +105,6 @@ export default function CountryPolicyPopup({ country, onClose }) {
       color: "bg-indigo-500",
       description: "Regulations concerning digital entertainment and leisure activities"
     },
-    "disinformation": {
-      name: "(Dis)Information",
-      icon: "📰",
-      color: "bg-yellow-500", 
-      description: "Policies addressing misinformation and promoting accurate information"
-    },
     "digital-work": {
       name: "Digital Work",
       icon: "💼",

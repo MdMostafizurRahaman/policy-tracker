@@ -5,8 +5,9 @@ Handles HTTP requests for authentication operations
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 
-from services.auth_service import auth_service
+from services.auth_service_dynamodb import auth_service
 from models.user import UserRegistration, UserLogin, GoogleAuthRequest, OTPVerification, PasswordReset, AdminLogin
+from middleware.auth import get_current_user
 import logging
 import os
 
@@ -86,6 +87,19 @@ async def admin_login(login_data: AdminLogin):
     except Exception as e:
         logger.error(f"Admin login error: {str(e)}")
         raise HTTPException(status_code=401, detail=str(e))
+
+
+@router.get("/me")
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """Get current authenticated user information"""
+    try:
+        return {
+            "success": True,
+            "user": current_user
+        }
+    except Exception as e:
+        logger.error(f"Get current user error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
 
 @router.get("/dev/get-latest-otp/{email}")

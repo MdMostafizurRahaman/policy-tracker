@@ -33,8 +33,20 @@ export default function Page() {
   }, [view])
 
   useEffect(() => {
-    const userData = localStorage.getItem('userData')
-    if (userData) setUser(JSON.parse(userData))
+    try {
+      const userData = localStorage.getItem('userData')
+      if (userData && userData !== 'undefined' && userData !== 'null') {
+        const parsedUser = JSON.parse(userData)
+        if (parsedUser && typeof parsedUser === 'object') {
+          setUser(parsedUser)
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing user data from localStorage:', error)
+      // Clear invalid data
+      localStorage.removeItem('userData')
+      localStorage.removeItem('access_token')
+    }
   }, [])
 
   const navigateBack = useCallback(() => {
@@ -89,7 +101,7 @@ export default function Page() {
         if (!user) {
           return <AdminLogin setUser={setUser} setView={setView} />
         }
-        if (!user.is_admin && !user.is_super_admin) {
+        if (!user.is_admin && !user.is_super_admin && user.role !== 'super_admin' && user.role !== 'admin') {
           return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100">
               <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md mx-4 text-center border border-red-100">
