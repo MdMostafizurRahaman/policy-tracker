@@ -341,9 +341,11 @@ class DynamoDBClient:
         try:
             table = self.tables[table_name]
             
-            # Add timestamp fields
-            item['created_at'] = datetime.utcnow().isoformat()
-            item['updated_at'] = datetime.utcnow().isoformat()
+            # Add timestamp fields only if they don't already exist
+            if 'created_at' not in item:
+                item['created_at'] = datetime.utcnow().isoformat()
+            if 'updated_at' not in item:
+                item['updated_at'] = datetime.utcnow().isoformat()
             
             table.put_item(Item=item)
             logger.info(f"Item inserted into {table_name}")
