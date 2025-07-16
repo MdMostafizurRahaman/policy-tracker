@@ -6,15 +6,6 @@ services:
     buildCommand: "pip install --no-cache-dir -r requirements.txt"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     plan: free
-    envVars:
-      - key: ENVIRONMENT
-        value: "production"
-      - key: DEBUG
-        value: "false"
-      - key: DISABLE_POETRY
-        value: "1"
-      - key: PIP_NO_CACHE_DIR
-        value: "1"
     
   - type: static
     name: policy-tracker-frontend
