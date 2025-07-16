@@ -2,13 +2,16 @@ services:
   - type: web
     name: policy-tracker-backend
     env: python
-    buildCommand: "pip install -r PolicyTracker/backend/requirements.txt"
-    startCommand: "cd PolicyTracker/backend && python main.py"
+    buildCommand: "cd PolicyTracker/backend && pip install -r requirements.txt"
+    startCommand: "cd PolicyTracker/backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    plan: free
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
-      - key: MONGODB_URI
-        sync: false
+        value: "3.11"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: DEBUG
+        value: "false"
     
   - type: static
     name: policy-tracker-frontend
