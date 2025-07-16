@@ -5,8 +5,8 @@ import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
-from bson import ObjectId
-from config.database import database
+import uuid
+from config.dynamodb import get_dynamodb
 from config.data_constants import POLICY_AREAS
 from utils.helpers import convert_objectid, calculate_policy_score, calculate_completeness_score
 
@@ -16,14 +16,9 @@ class PolicyService:
     def __init__(self):
         pass
     
-    def _get_collections(self):
-        """Get collections dynamically"""
-        return {
-            'temp_submissions': database.get_collection('temp_submissions'),
-            'master_policies': database.get_collection('master_policies'),
-            'admin_actions': database.get_collection('admin_actions'),
-            'files': database.get_collection('files')
-        }
+    async def _get_db(self):
+        """Get DynamoDB client"""
+        return await get_dynamodb()
     
     async def submit_policy(self, submission_data: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
         """Submit a new policy for review"""

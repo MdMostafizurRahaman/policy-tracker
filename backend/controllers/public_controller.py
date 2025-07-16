@@ -3,7 +3,7 @@ Public Controller
 Handles public endpoints for viewing map data and general information
 """
 from fastapi import APIRouter, HTTPException, Query
-from config.database import get_master_policies_collection
+from config.dynamodb import get_dynamodb
 from config.constants import POLICY_AREAS, COUNTRIES
 from utils.converters import convert_objectid
 import logging

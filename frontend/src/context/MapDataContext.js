@@ -54,12 +54,12 @@ export const MapDataProvider = ({ children }) => {
     try {
       // Fetch all data in parallel
       const [
-        countriesResponse,
+        mapVisualizationResponse,
         geoResponse,
         policiesResponse,
         statsResponse
       ] = await Promise.all([
-        publicService.getCountries().catch(err => ({ countries: [] })),
+        publicService.getMapVisualization().catch(err => ({ countries: [] })),
         fetch('/countries-110m.json').then(res => res.json()).catch(err => ({ objects: { countries: { geometries: [] } } })),
         publicService.getMasterPoliciesFast().catch(err => ({ policies: [] })),
         publicService.getStatisticsFast().catch(err => ({ countries_with_policies: 0, total_policies: 0, total_countries: 0 }))
@@ -71,7 +71,7 @@ export const MapDataProvider = ({ children }) => {
         topojson.feature(geoResponse, geoResponse.objects.countries).features : []
 
       const newMapData = {
-        countries: countriesResponse.countries || [],
+        countries: mapVisualizationResponse.countries || [],
         geoFeatures,
         masterPolicies: policiesResponse.policies || [],
         mapStats: {

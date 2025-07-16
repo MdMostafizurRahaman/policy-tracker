@@ -169,116 +169,89 @@ function Worldmap() {
     }
   }, [isLoaded, isLoading, fetchMapData])
 
-  // Memoized country statistics calculation to prevent expensive recomputation
+  // Memoized country statistics calculation using API color data
   const countryStatsData = useMemo(() => {
-    console.log('🔍 Building country stats. Policies loaded:', masterPolicies.length);
+    console.log('🔍 Building country stats from API color data. Countries loaded:', countries.length);
     
-    if (!masterPolicies.length) {
-      console.log('⚠️ No policies loaded yet, returning empty stats');
+    if (!countries.length) {
+      console.log('⚠️ No countries data loaded yet, returning empty stats');
       return {};
     }
     
     const stats = {};
-    const countryNameMismatches = new Set();
     
-    // Group policies by country and count unique policy areas
-    const areaRenameLog = new Set();
-    
-    masterPolicies.forEach((policy) => {
-      const rawCountry = policy.country;
-      const rawArea = policy.policyArea || policy.area_id;
+    // Process countries data from API which already includes colors
+    countries.forEach((countryData) => {
+      const rawCountry = countryData.country;
       
       if (!rawCountry) {
-        console.warn('Policy missing country:', policy);
+        console.warn('Country data missing country name:', countryData);
         return;
       }
       
-      if (!rawArea || rawArea.trim() === '') {
-        console.warn('Policy missing policy area:', policy.policyName, 'in', rawCountry);
-        return; // Skip policies without policy areas
+      // Normalize country name for geojson matching
+      const normalizedCountry = normalizeCountryName(rawCountry);
+      if (!normalizedCountry) return;
+      
+      // Convert API color names to hex colors for the map
+      let hexColor = "#d1d5db"; // Default gray
+      switch(countryData.color) {
+        case 'green':
+          hexColor = "#22c55e";
+          break;
+        case 'yellow':
+          hexColor = "#eab308";
+          break;
+        case 'red':
+          hexColor = "#ef4444";
+          break;
+        case 'gray':
+        default:
+          hexColor = "#d1d5db";
+          break;
       }
       
-      // Normalize country name for map display
-      const country = normalizeCountryName(rawCountry);
-      if (country !== rawCountry) {
-        countryNameMismatches.add(`${rawCountry} → ${country}`);
-      }
-      
-      // Normalize policy area name
-      const area = normalizePolicyArea(rawArea);
-      if (area !== rawArea) {
-        areaRenameLog.add(`${rawArea} → ${area}`);
-      }
-      
-      if (!stats[country]) {
-        stats[country] = { 
-          approvedAreas: new Set(),
-          totalPolicies: 0,
-          policies: [],
-          originalPolicies: [] // Keep original policies for popup
-        };
-      }
-      
-      // Add the normalized policy area (only admin-approved policies reach here due to backend filtering)
-      stats[country].approvedAreas.add(area);
-      stats[country].totalPolicies++;
-      
-      // Store policy with normalized area for consistency
-      const normalizedPolicy = {
-        ...policy,
-        policyArea: area,
-        country: country
+      stats[normalizedCountry] = {
+        count: countryData.area_points || 0,
+        totalPolicies: countryData.total_approved_policies || 0,
+        approvedAreas: new Set(countryData.areas_with_approved_policies || []),
+        color: hexColor,
+        level: countryData.level || 'no_approved_areas',
+        areas_detail: countryData.areas_detail || [],
+        policies: [], // Will be populated from areas_detail if needed
+        originalPolicies: []
       };
       
-      stats[country].policies.push(normalizedPolicy);
-      stats[country].originalPolicies.push(policy); // Keep original for reference
-    });
-    
-    // Log normalization results
-    if (areaRenameLog.size > 0) {
-      console.log('🔧 Policy area normalizations:', Array.from(areaRenameLog).join(', '));
-    }
-    
-    // Log country name normalizations
-    if (countryNameMismatches.size > 0) {
-      console.log('🗺️ Country name normalizations:', Array.from(countryNameMismatches).join(', '));
-    }
-    
-    // Calculate color and display values
-    Object.keys(stats).forEach(country => {
-      const approvedAreasCount = stats[country].approvedAreas.size;
-      
-      stats[country].score = approvedAreasCount;
-      stats[country].count = approvedAreasCount;
-      
-      // Color coding based on policy areas (as per requirement)
-      if (approvedAreasCount >= 8) {
-        stats[country].color = "#22c55e"; // Green - Excellent (8-10 areas)
-      } else if (approvedAreasCount >= 4) {
-        stats[country].color = "#eab308"; // Yellow - Moderate (4-7 areas)
-      } else if (approvedAreasCount >= 1) {
-        stats[country].color = "#ef4444"; // Red - Basic (1-3 areas)
-      } else {
-        stats[country].color = "#d1d5db"; // Gray - No policies (0 areas)
+      // Extract policies from areas_detail for popup compatibility
+      if (countryData.areas_detail) {
+        countryData.areas_detail.forEach(area => {
+          if (area.approved_policies) {
+            area.approved_policies.forEach(policy => {
+              stats[normalizedCountry].policies.push({
+                policyName: policy.policy_name,
+                policyDescription: policy.policy_description,
+                policyArea: area.area_name,
+                country: normalizedCountry,
+                approved_at: policy.approved_at
+              });
+            });
+          }
+        });
       }
     });
     
-    console.log(`📊 Country stats built for ${Object.keys(stats).length} countries:`);
+    console.log(`📊 Country stats built from API for ${Object.keys(stats).length} countries:`);
     Object.keys(stats).forEach(country => {
       const countryData = stats[country];
       const areas = Array.from(countryData.approvedAreas);
       const colorName = countryData.color === "#22c55e" ? "GREEN" : 
                        countryData.color === "#eab308" ? "YELLOW" : 
                        countryData.color === "#ef4444" ? "RED" : "GRAY";
-      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} unique areas [${areas.join(', ')}] - ${colorName}`);
+      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} area points [${areas.join(', ')}] - ${colorName}`);
     });
     
-    // Log a few geojson country matches for debugging
-    console.log(`🗺️ Country mapping debug - sample stats keys:`, Object.keys(stats).slice(0, 5));
-    console.log(`🗺️ Total countries in stats: ${Object.keys(stats).length}`);
-    
     return stats;
-  }, [masterPolicies])
+  }, [countries])
 
   // Update country stats when memoized data changes
   useEffect(() => {

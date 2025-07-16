@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from config.settings import settings
-from config.database import get_users_collection
+from config.dynamodb import get_dynamodb
 from utils.helpers import generate_otp
 
 logger = logging.getLogger(__name__)
