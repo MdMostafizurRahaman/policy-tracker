@@ -20,12 +20,22 @@ async def chat(
     request: ChatRequest,
     current_user: dict = Depends(get_optional_user)
 ):
-    """Chat with the AI assistant for policy queries"""
+    """Chat with the AI assistant for policy queries (works for both authenticated and public access)"""
     try:
         response = await chatbot_service.chat(request)
         return response
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+
+@router.post("/public", response_model=ChatResponse)
+async def public_chat(request: ChatRequest):
+    """Public chat endpoint that doesn't require authentication"""
+    try:
+        response = await chatbot_service.chat(request)
+        return response
+    except Exception as e:
+        logger.error(f"Public chat error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 
@@ -68,7 +78,7 @@ async def get_conversations(
     limit: int = 20,
     current_user: dict = Depends(get_optional_user)
 ):
-    """Get conversations list endpoint"""
+    """Get conversations list endpoint (works for both authenticated and public access)"""
     try:
         conversations = await chatbot_service.get_user_conversations(limit)
         return {"conversations": convert_objectid(conversations)}

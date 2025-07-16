@@ -1,8 +1,9 @@
 """
 Authentication Middleware for FastAPI with DynamoDB
 """
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
 import jwt
 from config.settings import settings
 from models.user_dynamodb import User
@@ -10,11 +11,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # auto_error=False makes it optional
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     """Get current authenticated user from DynamoDB"""
     try:
+        if credentials is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+            
         payload = jwt.decode(credentials.credentials, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id: str = payload.get("sub")
         email: str = payload.get("email")
@@ -52,13 +56,15 @@ async def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(sec
     
     return user
 
-async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
     """Get current user if authenticated, otherwise return None"""
     try:
+        if credentials is None:
+            return None
         return await get_current_user(credentials)
     except HTTPException:
         return None
 
-async def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
     """Get current user if authenticated, otherwise return None - alias for compatibility"""
     return await get_current_user_optional(credentials)
