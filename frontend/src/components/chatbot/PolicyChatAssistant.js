@@ -352,7 +352,7 @@ const PolicyChatAssistant = () => {
                 <Database className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-lg font-bold">Chatbot</div>
+                <div className="text-lg font-bold">Policy Bot</div>
                 <div className="text-sm font-normal text-blue-100">Database Assistant</div>
               </div>
             </h2>
@@ -556,7 +556,7 @@ const PolicyChatAssistant = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    Chatbot Database Expert
+                    Policy Bot Database Expert
                     <Sparkles className="w-5 h-5 text-blue-500" />
                   </h1>
                   <p className="text-sm text-gray-600">
