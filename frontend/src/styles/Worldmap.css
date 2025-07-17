@@ -18,13 +18,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
   z-index: 10;
   position: relative;
+  min-height: 70px;
+}
+
+.header-left,
+.header-right {
+  flex: 0 0 200px;
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  justify-content: flex-end;
+}
+
+.header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .worldmap-header.chat-fullscreen {
@@ -35,101 +54,144 @@
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   color: white;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.2rem;
   border-radius: 12px;
   font-weight: 600;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .view-toggle-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
 }
 
 .header-title {
   text-align: center;
   flex: 1;
-  margin: 0 2rem;
 }
 
 .header-title h1 {
   color: #1e293b;
-  font-size: 2rem;
+  font-size: 1.4rem;
   font-weight: 800;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.2rem 0;
   background: linear-gradient(135deg, #1e293b, #4f46e5);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  line-height: 1.1;
 }
 
 .header-title p {
   color: #64748b;
-  font-size: 1rem;
-  margin: 0 0 0.75rem 0;
+  font-size: 0.75rem;
+  margin: 0 0 0.4rem 0;
   font-weight: 500;
+  opacity: 0.9;
 }
 
 .map-stats {
   display: flex;
   justify-content: center;
-  gap: 2rem;
-  margin-top: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  background: rgba(79, 70, 229, 0.1);
-  border-radius: 12px;
-  border: 1px solid rgba(79, 70, 229, 0.2);
-  max-width: 400px;
+  gap: 1rem;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(79, 70, 229, 0.08);
+  border-radius: 10px;
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  max-width: 240px;
   margin-left: auto;
   margin-right: auto;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 8px rgba(79, 70, 229, 0.06);
 }
 
 .stat-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 80px;
+  min-width: 50px;
   flex: 1;
+  position: relative;
 }
 
 .stat-number {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 800;
   color: #4f46e5;
-  line-height: 1.2;
+  line-height: 1.1;
+  text-shadow: 0 1px 2px rgba(79, 70, 229, 0.2);
 }
 
 .stat-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  font-weight: 500;
+  font-size: 0.6rem;
+  color: #475569;
+  font-weight: 600;
   text-align: center;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 @media (max-width: 768px) {
   .map-stats {
-    gap: 1.5rem;
-    padding: 0.5rem 1rem;
-    max-width: 320px;
+    gap: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    max-width: 180px;
+    margin-top: 0.2rem;
   }
   
   .stat-item {
-    min-width: 70px;
+    min-width: 40px;
   }
   
   .stat-number {
-    font-size: 1.25rem;
+    font-size: 0.9rem;
   }
   
   .stat-label {
+    font-size: 0.5rem;
+    margin-top: 0.1rem;
+  }
+  
+  .header-title h1 {
+    font-size: 1.1rem;
+  }
+  
+  .header-title p {
+    font-size: 0.65rem;
+    margin-bottom: 0.2rem;
+  }
+  
+  .worldmap-header {
+    padding: 0.5rem 1rem;
+    min-height: 55px;
+  }
+  
+  .header-left,
+  .header-right {
+    flex: 0 0 120px;
+  }
+  
+  .view-toggle-btn {
+    padding: 0.4rem 0.8rem;
     font-size: 0.7rem;
   }
   
-  .stat-label {
-    font-size: 0.65rem;
+  .country-search {
+    min-width: 140px;
+  }
+  
+  .country-search-input {
+    padding: 0.4rem 2rem 0.4rem 0.6rem;
+    font-size: 0.7rem;
   }
 }
 
@@ -658,56 +720,87 @@ button:focus-visible,
 }
 
 .country-search {
-  min-width: 220px;
-  margin-left: 2rem;
+  min-width: 200px;
   position: relative;
 }
+
 .country-search-input {
   width: 100%;
-  padding: 7px 30px 7px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 15px;
+  padding: 0.6rem 2.5rem 0.6rem 0.8rem;
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: 10px;
+  font-size: 0.8rem;
   outline: none;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  font-weight: 500;
+  color: #1e293b;
 }
+
+.country-search-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  background: white;
+}
+
+.country-search-input::placeholder {
+  color: #64748b;
+  font-weight: 500;
+}
+
 .country-suggestions {
   position: absolute;
   top: 110%;
   left: 0;
   right: 0;
-  background: #fff;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(79, 70, 229, 0.15);
+  border-radius: 10px;
   z-index: 1000;
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin-top: 0.25rem;
 }
 .country-suggestions li {
-  padding: 8px 12px;
+  padding: 1rem 1.25rem;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 0.95rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid rgba(79, 70, 229, 0.1);
+  transition: all 0.2s ease;
+}
+
+.country-suggestions li:last-child {
+  border-bottom: none;
 }
 
 .country-suggestions li:hover {
-  background: #f3f4f6;
+  background: rgba(79, 70, 229, 0.08);
+  transform: translateX(2px);
 }
 
 .country-name {
-  font-weight: 500;
+  font-weight: 600;
+  color: #1e293b;
 }
 
 .country-count {
   font-size: 0.8rem;
-  color: #6b7280;
-  font-weight: 400;
+  color: #64748b;
+  font-weight: 500;
+  background: rgba(79, 70, 229, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
 }
 
 .country-suggestions li:hover .country-count {
   color: #4f46e5;
+  background: rgba(79, 70, 229, 0.15);
 }
 .tooltip-floating {
   background: #fff;

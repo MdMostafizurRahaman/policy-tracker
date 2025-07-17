@@ -73,10 +73,10 @@ export default function Page() {
     },
     { 
       key: "chatbot", 
-      label: "🤖 AI Assistant", 
+      label: "🤖 Policy Bot", 
       icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
       gradient: "from-purple-500 to-indigo-500",
-      description: "Database-only AI policy assistant",
+      description: "Database-only policy assistant",
       emoji: "🤖"
     },
     { 
@@ -231,10 +231,7 @@ export default function Page() {
                     className="group relative bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
                   >
                     <span className="relative z-10 flex items-center gap-3">
-                      <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z M3 7l9 6 9-6" />
-                      </svg>
-                      Explore World Map
+                     🌍 Explore World Map
                     </span>
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-700 to-indigo-700 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </button>
@@ -244,10 +241,7 @@ export default function Page() {
                     className="group bg-white/80 backdrop-blur-sm border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-2xl font-semibold text-lg hover:border-indigo-300 hover:text-indigo-600 hover:bg-white transition-all duration-300 transform hover:-translate-y-1"
                   >
                     <span className="flex items-center gap-3">
-                      <svg className="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Submit Policy
+                      📝 Submit Policy
                     </span>
                   </button>
                 </div>
@@ -393,7 +387,6 @@ export default function Page() {
                   <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                     Global Policy Tracker Platform
                   </h1>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">🌐 Worldwide Policy Intelligence</p>
                 </div>
               </div>
               <button
@@ -527,7 +520,7 @@ export default function Page() {
         {/* Top Bar */}
         <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-30">
           <div className="flex items-center justify-between px-4 py-4">
-            {/* Left - Menu Button and Logo */}
+            {/* Left - Menu Button */}
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}
@@ -537,7 +530,10 @@ export default function Page() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              
+            </div>
+
+            {/* Center - Logo and Global Policy Tracker Platform */}
+            <div className="flex-1 flex justify-center">
               <div 
                 className="flex items-center gap-3 cursor-pointer group"
                 onClick={() => setView("home")}
@@ -547,11 +543,9 @@ export default function Page() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                    Global Policy Tracker Platform
-                  </h1>
-                </div>
+                <h1 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Global Policy Tracker Platform
+                </h1>
               </div>
             </div>
 
@@ -559,10 +553,10 @@ export default function Page() {
             <div className="flex items-center gap-4">
               {view !== "home" && (
                 <div className="hidden md:flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                  <span>Current:</span>
+                  {/* <span>Current:</span>
                   <span className="font-medium">
                     {navigationItems.find(item => item.key === view)?.label.replace(/^\S+ /, '') || view}
-                  </span>
+                  </span> */}
                 </div>
               )}
               
