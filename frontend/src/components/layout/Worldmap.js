@@ -258,6 +258,15 @@ function Worldmap() {
     setCountryStats(countryStatsData);
   }, [countryStatsData])
 
+  // Debug log for map statistics
+  useEffect(() => {
+    console.log('📊 Current map stats in Worldmap component:', {
+      isLoading,
+      mapStats,
+      countries: countries.length
+    })
+  }, [mapStats, isLoading, countries])
+
   // Autocomplete suggestions
   useEffect(() => {
     if (!countries.length) return
@@ -382,7 +391,6 @@ function Worldmap() {
         </button>
         <div className="header-title">
           <h1>Policy World Map</h1>
-          <p>Explore All policies and governance frameworks worldwide</p>
           
           {/* Map Statistics */}
           <div className="map-stats">
@@ -390,19 +398,13 @@ function Worldmap() {
               <span className="stat-number">
                 {isLoading ? '...' : mapStats.countriesWithPolicies}
               </span>
-              <span className="stat-label">Countries with Policies</span>
+              <span className="stat-label">Covered Countries</span>
             </div>
             <div className="stat-item">
               <span className="stat-number">
                 {isLoading ? '...' : mapStats.totalPolicies}
               </span>
               <span className="stat-label">Total Policies</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.totalCountries || countries.length || '...'}
-              </span>
-              <span className="stat-label">Countries Available</span>
             </div>
             {isLoading && (
               <div className="stat-item">
