@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { ComposableMap, Geographies, Geography } from "react-simple-maps"
 import dynamic from "next/dynamic"
-import { MessageCircle, X, Maximize2, Minimize2, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import CountryPolicyPopup from "./CountryPolicyPopup"
-import PolicyChatAssistant from "../chatbot/PolicyChatAssistant"
 import { useMapData } from '../../context/MapDataContext'
 import '../../styles/Worldmap.css'
 
@@ -151,10 +150,6 @@ function Worldmap() {
   const [searchValue, setSearchValue] = useState("")
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const [filteredCountry, setFilteredCountry] = useState(null)
-  // Chat-related states
-  const [showChat, setShowChat] = useState(false)
-  const [chatFullscreen, setChatFullscreen] = useState(false)
-  const [chatWidth, setChatWidth] = useState(50)
 
   const mapRef = useRef(null)
   let tooltipTimeout = useRef(null)
@@ -272,9 +267,11 @@ function Worldmap() {
     if (!countries.length) return
     if (!searchValue) setSearchSuggestions([])
     else {
+      // Extract country names from countries array and filter
+      const countryNames = countries.map(countryData => countryData.country).filter(Boolean)
       setSearchSuggestions(
-        countries.filter(c =>
-          c.toLowerCase().includes(searchValue.toLowerCase())
+        countryNames.filter(countryName =>
+          countryName.toLowerCase().includes(searchValue.toLowerCase())
         ).slice(0, 10)
       )
     }
@@ -353,21 +350,6 @@ function Worldmap() {
     setSelectedCountry(null)
   }, [])
 
-  const handleChatToggle = useCallback(() => {
-    if (chatFullscreen) setChatFullscreen(false)
-    setShowChat(!showChat)
-  }, [chatFullscreen, showChat])
-
-  const handleChatFullscreen = useCallback(() => {
-    setChatFullscreen(!chatFullscreen)
-    if (!showChat) setShowChat(true)
-  }, [chatFullscreen, showChat])
-
-  const handleChatClose = useCallback(() => {
-    setShowChat(false)
-    setChatFullscreen(false)
-  }, [])
-
   function getTooltipPosition(mouseX, mouseY) {
     const tooltipWidth = 220
     const tooltipHeight = 80
@@ -383,90 +365,94 @@ function Worldmap() {
   }
 
   return (
-    <div className={`worldmap-container ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
+    <div className="worldmap-container">
       {/* Header Controls */}
-      <div className={`worldmap-header ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
-        <button onClick={handleViewToggle} className="view-toggle-btn">
-          Switch to {viewMode === "map" ? "Globe" : "Map"} View
-        </button>
-        <div className="header-title">
-          <h1>Policy World Map</h1>
-          
-          {/* Map Statistics */}
-          <div className="map-stats">
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.countriesWithPolicies}
-              </span>
-              <span className="stat-label">Covered Countries</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.totalPolicies}
-              </span>
-              <span className="stat-label">Total Policies</span>
-            </div>
-            {isLoading && (
+      <div className="worldmap-header">
+        <div className="header-left">
+          <button onClick={handleViewToggle} className="view-toggle-btn">
+            🌍 Switch to {viewMode === "map" ? "Globe" : "Map"} View
+          </button>
+        </div>
+        
+        <div className="header-center">
+          <div className="header-title">
+            <h1>Policy World Map</h1>            
+            {/* Map Statistics */}
+            <div className="map-stats">
               <div className="stat-item">
-                <span className="stat-number">🔄</span>
-                <span className="stat-label">Loading...</span>
+                <span className="stat-number">
+                  {isLoading ? '...' : mapStats.countriesWithPolicies}
+                </span>
+                <span className="stat-label">Covered Countries</span>
               </div>
-            )}
+              <div className="stat-item">
+                <span className="stat-number">
+                  {isLoading ? '...' : mapStats.totalPolicies}
+                </span>
+                <span className="stat-label">Total Policies</span>
+              </div>
+              {isLoading && (
+                <div className="stat-item">
+                  <span className="stat-number">🔄</span>
+                  <span className="stat-label">Loading...</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="country-search">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search country..."
-              value={searchValue}
-              onChange={e => setSearchValue(e.target.value)}
-              className="country-search-input text-black"
-              autoComplete="off"
-            />
-            <Search className="absolute right-8 top-2 w-4 h-4 text-gray-400" />
-            {searchValue && (
-              <button
-                onClick={() => {
-                  setSearchValue('');
-                  setFilteredCountry(null);
-                  setHighlightedCountry(null);
-                  setSearchSuggestions([]);
-                  setTooltipContent(null);
-                }}
-                className="absolute right-2 top-2 w-4 h-4 text-gray-500 hover:text-gray-700"
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-            {searchSuggestions.length > 0 && (
-              <ul className="country-suggestions text-black">
-                {searchSuggestions.map((c, i) => (
-                  <li key={i} onClick={() => handleCountrySelect(c)}>
-                    <span className="country-name">{c}</span>
-                    <span className="country-count">
-                      {countryStats[c] ? `${countryStats[c].count} policies` : 'No policies'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+        
+        <div className="header-right">
+          <div className="country-search">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="🔍 Search country..."
+                value={searchValue}
+                onChange={e => setSearchValue(e.target.value)}
+                className="country-search-input text-black"
+                autoComplete="off"
+              />
+              <Search className="absolute right-8 top-2 w-4 h-4 text-gray-400" />
+              {searchValue && (
+                <button
+                  onClick={() => {
+                    setSearchValue('');
+                    setFilteredCountry(null);
+                    setHighlightedCountry(null);
+                    setSearchSuggestions([]);
+                    setTooltipContent(null);
+                  }}
+                  className="absolute right-2 top-2 w-4 h-4 text-gray-500 hover:text-gray-700"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+              {searchSuggestions.length > 0 && (
+                <ul className="country-suggestions text-black">
+                  {searchSuggestions.map((countryName, i) => {
+                    const normalizedCountry = normalizeCountryName(countryName)
+                    const stat = countryStats[normalizedCountry]
+                    return (
+                      <li key={i} onClick={() => handleCountrySelect(countryName)}>
+                        <span className="country-name">{countryName}</span>
+                        <span className="country-count">
+                          {stat ? `${stat.count} areas, ${stat.totalPolicies} policies` : 'No policies'}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
-        <button
-          onClick={handleChatToggle}
-          className={`chat-toggle-btn ${showChat ? 'active' : ''} ${chatFullscreen ? 'fullscreen' : ''}`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          {chatFullscreen ? 'Exit Chat' : showChat ? 'Hide Chat' : 'AI Assistant'}
-        </button>
       </div>
 
       {/* Main Content */}
-      <div className={`worldmap-content ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
+      <div className="worldmap-content">
         {/* Map Section */}
-        <div className={`map-section ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`} ref={mapRef}>
+        <div className="map-section" ref={mapRef}>
           {viewMode === "map" && (
             <div className="map-container">
               <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
@@ -549,48 +535,6 @@ function Worldmap() {
                 geoFeatures={geoFeatures}
                 onCountryClick={handleClick}
               />
-            </div>
-          )}
-        </div>
-        {/* Chat Panel */}
-        <div className={`chat-panel ${showChat ? 'open' : 'closed'} ${chatFullscreen ? 'fullscreen' : ''}`}>
-          {/* Resize Bar */}
-          {showChat && !chatFullscreen && (
-            <div className="chat-resize-bar"></div>
-          )}
-          {/* Chat Header */}
-          {showChat && (
-            <div className="chat-panel-header">
-              <h3>Policy Assistant</h3>
-              <div className="chat-header-controls">
-                <button
-                  onClick={handleChatFullscreen}
-                  className="chat-fullscreen-btn"
-                  title={chatFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                >
-                  {chatFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={handleChatClose}
-                  className="chat-close-btn"
-                  title="Close Chat"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Chat Content */}
-          {showChat && (
-            <div className="chat-panel-content">
-              <PolicyChatAssistant />
-            </div>
-          )}
-          {/* Status Indicator */}
-          {showChat && (
-            <div className="chat-status-indicator">
-              <div className="chat-status-dot"></div>
-              Chat Active
             </div>
           )}
         </div>
