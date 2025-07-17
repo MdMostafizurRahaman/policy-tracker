@@ -352,7 +352,7 @@ const PolicyChatAssistant = () => {
                 <Database className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-lg font-bold">AI Policy</div>
+                <div className="text-lg font-bold">Chatbot</div>
                 <div className="text-sm font-normal text-blue-100">Database Assistant</div>
               </div>
             </h2>
@@ -556,13 +556,13 @@ const PolicyChatAssistant = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    AI Policy Database Expert
+                    Chatbot Database Expert
                     <Sparkles className="w-5 h-5 text-blue-500" />
                   </h1>
                   <p className="text-sm text-gray-600">
                     {selectedPolicy 
                       ? `Discussing ${selectedPolicy.country} - ${selectedPolicy.name}`
-                      : "Search and explore AI policies from verified database sources"
+                      : "Search and explore All policies from verified database sources"
                     }
                   </p>
                 </div>
@@ -587,9 +587,9 @@ const PolicyChatAssistant = () => {
               <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
                 <Database className="w-12 h-12 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to AI Policy Database Assistant</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Global Policy Database Assistant</h3>
               <p className="text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-                I'm your dedicated AI policy expert with access to a comprehensive database of verified AI governance frameworks, 
+                I'm your dedicated policy expert with access to a comprehensive database of verified governance frameworks, 
                 regulations, and policy initiatives from around the world. I can only provide information that exists in our database.
               </p>
               
