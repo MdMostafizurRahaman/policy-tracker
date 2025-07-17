@@ -184,27 +184,53 @@ class ChatbotService:
         # Get policy data from cache or database
         await self._update_policy_cache()
         
-        # Check for country-specific queries
-        countries = ['india', 'bangladesh', 'germany', 'uk', 'united kingdom']
+        # Dynamic country detection based on actual database content
         mentioned_country = None
-        for country in countries:
-            if country in message_lower:
-                mentioned_country = country
-                break
-        
-        # Check for policy area queries
-        policy_areas = ['ai safety', 'cyber safety', 'cybersafety', 'artificial intelligence', 'ai governance']
         mentioned_area = None
-        for area in policy_areas:
-            if area in message_lower:
-                mentioned_area = area
-                break
+        
+        if self.policy_cache:
+            # Get all countries from the database
+            countries_in_db = set()
+            policy_areas_in_db = set()
+            
+            for policy in self.policy_cache['map_policies']:
+                country = policy.get('country', '').lower()
+                area = policy.get('policy_area', '').lower()
+                if country:
+                    countries_in_db.add(country)
+                if area:
+                    policy_areas_in_db.add(area)
+            
+            # Check for country-specific queries
+            for country in countries_in_db:
+                if country in message_lower:
+                    mentioned_country = country
+                    break
+            
+            # Check for policy area queries
+            for area in policy_areas_in_db:
+                if area in message_lower:
+                    mentioned_area = area
+                    break
+            
+            # Also check for common country variations
+            if 'united states' in message_lower or 'usa' in message_lower or 'us' in message_lower:
+                for country in countries_in_db:
+                    if 'united states' in country:
+                        mentioned_country = country
+                        break
+            
+            if 'uk' in message_lower or 'united kingdom' in message_lower or 'britain' in message_lower:
+                for country in countries_in_db:
+                    if 'united kingdom' in country or 'uk' in country:
+                        mentioned_country = country
+                        break
         
         # Search for relevant policies
         relevant_policies = await self._find_relevant_policies(message_lower, mentioned_country, mentioned_area)
         
         # Check if asking about available data
-        if any(word in message_lower for word in ['what countries', 'which countries', 'what policies', 'what data']):
+        if any(word in message_lower for word in ['what countries', 'which countries', 'what policies', 'what data', 'countries', 'areas']):
             return await self._get_available_data_summary()
         
         # Use GROQ AI to generate intelligent response
@@ -262,7 +288,8 @@ class ChatbotService:
         # Check if query contains any policy-related keywords
         has_policy_keywords = any(keyword in query for keyword in policy_keywords)
         
-        # If no policy keywords and no specific country/area mentioned, return empty
+        # If we have a specific country or area mentioned, we should search regardless of policy keywords
+        # This fixes the issue where "United States" alone wouldn't return results
         if not has_policy_keywords and not country and not area:
             return relevant
         
@@ -270,7 +297,7 @@ class ChatbotService:
         for policy in self.policy_cache['map_policies']:
             relevance_score = 0
             
-            # Country matching
+            # Country matching - this is the most important for country queries
             if country:
                 policy_country = policy.get('country', '').lower()
                 if country == 'uk' or country == 'united kingdom':
@@ -287,21 +314,23 @@ class ChatbotService:
                 elif 'cyber' in area and 'cyber' in policy_area:
                     relevance_score += 8
             
-            # Content matching - only if we have policy keywords
-            if has_policy_keywords:
-                policy_name = policy.get('policy_name', '').lower()
-                policy_desc = policy.get('policy_description', '').lower()
-                
-                # Check for keyword matches
-                keywords = query.split()
-                for keyword in keywords:
-                    if len(keyword) > 2:  # Skip very short words
-                        if keyword in policy_name:
-                            relevance_score += 3
-                        if keyword in policy_desc:
-                            relevance_score += 2
-                        if keyword in policy_area:
-                            relevance_score += 2
+            # Content matching - search for any term in the query
+            policy_name = policy.get('policy_name', '').lower()
+            policy_desc = policy.get('policy_description', '').lower()
+            policy_country_text = policy.get('country', '').lower()
+            
+            # Check for keyword matches in all fields
+            keywords = query.split()
+            for keyword in keywords:
+                if len(keyword) > 2:  # Skip very short words
+                    if keyword in policy_name:
+                        relevance_score += 3
+                    if keyword in policy_desc:
+                        relevance_score += 2
+                    if keyword in policy_area:
+                        relevance_score += 2
+                    if keyword in policy_country_text:
+                        relevance_score += 5  # Higher weight for country matches
             
             # Only include if we have a meaningful relevance score
             if relevance_score > 0:
@@ -568,9 +597,53 @@ Respond in a helpful, conversational manner while staying strictly within the bo
             return False
 
     async def search_policies(self, query: str) -> List[Dict]:
-        """Search for policies based on query - for compatibility with controller"""
+        """Search for policies based on query - enhanced for sidebar search"""
         await self._update_policy_cache()
-        return await self._find_relevant_policies(query.lower())
+        
+        # Use the same logic as the main chat to detect countries and areas
+        message_lower = query.lower()
+        mentioned_country = None
+        mentioned_area = None
+        
+        if self.policy_cache:
+            # Get all countries from the database
+            countries_in_db = set()
+            policy_areas_in_db = set()
+            
+            for policy in self.policy_cache['map_policies']:
+                country = policy.get('country', '').lower()
+                area = policy.get('policy_area', '').lower()
+                if country:
+                    countries_in_db.add(country)
+                if area:
+                    policy_areas_in_db.add(area)
+            
+            # Check for country-specific queries
+            for country in countries_in_db:
+                if country in message_lower:
+                    mentioned_country = country
+                    break
+            
+            # Check for policy area queries
+            for area in policy_areas_in_db:
+                if area in message_lower:
+                    mentioned_area = area
+                    break
+            
+            # Also check for common country variations
+            if 'united states' in message_lower or 'usa' in message_lower or 'us' in message_lower:
+                for country in countries_in_db:
+                    if 'united states' in country:
+                        mentioned_country = country
+                        break
+            
+            if 'uk' in message_lower or 'united kingdom' in message_lower or 'britain' in message_lower:
+                for country in countries_in_db:
+                    if 'united kingdom' in country or 'uk' in country:
+                        mentioned_country = country
+                        break
+        
+        return await self._find_relevant_policies(message_lower, mentioned_country, mentioned_area)
 
     async def delete_conversation(self, conversation_id: str) -> bool:
         """Delete a conversation"""
