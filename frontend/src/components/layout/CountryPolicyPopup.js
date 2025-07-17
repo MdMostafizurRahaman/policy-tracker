@@ -11,6 +11,8 @@ export default function CountryPolicyPopup({ country, onClose }) {
   const [policyAreas, setPolicyAreas] = useState([])
   const [refreshKey, setRefreshKey] = useState(0) // Force refresh mechanism
   const [lastRefresh, setLastRefresh] = useState(null) // Track last refresh time
+  const [policyFiles, setPolicyFiles] = useState([]) // Store files for selected policy
+  const [filesLoading, setFilesLoading] = useState(false) // Loading state for files
 
   // Define policy types with their icons and colors
   const policyTypes = {
@@ -246,11 +248,123 @@ export default function CountryPolicyPopup({ country, onClose }) {
 
   const handlePolicyClick = (policy) => {
     setSelectedPolicy(policy)
+    // Fetch files for the selected policy
+    if (policy && policy.policy_id) {
+      fetchPolicyFiles(policy.policy_id);
+    }
   }
 
   const closeSelectedPolicy = () => {
     setSelectedPolicy(null)
+    setPolicyFiles([]) // Clear files when closing policy view
   }
+
+  // Function to fetch policy files
+  const fetchPolicyFiles = async (policyId) => {
+    if (!policyId) return;
+    
+    try {
+      setFilesLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/admin/policy/${policyId}/files`, {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setPolicyFiles(data.files || []);
+        } else {
+          console.error('Failed to fetch policy files:', data.message);
+          setPolicyFiles([]);
+        }
+      } else {
+        console.error('Failed to fetch policy files:', response.status);
+        setPolicyFiles([]);
+      }
+    } catch (error) {
+      console.error('Error fetching policy files:', error);
+      setPolicyFiles([]);
+    } finally {
+      setFilesLoading(false);
+    }
+  };
+
+  // Function to handle file opening/downloading
+  const handleOpenFile = async (file) => {
+    try {
+      if (file.file_path) {
+        // For server-stored files, try to get download URL
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/files/${file.file_path}`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        }
+      } else if (file.data) {
+        // For base64 stored files
+        const byteCharacters = atob(file.data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: file.type || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        console.error('No file data available');
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+    }
+  };
+
+  // Function to download file
+  const handleDownloadFile = async (file) => {
+    try {
+      if (file.file_path) {
+        // For server-stored files
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/files/${file.file_path}`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name || 'policy-document';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      } else if (file.data) {
+        // For base64 stored files
+        const byteCharacters = atob(file.data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: file.type || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name || 'policy-document';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        console.error('No file data available for download');
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
 
   const handleClose = () => {
     setVisible(false)
@@ -477,7 +591,13 @@ export default function CountryPolicyPopup({ country, onClose }) {
                   <div
                     key={index}
                     className="bg-white/10 rounded-lg p-4 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300"
-                    onClick={() => setSelectedPolicy(policy)}
+                    onClick={() => {
+                      setSelectedPolicy(policy);
+                      // Fetch files for the selected policy
+                      if (policy && policy.policy_id) {
+                        fetchPolicyFiles(policy.policy_id);
+                      }
+                    }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -585,6 +705,116 @@ export default function CountryPolicyPopup({ country, onClose }) {
                     </div>
                   )}
 
+                  {/* Evaluation Data */}
+                  {selectedPolicy.evaluation && Object.keys(selectedPolicy.evaluation).length > 0 && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-white text-lg mb-3 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Policy Evaluation
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedPolicy.evaluation.isEvaluated && (
+                          <div className="bg-green-600/20 p-3 rounded-lg">
+                            <span className="text-green-300 text-sm">Status:</span>
+                            <p className="text-white font-semibold">Evaluated</p>
+                          </div>
+                        )}
+                        {selectedPolicy.evaluation.effectiveness && (
+                          <div>
+                            <span className="text-blue-300 text-sm">Effectiveness:</span>
+                            <p className="text-white font-semibold">{selectedPolicy.evaluation.effectiveness}</p>
+                          </div>
+                        )}
+                        {selectedPolicy.evaluation.impactAssessment && (
+                          <div className="md:col-span-2">
+                            <span className="text-blue-300 text-sm">Impact Assessment:</span>
+                            <p className="text-white">{selectedPolicy.evaluation.impactAssessment}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Participation Data */}
+                  {selectedPolicy.participation && Object.keys(selectedPolicy.participation).length > 0 && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-white text-lg mb-3 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Stakeholder Participation
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedPolicy.participation.publicConsultation && (
+                          <div className="bg-blue-600/20 p-3 rounded-lg">
+                            <span className="text-blue-300 text-sm">Public Consultation:</span>
+                            <p className="text-white font-semibold">Conducted</p>
+                          </div>
+                        )}
+                        {selectedPolicy.participation.stakeholderGroups && selectedPolicy.participation.stakeholderGroups.length > 0 && (
+                          <div className="md:col-span-2">
+                            <span className="text-blue-300 text-sm mb-2 block">Stakeholder Groups:</span>
+                            <div className="flex flex-wrap gap-2">
+                              {selectedPolicy.participation.stakeholderGroups.map((group, idx) => (
+                                <span key={idx} className="px-2 py-1 bg-purple-600 text-white rounded text-sm">
+                                  {group}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Alignment Data */}
+                  {selectedPolicy.alignment && Object.keys(selectedPolicy.alignment).length > 0 && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-white text-lg mb-3 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Policy Alignment
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedPolicy.alignment.humanRightsAlignment && (
+                          <div className="bg-green-600/20 p-3 rounded-lg flex items-center gap-2">
+                            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-white font-semibold">Human Rights Aligned</span>
+                          </div>
+                        )}
+                        {selectedPolicy.alignment.environmentalConsiderations && (
+                          <div className="bg-emerald-600/20 p-3 rounded-lg flex items-center gap-2">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-white font-semibold">Environmental Considerations</span>
+                          </div>
+                        )}
+                        {selectedPolicy.alignment.genderImpactAssessment && (
+                          <div className="bg-pink-600/20 p-3 rounded-lg flex items-center gap-2">
+                            <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-white font-semibold">Gender Impact Assessed</span>
+                          </div>
+                        )}
+                        {selectedPolicy.alignment.socialImpactAssessment && (
+                          <div className="bg-indigo-600/20 p-3 rounded-lg flex items-center gap-2">
+                            <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span className="text-white font-semibold">Social Impact Assessed</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Policy Link */}
                   {selectedPolicy.policyLink && (
                     <div className="bg-black/20 rounded-lg p-4">
@@ -600,6 +830,92 @@ export default function CountryPolicyPopup({ country, onClose }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                       </a>
+                    </div>
+                  )}
+
+                  {/* Policy Files Section */}
+                  {selectedPolicy.policy_id && (
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <h4 className="text-white text-lg mb-3 flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Approved Policy Documents
+                      </h4>
+                      
+                      {filesLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-300"></div>
+                          <span className="ml-3 text-blue-300">Loading documents...</span>
+                        </div>
+                      ) : policyFiles.length > 0 ? (
+                        <div className="space-y-3">
+                          {policyFiles.map((file, index) => (
+                            <div key={index} className="bg-white/10 rounded-lg p-4 border border-white/20">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3 flex-1">
+                                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="text-white font-semibold truncate">{file.name}</h5>
+                                    <div className="flex flex-wrap items-center gap-3 text-sm text-blue-300 mt-1">
+                                      <span className="bg-blue-800/50 px-2 py-1 rounded">{file.type}</span>
+                                      <span>{(file.size / 1024).toFixed(1)} KB</span>
+                                      {file.upload_date && (
+                                        <span>Uploaded: {new Date(file.upload_date).toLocaleDateString()}</span>
+                                      )}
+                                    </div>
+                                    {file.policy_area && (
+                                      <div className="text-xs text-gray-400 mt-1">
+                                        Area: {file.policy_area} | Policy: {file.policy_name || 'N/A'}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 flex-shrink-0">
+                                  <button
+                                    onClick={() => handleOpenFile(file)}
+                                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1 font-medium"
+                                    title="View document"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => handleDownloadFile(file)}
+                                    className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-all flex items-center gap-1 font-medium"
+                                    title="Download document"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Download
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="text-center mt-4">
+                            <p className="text-sm text-blue-300">
+                              📋 {policyFiles.length} approved document{policyFiles.length !== 1 ? 's' : ''} available
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p className="text-gray-400 text-sm">No approved documents available for this policy</p>
+                          <p className="text-gray-500 text-xs mt-1">Documents will appear here after admin approval</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
