@@ -572,19 +572,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
           {/* Login Form */}
           {currentView === 'login' && (
             <div className="space-y-6">
-              {/* Test Credentials Helper */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <div className="text-sm">
-                    <p className="text-blue-700 font-medium">Test Credentials:</p>
-                    <p className="text-blue-600">• Admin: <code className="bg-blue-100 px-1 rounded">admin@gmail.com</code> / <code className="bg-blue-100 px-1 rounded">admin123</code></p>
-                    <p className="text-blue-600">• User: <code className="bg-blue-100 px-1 rounded">test@test.com</code> / <code className="bg-blue-100 px-1 rounded">test123</code></p>
-                  </div>
-                </div>
-              </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
@@ -660,22 +647,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 </>
               )}
 
-              {/* Notice about Google Sign-In */}
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <p className="text-sm text-yellow-700 font-medium">
-                      Google Sign-In is temporarily disabled due to configuration issues.
-                    </p>
-                    <p className="text-xs text-yellow-600 mt-1">
-                      Please use your email and password to sign in. We're working to fix this!
-                    </p>
-                  </div>
-                </div>
-              </div>
+
 
               <div className="text-center">
                 <span className="text-gray-600">Don't have an account? </span>
@@ -831,22 +803,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
                 </>
               )}
 
-              {/* Notice about Google Sign-Up */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <div>
-                    <p className="text-sm text-blue-700 font-medium">
-                      📧 Email registration is working perfectly!
-                    </p>
-                    <p className="text-xs text-blue-600 mt-1">
-                      Create your account using the form above. Google Sign-Up will be available soon.
-                    </p>
-                  </div>
-                </div>
-              </div>
+
 
               <div className="text-center">
                 <span className="text-gray-600">Already have an account? </span>
