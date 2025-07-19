@@ -21,6 +21,16 @@ export default function Page() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [scrollY, setScrollY] = useState(0)
 
+  // Initialize dark mode from localStorage or system preference
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode')
+    if (savedDarkMode !== null) {
+      setDarkMode(JSON.parse(savedDarkMode))
+    } else {
+      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
+    }
+  }, [])
+
   // Mouse tracking for interactive backgrounds
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -43,6 +53,8 @@ export default function Page() {
     } else {
       document.documentElement.classList.remove('dark')
     }
+    // Save preference to localStorage
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
   }, [darkMode])
   
   useEffect(() => {
@@ -408,12 +420,10 @@ export default function Page() {
                       <div className="navigation-card-inner">
                         <div className="flex items-start gap-6">
                           <div className={`w-24 h-24 bg-gradient-to-br ${item.gradient} rounded-3xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 flex-shrink-0`}>
-                            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                            </svg>
+                            <span className="text-4xl">{item.emoji}</span>
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{item.label}</h3>
+                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{item.label.replace(item.emoji + ' ', '')}</h3>
                             <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg mb-6">{item.description}</p>
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center gap-2 text-lg font-bold bg-gradient-to-r ${item.gradient} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
@@ -440,8 +450,8 @@ export default function Page() {
     <MapDataProvider>
       <div className={`min-h-screen transition-all duration-700 ${darkMode ? 'dark' : ''}`}>
         {/* Enhanced Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-50 w-96 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border-r border-white/20 dark:border-gray-700/20 shadow-2xl transform transition-transform duration-500 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          <div className="flex flex-col h-full">
+        <div className={`fixed inset-y-0 left-0 z-50 w-96 bg-white/80 dark:bg-gray-900/80 backdrop-blur-2xl border-r border-white/20 dark:border-gray-700/20 shadow-2xl transform transition-transform duration-500 ease-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} overflow-y-auto scrollbar-custom`}>
+          <div className="flex flex-col min-h-full">
             {/* Enhanced Sidebar Header */}
             <div className="flex items-center justify-between p-8 border-b border-white/20 dark:border-gray-700/20">
               <div className="flex items-center gap-4">
@@ -653,7 +663,7 @@ export default function Page() {
         </main>
 
         {/* Enhanced Footer */}
-        <footer className="bg-gradient-to-br from-gray-900 via-blue-900 via-indigo-900 to-purple-900 text-white relative overflow-hidden">
+        <footer className="bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white relative overflow-hidden">
           {/* Animated Background */}
           <div className="absolute inset-0">
             <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
