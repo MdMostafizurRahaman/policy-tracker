@@ -15,16 +15,14 @@
   --blur-amount: 20px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --glass-bg: rgba(15, 23, 42, 0.3);
-    --glass-border: rgba(148, 163, 184, 0.1);
-    --shadow-color: rgba(0, 0, 0, 0.3);
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --glass-bg: rgba(15, 23, 42, 0.3);
+  --glass-border: rgba(148, 163, 184, 0.1);
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
 }
 
 /* Enhanced Body Styles */
@@ -52,6 +50,42 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #5a67d8, #553c9a);
+}
+
+/* Custom Scrollbar Class */
+.scrollbar-custom {
+  scrollbar-width: thin;
+  scrollbar-color: #667eea transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #667eea, #764ba2);
+  border-radius: 10px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #5a67d8, #553c9a);
+}
+
+/* Dark mode scrollbar */
+.dark .scrollbar-custom::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8b5cf6, #a855f7);
+}
+
+.dark .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #7c3aed, #9333ea);
 }
 
 /* Advanced Background Patterns */
