@@ -3,6 +3,34 @@ import { useState, useEffect } from 'react'
 import { publicService } from '../../services/api'
 import "../../styles/CountryPolicyPopup.css"
 
+// Mapping from geojson/display names to database names for API calls
+const DATABASE_COUNTRY_MAP = {
+  'United States of America': 'United States',
+  'United States': 'United States',
+  'USA': 'United States',
+  'US': 'United States'
+};
+
+function getDatabaseCountryName(displayCountryName) {
+  if (!displayCountryName) return null;
+  
+  // First try exact match
+  if (DATABASE_COUNTRY_MAP[displayCountryName]) {
+    return DATABASE_COUNTRY_MAP[displayCountryName];
+  }
+  
+  // Try case-insensitive match
+  const lowerName = displayCountryName.toLowerCase();
+  for (const [key, value] of Object.entries(DATABASE_COUNTRY_MAP)) {
+    if (key.toLowerCase() === lowerName) {
+      return value;
+    }
+  }
+  
+  // Return original if no mapping found
+  return displayCountryName;
+}
+
 export default function CountryPolicyPopup({ country, onClose }) {
   const [visible, setVisible] = useState(false)
   const [selectedPolicy, setSelectedPolicy] = useState(null)
@@ -148,10 +176,14 @@ export default function CountryPolicyPopup({ country, onClose }) {
       // Use the API service instead of direct fetch
       const loadCountryPolicies = async () => {
         try {
+          // Convert display country name to database country name for API call
+          const databaseCountryName = getDatabaseCountryName(country.name);
+          console.log(`🔄 Converting country name for API: "${country.name}" -> "${databaseCountryName}"`);
+          
           // Add timestamp and refresh key to prevent any caching
           const timestamp = new Date().getTime();
           const cacheBuster = `${timestamp}_${refreshKey}_${Math.random()}`;
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(country.name)}&limit=1000&_t=${cacheBuster}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(databaseCountryName)}&limit=1000&_t=${cacheBuster}`, {
             method: 'GET',
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',

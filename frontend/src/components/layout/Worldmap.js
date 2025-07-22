@@ -78,6 +78,14 @@ const POLICY_AREA_MAP = {
   'Digital Leisure': 'Digital Leisure'
 };
 
+// Reverse mapping: from geojson/display names to database names
+const DATABASE_COUNTRY_MAP = {
+  'United States of America': 'United States',
+  'United States': 'United States',
+  'USA': 'United States',
+  'US': 'United States'
+};
+
 function normalizeCountryName(countryName) {
   if (!countryName) return null;
   
@@ -96,6 +104,26 @@ function normalizeCountryName(countryName) {
   
   // Return original if no mapping found
   return countryName;
+}
+
+function getDatabaseCountryName(displayCountryName) {
+  if (!displayCountryName) return null;
+  
+  // First try exact match
+  if (DATABASE_COUNTRY_MAP[displayCountryName]) {
+    return DATABASE_COUNTRY_MAP[displayCountryName];
+  }
+  
+  // Try case-insensitive match
+  const lowerName = displayCountryName.toLowerCase();
+  for (const [key, value] of Object.entries(DATABASE_COUNTRY_MAP)) {
+    if (key.toLowerCase() === lowerName) {
+      return value;
+    }
+  }
+  
+  // Return original if no mapping found
+  return displayCountryName;
 }
 
 function normalizePolicyArea(areaName) {

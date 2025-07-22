@@ -112,49 +112,69 @@ async def get_master_policies_fast(
     limit: int = Query(1000, ge=1, le=2000),
     country: str = None
 ):
-    """Get approved master policies visible on map (fast version)"""
+    """Get approved master policies visible on map (fast version) - same as no-dedup"""
     try:
+        logger.info(f"🔍 Fast endpoint called with country={country}, limit={limit}")
         dynamodb = await get_dynamodb()
         
-        # Get policies from database (simplified query for speed)
-        all_policies = await dynamodb.scan_table('policies')
+        # Get all map policies
+        map_policies = await dynamodb.scan_table('map_policies')
+        logger.info(f"📊 Scanned {len(map_policies)} total map policies")
         
-        # Filter for approved policies that are visible on map
-        approved_policies = []
-        for policy in all_policies:
-            policy_areas = policy.get('policy_areas', [])
-            for area in policy_areas:
-                for p in area.get('policies', []):
-                    if p.get('status') == 'approved' and p.get('map_visible', False):
-                        approved_policy = {
-                            "policy_id": policy.get('policy_id'),
-                            "country": policy.get('country'),
-                            "user_email": policy.get('user_email'),
-                            "area_id": area.get('area_id'),
-                            "area_name": area.get('area_name'),
-                            "policyName": p.get('policyName'),
-                            "policyDescription": p.get('policyDescription'),
-                            "policyUrl": p.get('policyUrl'),
-                            "policyId": p.get('policyId'),
-                            "approved_at": p.get('approved_at'),
-                            "created_at": policy.get('created_at'),
-                            "status": "approved",
-                            "map_visible": True
-                        }
-                        approved_policies.append(approved_policy)
+        # Sample first policy to see structure
+        if map_policies:
+            sample_policy = map_policies[0]
+            logger.info(f"📝 Sample policy keys: {list(sample_policy.keys())}")
+            logger.info(f"📝 Sample policy status: {sample_policy.get('status')}")
+            logger.info(f"📝 Sample policy country: {sample_policy.get('country')}")
         
-        # Apply country filter if provided
-        if country:
-            approved_policies = [p for p in approved_policies if p.get('country', '').lower() == country.lower()]
+        # Filter for approved and active policies
+        filtered_policies = []
+        for policy in map_policies:
+            # Only approved policies (master_status check removed)
+            if policy.get('status') == 'approved':
+                # Apply country filter if provided
+                if country and policy.get('country', '').lower() != country.lower():
+                    continue
+                
+                # Transform to expected format (same as no-dedup endpoint)
+                policy_data = {
+                    'policyName': policy.get('policy_name', ''),
+                    'policy_name': policy.get('policy_name', ''),
+                    'policyDescription': policy.get('policy_description', ''),
+                    'policy_description': policy.get('policy_description', ''),
+                    'country': policy.get('country', ''),
+                    'policyArea': policy.get('policy_area', ''),
+                    'policy_area': policy.get('policy_area', ''),
+                    'area_name': policy.get('policy_area', ''),
+                    'area_id': policy.get('policy_area', ''),
+                    'status': policy.get('status', 'approved'),
+                    'master_status': 'active',
+                    'target_groups': policy.get('target_groups', []),
+                    'policy_link': policy.get('policy_link', ''),
+                    'implementation': policy.get('implementation', {}),
+                    'evaluation': policy.get('evaluation', {}),
+                    'participation': policy.get('participation', {}),
+                    'alignment': policy.get('alignment', {}),
+                    'approved_at': policy.get('approved_at', ''),
+                    'created_at': policy.get('created_at', ''),
+                    'user_email': policy.get('user_email', ''),
+                    'map_policy_id': policy.get('map_policy_id', ''),
+                    'parent_submission_id': policy.get('parent_submission_id', ''),
+                    'policy_id': policy.get('parent_submission_id', '') or policy.get('map_policy_id', ''),
+                    'policyId': policy.get('parent_submission_id', '') or policy.get('map_policy_id', '')
+                }
+                
+                filtered_policies.append(policy_data)
         
-        # Limit results
-        approved_policies = approved_policies[:limit]
+        # Apply limit
+        filtered_policies = filtered_policies[:limit]
         
         return {
             "success": True,
-            "policies": approved_policies,
-            "total": len(approved_policies),
-            "cache_timestamp": "2025-07-16T10:16:00Z"
+            "policies": filtered_policies,
+            "total_count": len(filtered_policies),
+            "filters": {"country": country}
         }
     except Exception as e:
         logger.error(f"Error getting fast master policies: {e}")
