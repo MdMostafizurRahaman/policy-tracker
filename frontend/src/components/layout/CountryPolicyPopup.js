@@ -362,31 +362,155 @@ export default function CountryPolicyPopup({ country, onClose }) {
     }
   };
 
-  // Function to download file
+  // Function to download file - using same logic as handleOpenFile
   const handleDownloadFile = async (file) => {
     try {
+      console.log('💾 Downloading file:', file);
+      console.log('🔍 File details:', {
+        name: file.name,
+        filename: file.filename,
+        original_filename: file.original_filename,
+        s3_key: file.s3_key,
+        file_path: file.file_path,
+        s3_url: file.s3_url
+      });
+      
       if (file.s3_key || file.file_path) {
-        // Use the public file serving endpoint
+        // Use the same endpoint as handleOpenFile
         const fileIdentifier = file.s3_key || file.file_path;
         const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
         
-        console.log(`💾 Downloading file: ${file.name} via ${fileUrl}`);
+        console.log(`💾 Download URL: ${fileUrl}`);
         
-        const response = await fetch(fileUrl);
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
+        // Simple and robust download approach
+        try {
+          console.log('🔄 Attempting simple download...');
+          
+          // Create a simple download link that works like the view function
           const a = document.createElement('a');
-          a.href = url;
-          a.download = file.name || 'policy-document';
+          a.href = fileUrl;
+          a.download = file.name || 'policy-document.pdf';
+          a.target = '_blank'; // Fallback if download fails
+          a.style.display = 'none';
+          
+          // Add to DOM, click, then remove
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        } else {
-          console.error('Failed to download file:', response.status);
-          alert('Failed to download file. Please try again.');
+          
+          console.log('✅ Download link triggered successfully!');
+          
+          // Give user helpful feedback
+          setTimeout(() => {
+            alert('📥 Download started!\n\n' +
+                  'If the file opens instead of downloading:\n' +
+                  '• Right-click and select "Save As..."\n' +
+                  '• Or use Ctrl+S to save the opened file\n\n' +
+                  'Check your Downloads folder or browser download bar.');
+          }, 500);
+          
+          return; // Exit successfully
+          
+        } catch (simpleError) {
+          console.error('❌ Simple download failed:', simpleError);
+          
+          // Last resort: try opening in new window with instructions
+          try {
+            window.open(fileUrl, '_blank');
+            setTimeout(() => {
+              alert('⚠️ Download opened in new tab instead.\n\n' +
+                    'To download the file:\n' +
+                    '1. Right-click on the opened file\n' +
+                    '2. Select "Save As..." or "Save Page As..."\n' +
+                    '3. Choose your download location\n\n' +
+                    'Or use Ctrl+S in the new tab.');
+            }, 1000);
+            return;
+          } catch (openError) {
+            console.error('❌ All download methods failed:', openError);
+            alert('❌ Unable to download file. Please contact support.\n\n' +
+                  'Error details: Connection to server failed.');
+            return;
+          }
         }
+        
+      } else if (file.s3_url) {
+        // For S3 URLs, we need to fetch and create blob to force download
+        console.log('💾 Fetching S3 file for download:', file.s3_url);
+        
+        try {
+          // Show loading message
+          console.log('� Fetching file from S3...');
+          
+          // Fetch the file from S3
+          const response = await fetch(file.s3_url, {
+            mode: 'cors', // Enable CORS
+            cache: 'no-cache'
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+          }
+          
+          // Convert to blob
+          const blob = await response.blob();
+          console.log('✅ File fetched successfully, size:', blob.size);
+          
+          // Create download URL from blob
+          const downloadUrl = URL.createObjectURL(blob);
+          
+          // Create download link
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = file.name || file.filename || file.original_filename || 'policy-document.pdf';
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Clean up the blob URL
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+          
+          console.log('✅ Download should start now!');
+          
+          // Show success notification
+          setTimeout(() => {
+            alert('📥 Download started successfully! Check your Downloads folder.');
+          }, 500);
+          
+        } catch (fetchError) {
+          console.error('❌ Failed to fetch S3 file:', fetchError);
+          
+          // Handle specific errors
+          if (fetchError.message.includes('403')) {
+            console.error('🚫 403 Forbidden - S3 access denied. This could be due to:');
+            console.error('   - Expired presigned URL');
+            console.error('   - Incorrect S3 permissions');
+            console.error('   - File not found in S3');
+            
+            // Show specific error message
+            setTimeout(() => {
+              alert('🚫 Access Denied: The file cannot be downloaded due to permissions or expiry. Please try again or contact support.');
+            }, 500);
+            return;
+          }
+          
+          // Fallback: Try the old method (will likely open in new tab)
+          console.log('⚠️ Falling back to direct link method');
+          const a = document.createElement('a');
+          a.href = file.s3_url;
+          a.download = file.name || file.filename || file.original_filename || 'policy-document.pdf';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Show fallback notification
+          setTimeout(() => {
+            alert('⚠️ Direct download failed. The file opened in a new tab instead. To download: Right-click the file and select "Save As..." or use Ctrl+S.');
+          }, 500);
+        }
+        
       } else if (file.data) {
         // For base64 stored files
         const byteCharacters = atob(file.data);
@@ -399,14 +523,14 @@ export default function CountryPolicyPopup({ country, onClose }) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = file.name || 'policy-document';
+        a.download = file.name || file.filename || file.original_filename || 'policy-document';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } else {
-        console.error('No valid file data available for download');
-        alert('File is not available for download.');
+        console.error('No valid file identifier found. File object:', file);
+        alert('File identifier not available for download.');
       }
     } catch (error) {
       console.error('Error downloading file:', error);
