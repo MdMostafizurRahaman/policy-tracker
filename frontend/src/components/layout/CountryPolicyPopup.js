@@ -265,7 +265,8 @@ export default function CountryPolicyPopup({ country, onClose }) {
     
     try {
       setFilesLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/admin/policy/${policyId}/files`, {
+      // Use public endpoint instead of admin endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/policy/${policyId}/files`, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -278,12 +279,13 @@ export default function CountryPolicyPopup({ country, onClose }) {
         const data = await response.json();
         if (data.success) {
           setPolicyFiles(data.files || []);
+          console.log(`✅ Found ${data.files?.length || 0} files for policy ${policyId}`);
         } else {
-          console.error('Failed to fetch policy files:', data.message);
+          console.error('Failed to fetch policy files:', data.message || 'Unknown error');
           setPolicyFiles([]);
         }
       } else {
-        console.error('Failed to fetch policy files:', response.status);
+        console.error('Failed to fetch policy files:', response.status, response.statusText);
         setPolicyFiles([]);
       }
     } catch (error) {
@@ -297,14 +299,16 @@ export default function CountryPolicyPopup({ country, onClose }) {
   // Function to handle file opening/downloading
   const handleOpenFile = async (file) => {
     try {
-      if (file.file_path) {
-        // For server-stored files, try to get download URL
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/files/${file.file_path}`);
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
-        }
+      if (file.s3_key || file.file_path) {
+        // Use the public file serving endpoint
+        const fileIdentifier = file.s3_key || file.file_path;
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
+        
+        console.log(`🔗 Opening file: ${file.name} via ${fileUrl}`);
+        window.open(fileUrl, '_blank');
+      } else if (file.s3_url) {
+        // Fallback to direct S3 URL if available
+        window.open(file.s3_url, '_blank');
       } else if (file.data) {
         // For base64 stored files
         const byteCharacters = atob(file.data);
@@ -317,19 +321,26 @@ export default function CountryPolicyPopup({ country, onClose }) {
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       } else {
-        console.error('No file data available');
+        console.error('No valid file path found for file:', file);
+        alert('File is not accessible at this time.');
       }
     } catch (error) {
       console.error('Error opening file:', error);
+      alert('Failed to open file. Please try again.');
     }
   };
 
   // Function to download file
   const handleDownloadFile = async (file) => {
     try {
-      if (file.file_path) {
-        // For server-stored files
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/files/${file.file_path}`);
+      if (file.s3_key || file.file_path) {
+        // Use the public file serving endpoint
+        const fileIdentifier = file.s3_key || file.file_path;
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
+        
+        console.log(`💾 Downloading file: ${file.name} via ${fileUrl}`);
+        
+        const response = await fetch(fileUrl);
         if (response.ok) {
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
@@ -340,6 +351,9 @@ export default function CountryPolicyPopup({ country, onClose }) {
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
+        } else {
+          console.error('Failed to download file:', response.status);
+          alert('Failed to download file. Please try again.');
         }
       } else if (file.data) {
         // For base64 stored files
@@ -359,10 +373,12 @@ export default function CountryPolicyPopup({ country, onClose }) {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } else {
-        console.error('No file data available for download');
+        console.error('No valid file data available for download');
+        alert('File is not available for download.');
       }
     } catch (error) {
       console.error('Error downloading file:', error);
+      alert('Failed to download file. Please try again.');
     }
   };
 
