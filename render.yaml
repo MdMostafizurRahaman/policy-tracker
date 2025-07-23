@@ -2,10 +2,14 @@ services:
   - type: web
     name: policy-tracker-backend
     env: python
-    buildCommand: "cd backend && poetry install --no-dev"
-    startCommand: "cd backend && poetry run uvicorn main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: "cd PolicyTracker/backend && pip install --no-cache-dir -r requirements.txt"
+    startCommand: "cd PolicyTracker/backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
     plan: free
     envVars:
+      - key: DISABLE_POETRY
+        value: "1"
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
       - key: ENVIRONMENT
         value: "production"
       - key: DEBUG
@@ -13,13 +17,13 @@ services:
       - key: AWS_REGION
         value: "us-east-1"
       - key: ALLOWED_ORIGINS
-        value: "https://policy-tracker-platform-frontend.onrender.com,http://localhost:3000"
+        value: "https://policy-tracker-frontend.onrender.com,http://localhost:3000"
     
   - type: static
     name: policy-tracker-frontend
-    buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishPath: ./frontend/out
+    buildCommand: "cd PolicyTracker/frontend && npm install && npm run build"
+    staticPublishPath: ./PolicyTracker/frontend/out
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        value: https://policy-tracker-platform-backend.onrender.com/api
+        value: https://policy-tracker-backend.onrender.com/api
 
