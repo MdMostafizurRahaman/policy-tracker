@@ -167,7 +167,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     return () => clearTimeout(timer)
   }, [])
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api';
 
   useEffect(() => {
     if (country && country.name) {
@@ -183,7 +183,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
           // Add timestamp and refresh key to prevent any caching
           const timestamp = new Date().getTime();
           const cacheBuster = `${timestamp}_${refreshKey}_${Math.random()}`;
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(databaseCountryName)}&limit=1000&_t=${cacheBuster}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api'}/public/master-policies-no-dedup?country=${encodeURIComponent(databaseCountryName)}&limit=1000&_t=${cacheBuster}`, {
             method: 'GET',
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -298,7 +298,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     try {
       setFilesLoading(true);
       // Use public endpoint instead of admin endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/policy/${policyId}/files`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api'}/public/policy/${policyId}/files`, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -334,7 +334,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
       if (file.s3_key || file.file_path) {
         // Use the public file serving endpoint
         const fileIdentifier = file.s3_key || file.file_path;
-        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
         
         console.log(`🔗 Opening file: ${file.name} via ${fileUrl}`);
         window.open(fileUrl, '_blank');
@@ -362,7 +362,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
     }
   };
 
-  // Function to download file - using same logic as handleOpenFile
+  // Function to download file - mobile-friendly approach
   const handleDownloadFile = async (file) => {
     try {
       console.log('💾 Downloading file:', file);
@@ -378,88 +378,48 @@ export default function CountryPolicyPopup({ country, onClose }) {
       if (file.s3_key || file.file_path) {
         // Use the same endpoint as handleOpenFile
         const fileIdentifier = file.s3_key || file.file_path;
-        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
         
         console.log(`💾 Download URL: ${fileUrl}`);
         
-        // Simple and robust download approach
-        try {
-          console.log('🔄 Attempting simple download...');
-          
-          // Create a simple download link that works like the view function
-          const a = document.createElement('a');
-          a.href = fileUrl;
-          a.download = file.name || 'policy-document.pdf';
-          a.target = '_blank'; // Fallback if download fails
-          a.style.display = 'none';
-          
-          // Add to DOM, click, then remove
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
-          console.log('✅ Download link triggered successfully!');
-          
-          // Give user helpful feedback
-          setTimeout(() => {
-            alert('📥 Download started!\n\n' +
-                  'If the file opens instead of downloading:\n' +
-                  '• Right-click and select "Save As..."\n' +
-                  '• Or use Ctrl+S to save the opened file\n\n' +
-                  'Check your Downloads folder or browser download bar.');
-          }, 500);
-          
-          return; // Exit successfully
-          
-        } catch (simpleError) {
-          console.error('❌ Simple download failed:', simpleError);
-          
-          // Last resort: try opening in new window with instructions
-          try {
-            window.open(fileUrl, '_blank');
-            setTimeout(() => {
-              alert('⚠️ Download opened in new tab instead.\n\n' +
-                    'To download the file:\n' +
-                    '1. Right-click on the opened file\n' +
-                    '2. Select "Save As..." or "Save Page As..."\n' +
-                    '3. Choose your download location\n\n' +
-                    'Or use Ctrl+S in the new tab.');
-            }, 1000);
-            return;
-          } catch (openError) {
-            console.error('❌ All download methods failed:', openError);
-            alert('❌ Unable to download file. Please contact support.\n\n' +
-                  'Error details: Connection to server failed.');
-            return;
-          }
-        }
+        // Create a simple download link
+        const a = document.createElement('a');
+        a.href = fileUrl;
+        a.download = file.name || file.filename || file.original_filename || 'policy-document.pdf';
+        a.target = '_blank'; // Fallback if download fails
+        a.style.display = 'none';
+        
+        // Add to DOM, click, then remove
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        console.log('✅ Download link triggered successfully!');
+        
+        // User feedback
+        setTimeout(() => {
+          alert('📥 Download Started!\n\n' +
+                '✅ Check your Downloads folder or browser download bar\n\n' +
+                'If the file opens instead of downloading:\n' +
+                '• Right-click and select "Save As..."\n' +
+                '• Or use Ctrl+S to save the opened file');
+        }, 500);
         
       } else if (file.s3_url) {
-        // For S3 URLs, we need to fetch and create blob to force download
-        console.log('💾 Fetching S3 file for download:', file.s3_url);
-        
+        // For S3 URLs, try direct download first
         try {
-          // Show loading message
-          console.log('� Fetching file from S3...');
-          
-          // Fetch the file from S3
           const response = await fetch(file.s3_url, {
-            mode: 'cors', // Enable CORS
+            mode: 'cors',
             cache: 'no-cache'
           });
           
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
           }
           
-          // Convert to blob
           const blob = await response.blob();
-          console.log('✅ File fetched successfully, size:', blob.size);
-          
-          // Create download URL from blob
           const downloadUrl = URL.createObjectURL(blob);
           
-          // Create download link
           const a = document.createElement('a');
           a.href = downloadUrl;
           a.download = file.name || file.filename || file.original_filename || 'policy-document.pdf';
@@ -468,12 +428,8 @@ export default function CountryPolicyPopup({ country, onClose }) {
           a.click();
           document.body.removeChild(a);
           
-          // Clean up the blob URL
           setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
           
-          console.log('✅ Download should start now!');
-          
-          // Show success notification
           setTimeout(() => {
             alert('📥 Download started successfully! Check your Downloads folder.');
           }, 500);
@@ -481,22 +437,7 @@ export default function CountryPolicyPopup({ country, onClose }) {
         } catch (fetchError) {
           console.error('❌ Failed to fetch S3 file:', fetchError);
           
-          // Handle specific errors
-          if (fetchError.message.includes('403')) {
-            console.error('🚫 403 Forbidden - S3 access denied. This could be due to:');
-            console.error('   - Expired presigned URL');
-            console.error('   - Incorrect S3 permissions');
-            console.error('   - File not found in S3');
-            
-            // Show specific error message
-            setTimeout(() => {
-              alert('🚫 Access Denied: The file cannot be downloaded due to permissions or expiry. Please try again or contact support.');
-            }, 500);
-            return;
-          }
-          
-          // Fallback: Try the old method (will likely open in new tab)
-          console.log('⚠️ Falling back to direct link method');
+          // Fallback: Try direct link
           const a = document.createElement('a');
           a.href = file.s3_url;
           a.download = file.name || file.filename || file.original_filename || 'policy-document.pdf';
@@ -505,9 +446,8 @@ export default function CountryPolicyPopup({ country, onClose }) {
           a.click();
           document.body.removeChild(a);
           
-          // Show fallback notification
           setTimeout(() => {
-            alert('⚠️ Direct download failed. The file opened in a new tab instead. To download: Right-click the file and select "Save As..." or use Ctrl+S.');
+            alert('⚠️ Download opened in new tab. To save: Right-click and select "Save As..." or use Ctrl+S.');
           }, 500);
         }
         
