@@ -104,7 +104,7 @@ export default function Page() {
     },
     { 
       key: "chatbot", 
-      label: "🤖 AI Assistant", 
+      label: "🤖 Policy Bot", 
       icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z",
       gradient: "from-purple-400 via-pink-500 to-red-500",
       bgGradient: "from-purple-50 via-pink-50 to-red-100",
@@ -278,18 +278,16 @@ export default function Page() {
               transform: `translateY(${scrollY * 0.1}px)`
             }}>
               <div className="relative max-w-7xl mx-auto text-center">
-                
-                
                 <h1 className="text-4xl md:text-8xl font-black mb-12 leading-tight">
-                  <span className="hero-text bg-gradient-to-r from-white to-pink-300 bg-clip-text text-transparent">
+                  <span className="hero-text bg-gradient-to-r from-white to-yellow-300 bg-clip-text text-transparent">
                     Global Policy Tracker
                   </span>
                 </h1>
                 
                 <p className="text-2xl md:text-3xl text-gray-600 dark:text-gray-300 max-w-5xl mx-auto leading-relaxed mb-16 font-light">
-                  Discover, analyze, and understand global policy frameworks through our 
-                  <span className="font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> AI-powered platform </span>
-                  with real-time visualization technology.
+                  <b>Discover, analyze, and understand global policy frameworks through our </b>
+                  <span className="font-semibold bg-gradient-to-r from-yellow-300 to-yellow-600 bg-clip-text text-transparent"> AI-powered platform </span>
+                  <b>with real-time visualization technology.</b>
                 </p>
 
                 {/* Enhanced CTA Buttons */}
@@ -314,7 +312,7 @@ export default function Page() {
                   >
                     <span className="flex items-center gap-4">
                       <span className="text-2xl">🤖</span>
-                      <span className="font-bold text-xl">AI Assistant</span>
+                      <span className="font-bold text-xl text-white">Policy Bot</span>
                     </span>
                   </button>
                 </div>
