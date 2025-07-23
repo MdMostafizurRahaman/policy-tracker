@@ -13,7 +13,7 @@ services:
       - key: AWS_REGION
         value: "us-east-1"
       - key: ALLOWED_ORIGINS
-        value: "https://policy-tracker-platform.onrender.com,http://localhost:3000"
+        value: "https://policy-tracker-platform-frontend.onrender.com,http://localhost:3000"
     
   - type: static
     name: policy-tracker-frontend
