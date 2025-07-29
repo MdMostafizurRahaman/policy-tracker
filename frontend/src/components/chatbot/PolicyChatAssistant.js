@@ -16,19 +16,18 @@ const PolicyChatAssistant = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState([
-    "United States",           // Country search - always works
-    "AI Safety",              // Policy area - always works  
-    "countries",              // List command - always works
-    "Digital Education",      // Policy area - always works
-    "Bangladesh",             // Country search - always works
-    "areas"                   // List command - always works
+    "United States",        
+    "AI Safety",              
+    "countries",            
+    "Digital Education",    
+    "Bangladesh",           
+    "areas"                 
   ]);
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
-  // Mock API base URL - replace with your actual API URL
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api';
 
   const scrollToBottom = () => {
@@ -89,7 +88,6 @@ const PolicyChatAssistant = () => {
         conversation_id: currentConversationId
       };
 
-      // Add policy context if provided (when user clicks on a search result)
       if (policyContext) {
         requestBody.context = `Based on the following policy information: ${JSON.stringify(policyContext)}`;
       }
@@ -114,7 +112,6 @@ const PolicyChatAssistant = () => {
         setMessages(prev => [...prev, assistantMessage]);
         setCurrentConversationId(data.conversation_id);
         
-        // Refresh conversations list
         loadConversations();
       } else {
         throw new Error('Failed to send message');
