@@ -156,7 +156,7 @@ const GlobeView = dynamic(() => import("./GlobeView"), {
 
 const geoUrl = "/countries-110m.json"
 
-function Worldmap() {
+function Worldmap({ viewMode: propViewMode }) {
   // Get map data from context
   const { 
     countries, 
@@ -168,7 +168,7 @@ function Worldmap() {
     fetchMapData 
   } = useMapData()
 
-  const [viewMode, setViewMode] = useState("map")
+  const [viewMode, setViewMode] = useState(propViewMode || "map")
   const [countryStats, setCountryStats] = useState({})
   const [tooltipContent, setTooltipContent] = useState(null)
   const [highlightedCountry, setHighlightedCountry] = useState(null)
@@ -191,6 +191,13 @@ function Worldmap() {
       console.log('�️ WorldMap mounting - using cached data from context')
     }
   }, [isLoaded, isLoading, fetchMapData])
+
+  // Sync viewMode with prop
+  useEffect(() => {
+    if (propViewMode) {
+      setViewMode(propViewMode)
+    }
+  }, [propViewMode])
 
   // Memoized country statistics calculation using API color data
   const countryStatsData = useMemo(() => {
@@ -397,9 +404,7 @@ function Worldmap() {
       {/* Header Controls */}
       <div className="worldmap-header">
         <div className="header-left">
-          <button onClick={handleViewToggle} className="view-toggle-btn">
-            🌍 Switch to {viewMode === "map" ? "Globe" : "Map"} View
-          </button>
+          {/* View toggle button now handled by parent IntegratedWorldMap */}
         </div>
         
         <div className="header-center">

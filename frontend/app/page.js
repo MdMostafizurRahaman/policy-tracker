@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { MapDataProvider } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
+import IntegratedWorldMap from "../src/components/layout/IntegratedWorldMap.js"
 import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
 import AdminPanel from "../src/components/admin/AdminDashboard.js"
 import AuthSystem from "../src/components/auth/AuthSystem.js"
@@ -184,7 +185,7 @@ export default function Page() {
       case "worldmap":
         return (
           <div className="min-h-screen bg-gradient-mesh from-blue-50 via-cyan-50 to-indigo-100">
-            <WorldMap />
+            <IntegratedWorldMap />
           </div>
         )
       
