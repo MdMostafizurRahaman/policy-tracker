@@ -409,7 +409,7 @@ function Worldmap({ viewMode: propViewMode }) {
         
         <div className="header-center">
           <div className="header-title">
-            <h1>Policy World Map</h1>            
+            <h1>RGB Map</h1>            
             {/* Map Statistics */}
             <div className="map-stats">
               <div className="stat-item">

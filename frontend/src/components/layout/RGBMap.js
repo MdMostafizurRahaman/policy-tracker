@@ -55,6 +55,62 @@ const COUNTRY_NAME_MAP = {
   'United Arab Emirates': 'United Arab Emirates'
 };
 
+// Natural geographic colors for an excellent-looking world atlas
+const generateNaturalMapColor = () => {
+  const naturalColors = [
+    // Earth tones - browns, tans, beiges
+    '#DEB887', // Burlywood
+    '#D2B48C', // Tan
+    '#F4A460', // Sandy Brown
+    '#CD853F', // Peru
+    '#BC8F8F', // Rosy Brown
+    '#A0522D', // Sienna
+    '#8B7355', // Burlywood Dark
+    '#D2691E', // Chocolate Light
+    
+    // Greens - forest, olive, sage
+    '#9ACD32', // Yellow Green
+    '#8FBC8F', // Dark Sea Green
+    '#90EE90', // Light Green
+    '#98FB98', // Pale Green
+    '#6B8E23', // Olive Drab
+    '#556B2F', // Dark Olive Green
+    '#8FBC8F', // Dark Sea Green
+    '#B8C480', // Light Olive
+    
+    // Blues - ocean, sky tones
+    '#87CEEB', // Sky Blue
+    '#ADD8E6', // Light Blue
+    '#B0C4DE', // Light Steel Blue
+    '#4682B4', // Steel Blue
+    '#5F9EA0', // Cadet Blue
+    '#6495ED', // Cornflower Blue
+    '#7B68EE', // Medium Slate Blue
+    '#87CEFA', // Light Sky Blue
+    
+    // Warm neutrals - creams, golds
+    '#F5DEB3', // Wheat
+    '#FFE4B5', // Moccasin
+    '#FFDAB9', // Peach Puff
+    '#EEE8AA', // Pale Goldenrod
+    '#F0E68C', // Khaki
+    '#BDB76B', // Dark Khaki
+    '#DAA520', // Goldenrod
+    '#B8860B'  // Dark Goldenrod
+  ];
+  return naturalColors[Math.floor(Math.random() * naturalColors.length)];
+};
+
+// Country-specific natural colors cache for ALL countries
+const countryNaturalColors = new Map();
+
+const getNaturalColorForCountry = (countryName) => {
+  if (!countryNaturalColors.has(countryName)) {
+    countryNaturalColors.set(countryName, generateNaturalMapColor());
+  }
+  return countryNaturalColors.get(countryName);
+};
+
 // Policy area name mapping to normalize different formats
 const POLICY_AREA_MAP = {
   'ai-safety': 'AI Safety',
@@ -185,10 +241,10 @@ function RGBMap({ viewMode: propViewMode }) {
   // Fetch data when component mounts if not already loaded
   useEffect(() => {
     if (!isLoaded && !isLoading) {
-      console.log('🗺️ RGB Map mounting - fetching data via context')
+      console.log('🗺️ Random Color Map mounting - fetching data via context')
       fetchMapData()
     } else if (isLoaded) {
-      console.log('🗺️ RGB Map mounting - using cached data from context')
+      console.log('🗺️ Random Color Map mounting - using cached data from context')
     }
   }, [isLoaded, isLoading, fetchMapData])
 
@@ -199,87 +255,58 @@ function RGBMap({ viewMode: propViewMode }) {
     }
   }, [propViewMode])
 
-  // Memoized country statistics calculation using API color data
+  // Memoized country statistics calculation using attractive random colors for ALL countries
   const countryStatsData = useMemo(() => {
-    console.log('🔍 Building RGB country stats from API color data. Countries loaded:', countries.length);
-    
-    if (!countries.length) {
-      console.log('⚠️ No countries data loaded yet, returning empty stats');
-      return {};
-    }
+    console.log('🔍 Building attractive random color map for all countries. Countries loaded:', countries.length);
     
     const stats = {};
     
-    // Process countries data from API which already includes colors
-    countries.forEach((countryData) => {
-      const rawCountry = countryData.country;
-      
-      if (!rawCountry) {
-        console.warn('Country data missing country name:', countryData);
-        return;
-      }
-      
-      // Normalize country name for geojson matching
-      const normalizedCountry = normalizeCountryName(rawCountry);
-      if (!normalizedCountry) return;
-      
-      // Convert API color names to RGB colors for the RGB map
-      let rgbColor = "#808080"; // Default gray
-      switch(countryData.color) {
-        case 'green':
-          rgbColor = "#00FF00"; // Pure green
-          break;
-        case 'yellow':
-          rgbColor = "#FFFF00"; // Pure yellow
-          break;
-        case 'red':
-          rgbColor = "#FF0000"; // Pure red
-          break;
-        case 'gray':
-        default:
-          rgbColor = "#808080"; // Pure gray
-          break;
-      }
-      
-      stats[normalizedCountry] = {
-        count: countryData.area_points || 0,
-        totalPolicies: countryData.total_approved_policies || 0,
-        approvedAreas: new Set(countryData.areas_with_approved_policies || []),
-        color: rgbColor,
-        level: countryData.level || 'no_approved_areas',
-        areas_detail: countryData.areas_detail || [],
-        policies: [], // Will be populated from areas_detail if needed
-        originalPolicies: []
-      };
-      
-      // Extract policies from areas_detail for popup compatibility
-      if (countryData.areas_detail) {
-        countryData.areas_detail.forEach(area => {
-          if (area.approved_policies) {
-            area.approved_policies.forEach(policy => {
-              stats[normalizedCountry].policies.push({
-                policyName: policy.policy_name,
-                policyDescription: policy.policy_description,
-                policyArea: area.area_name,
-                country: normalizedCountry,
-                approved_at: policy.approved_at
+    // Process countries data from API and assign attractive random colors to all
+    if (countries.length > 0) {
+      countries.forEach((countryData) => {
+        const rawCountry = countryData.country;
+        
+        if (!rawCountry) {
+          console.warn('Country data missing country name:', countryData);
+          return;
+        }
+        
+        // Normalize country name for geojson matching
+        const normalizedCountry = normalizeCountryName(rawCountry);
+        if (!normalizedCountry) return;
+        
+        // Assign natural geographic color to ALL countries (with or without policies)
+        stats[normalizedCountry] = {
+          count: countryData.area_points || 0,
+          totalPolicies: countryData.total_approved_policies || 0,
+          approvedAreas: new Set(countryData.areas_with_approved_policies || []),
+          color: getNaturalColorForCountry(normalizedCountry), // Natural geographic color for ALL countries
+          level: countryData.level || 'no_approved_areas',
+          areas_detail: countryData.areas_detail || [],
+          policies: [],
+          originalPolicies: []
+        };
+        
+        // Extract policies from areas_detail for popup compatibility
+        if (countryData.areas_detail) {
+          countryData.areas_detail.forEach(area => {
+            if (area.approved_policies) {
+              area.approved_policies.forEach(policy => {
+                stats[normalizedCountry].policies.push({
+                  policyName: policy.policy_name,
+                  policyDescription: policy.policy_description,
+                  policyArea: area.area_name,
+                  country: normalizedCountry,
+                  approved_at: policy.approved_at
+                });
               });
-            });
-          }
-        });
-      }
-    });
+            }
+          });
+        }
+      });
+    }
     
-    console.log(`📊 RGB Country stats built from API for ${Object.keys(stats).length} countries:`);
-    Object.keys(stats).forEach(country => {
-      const countryData = stats[country];
-      const areas = Array.from(countryData.approvedAreas);
-      const colorName = countryData.color === "#00FF00" ? "GREEN" : 
-                       countryData.color === "#FFFF00" ? "YELLOW" : 
-                       countryData.color === "#FF0000" ? "RED" : "GRAY";
-      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} area points [${areas.join(', ')}] - ${colorName}`);
-    });
-    
+    console.log(`📊 Attractive Random Color Map built for ${Object.keys(stats).length} countries (ALL countries get attractive colors based on policy data)`);
     return stats;
   }, [countries])
 
@@ -290,7 +317,7 @@ function RGBMap({ viewMode: propViewMode }) {
 
   // Debug log for map statistics
   useEffect(() => {
-    console.log('📊 Current RGB map stats in RGBMap component:', {
+    console.log('📊 Current Random Color map stats in RGBMap component:', {
       isLoading,
       mapStats,
       countries: countries.length
@@ -335,7 +362,7 @@ function RGBMap({ viewMode: propViewMode }) {
 
   // Handle country search/filter - memoized
   const handleCountrySelect = useCallback((country) => {
-    console.log('🔍 RGB Map searching for country:', country);
+    console.log('🔍 Random Color Map searching for country:', country);
     const normalizedCountry = normalizeCountryName(country);
     
     setFilteredCountry(normalizedCountry)
@@ -409,7 +436,7 @@ function RGBMap({ viewMode: propViewMode }) {
         
         <div className="header-center">
           <div className="header-title">
-            <h1>RGB Map</h1>            
+            <h1>Policy World Map</h1>            
             {/* Map Statistics */}
             <div className="map-stats">
               <div className="stat-item">
@@ -493,12 +520,22 @@ function RGBMap({ viewMode: propViewMode }) {
                   {({ geographies }) =>
                     geographies.map(geo => {
                       const countryName = geo.properties.name
-                      const stat = countryStats[countryName] || { color: "#e5e7eb", count: 0 } // Light gray for no data
+                      const predefinedStat = countryStats[countryName]
+                      
+                      // Assign natural geographic color to ALL countries (with or without policy data)
+                      const stat = predefinedStat || { 
+                        color: getNaturalColorForCountry(countryName), 
+                        count: 0,
+                        totalPolicies: 0,
+                        level: 'no_approved_areas'
+                      }
+                      
                       const isHighlighted = highlightedCountry === countryName || filteredCountry === countryName
                       
-                      // Debug first few countries
-                      if (Object.keys(countryStats).length > 0 && Math.random() < 0.1) {
-                        console.log(`🗺️ RGB Map render: ${countryName} -> Color: ${stat.color}, Areas: ${stat.count}`);
+                      // Debug occasional countries
+                      if (Object.keys(countryStats).length > 0 && Math.random() < 0.05) {
+                        const dataSource = predefinedStat ? "Policy Data" : "Generated";
+                        console.log(`🗺️ Attractive Color Map render: ${countryName} -> Color: ${stat.color} (${dataSource})`);
                       }
                       
                       return (
