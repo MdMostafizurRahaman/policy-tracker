@@ -36,7 +36,9 @@ const PolicyChatAssistant = () => {
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   useEffect(() => {
