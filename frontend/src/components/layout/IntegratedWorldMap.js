@@ -17,32 +17,32 @@ const MAP_TYPES = {
 const MAP_INFO = {
   [MAP_TYPES.WORLD_MAP]: {
     title: 'Policy World Map',
-    description: 'Countries colored by policy coverage level',
-    component: WorldMap,
+    description: 'Countries with random colors (no reds) based on policy coverage',
+    component: RGBMap,
     icon: '🗺️',
     shortName: 'Policy Map',
     viewMode: 'map'
   },
   [MAP_TYPES.WORLD_GLOBE]: {
     title: 'Policy World Globe',
-    description: 'Globe view with policy coverage colors',
-    component: WorldMap,
+    description: 'Globe view with random policy coverage colors (no reds)',
+    component: RGBMap,
     icon: '🌍',
     shortName: 'Policy Globe',
     viewMode: 'globe'
   },
   [MAP_TYPES.RGB_MAP]: {
     title: 'RGB Map',
-    description: 'Pure RGB colors showing policy coverage',
-    component: RGBMap,
+    description: 'Policy coverage level coloring system',
+    component: WorldMap,
     icon: '🎨',
     shortName: 'RGB Map',
     viewMode: 'map'
   },
   [MAP_TYPES.RGB_GLOBE]: {
     title: 'RGB Globe',
-    description: 'Globe view with pure RGB colors',
-    component: RGBMap,
+    description: 'Globe view with policy coverage level colors',
+    component: WorldMap,
     icon: '🎨',
     shortName: 'RGB Globe',
     viewMode: 'globe'
