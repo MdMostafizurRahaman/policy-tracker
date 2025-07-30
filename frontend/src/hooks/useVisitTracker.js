@@ -76,15 +76,6 @@ export const useVisitTracker = () => {
       // Generate comprehensive browser fingerprint
       const browserFingerprint = generateBrowserFingerprint();
       
-      // Debug logging for fingerprint
-      console.log('🔍 Generated browser fingerprint:', {
-        userAgent: browserFingerprint.userAgent.substring(0, 50) + '...',
-        screenResolution: browserFingerprint.screenResolution,
-        timezone: browserFingerprint.timezone,
-        language: browserFingerprint.language,
-        sessionId: browserFingerprint.sessionId
-      });
-      
       const requestData = {
         user_data: userData,
         is_new_registration: isNewRegistration,
@@ -112,11 +103,6 @@ export const useVisitTracker = () => {
           console.log('🎉 New user registration tracked successfully');
         } else {
           console.log('✅ Visit tracked successfully');
-        }
-        
-        // Debug unique visitor ID
-        if (result.unique_visitor_id) {
-          console.log('🆔 Unique visitor ID:', result.unique_visitor_id);
         }
         
         // Refresh statistics after tracking
