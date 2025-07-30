@@ -802,6 +802,26 @@ button:focus-visible,
   color: #4f46e5;
   background: rgba(79, 70, 229, 0.15);
 }
+
+/* Styling for countries without policies in search suggestions */
+.country-suggestions li.no-policies {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.country-suggestions li.no-policies:hover {
+  background: rgba(107, 114, 128, 0.1);
+}
+
+.country-suggestions li.no-policies .country-count {
+  color: #9ca3af;
+}
+
+.country-suggestions li.no-policies:hover .country-count {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.15);
+}
+
 .tooltip-floating {
   background: #fff;
   border: 1.5px solid #e5e7eb;
