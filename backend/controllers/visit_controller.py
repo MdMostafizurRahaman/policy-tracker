@@ -94,21 +94,19 @@ async def track_visit(
         # Store in DynamoDB
         await dynamodb.insert_item('visits', visit_record)
         
-        # Debug logging for unique visitor tracking
-        logger.info(f"🆔 Unique visitor ID generated: {unique_visitor_id}")
-        logger.info(f"🔍 Browser fingerprint: {fingerprint_components['user_agent'][:50]}...")
-        logger.info(f"📱 Screen: {fingerprint_components['screen_resolution']} | Timezone: {fingerprint_components['timezone']}")
-        
         if is_new_registration:
             logger.info(f"🎉 New user registration tracked: {user_type} user from {client_ip}")
         else:
+            logger.info(f"🆔 Unique visitor ID generated: {unique_visitor_id}")
+            logger.info(f"🔍 Browser fingerprint: {user_agent[:50]}...")
+            logger.info(f"📱 Screen: {fingerprint_components['screen_resolution']} | Timezone: {fingerprint_components['timezone']}")
             logger.info(f"✅ Visit tracked: {user_type} user from {client_ip}")
         
         return {
             "success": True,
             "message": "Visit tracked successfully",
             "visit_id": visit_record["visit_id"],
-            "unique_visitor_id": unique_visitor_id  # Return for debugging
+            "unique_visitor_id": unique_visitor_id  # Return this for debugging
         }
         
     except Exception as e:
@@ -151,16 +149,17 @@ async def get_visit_statistics():
                 # Use the composite unique identifier we created during tracking
                 unique_visitors.add(visit["unique_visitor_id"])
             else:
-                # Fallback for old records - create composite identifier
+                # Fallback for old records - create composite identifier with "legacy_" prefix
+                # to avoid conflicts with new format
                 client_ip = visit.get("client_ip", "unknown")
                 user_id = visit.get("user_id", "")
                 user_agent = visit.get("user_agent", "")[:100]  # Truncate
                 
-                # Create composite unique identifier
-                if user_id:  # Registered/Admin users - use user ID
-                    unique_id = f"user_{user_id}"
-                else:  # Anonymous users - use IP + partial user agent
-                    unique_id = f"{client_ip}|{user_agent}"
+                # Create composite unique identifier with legacy prefix
+                if user_id:  # Registered/Admin users
+                    unique_id = f"legacy_user_{user_id}"
+                else:  # Anonymous visitors - use IP + partial user agent with legacy prefix
+                    unique_id = f"legacy_{client_ip}|{user_agent}"
                 
                 unique_visitors.add(unique_id)
             
@@ -230,18 +229,36 @@ async def get_visit_summary():
                 # Use the composite unique identifier we created during tracking
                 unique_visitors.add(visit["unique_visitor_id"])
             else:
-                # Fallback for old records - create composite identifier
+                # Fallback for old records - create composite identifier with "legacy_" prefix
+                # to avoid conflicts with new format
                 client_ip = visit.get("client_ip", "unknown")
                 user_id = visit.get("user_id", "")
                 user_agent = visit.get("user_agent", "")[:100]  # Truncate
                 
-                # Create composite unique identifier
+                # Create composite unique identifier with legacy prefix
                 if user_id:  # Registered/Admin users
-                    unique_id = f"user_{user_id}"
-                else:  # Anonymous visitors - use IP + partial user agent
-                    unique_id = f"{client_ip}|{user_agent}"
+                    unique_id = f"legacy_user_{user_id}"
+                else:  # Anonymous visitors - use IP + partial user agent with legacy prefix
+                    unique_id = f"legacy_{client_ip}|{user_agent}"
                 
                 unique_visitors.add(unique_id)
+        
+        # Debug counting logic
+        new_format_count = sum(1 for visit in all_visits if visit.get("unique_visitor_id"))
+        old_format_count = len(all_visits) - new_format_count
+        
+        logger.info(f"📊 Unique visitor counting: Found {len(unique_visitors)} unique visitors from {len(all_visits)} total visits")
+        logger.info(f"🔍 New format visits: {new_format_count}, Old format visits: {old_format_count}")
+        logger.info(f"🔍 Sample unique IDs: {list(unique_visitors)[:5]}")  # Show first 5 for debugging
+        
+        # Show some new format unique IDs if they exist
+        new_format_ids = [visit["unique_visitor_id"] for visit in all_visits if visit.get("unique_visitor_id")]
+        if new_format_ids:
+            logger.info(f"🆔 New format unique IDs (last 3): {new_format_ids[-3:]}")
+        
+        # Show total unique count breakdown
+        unique_from_new = set(visit["unique_visitor_id"] for visit in all_visits if visit.get("unique_visitor_id"))
+        logger.info(f"📈 Unique visitors from new format: {len(unique_from_new)}")
         
         return {
             "success": True,
