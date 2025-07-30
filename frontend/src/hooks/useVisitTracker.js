@@ -2,7 +2,7 @@
  * useVisitTracker - React Hook for Visit Tracking
  * Handles visit tracking and fetching visit statistics
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -20,8 +20,19 @@ export const useVisitTracker = () => {
     error: null
   });
 
+  // Ref to prevent duplicate API calls in development (React Strict Mode)
+  const trackingInProgress = useRef(false);
+
   // Track a visit
   const trackVisit = useCallback(async (userData = null) => {
+    // Prevent duplicate calls in rapid succession
+    if (trackingInProgress.current) {
+      console.log('⏳ Visit tracking already in progress, skipping...');
+      return { success: true, message: 'Already tracking' };
+    }
+
+    trackingInProgress.current = true;
+
     try {
       const response = await fetch(`${API_BASE_URL}/visits/track`, {
         method: 'POST',
@@ -46,6 +57,11 @@ export const useVisitTracker = () => {
     } catch (error) {
       console.error('❌ Error tracking visit:', error);
       return { success: false, error: error.message };
+    } finally {
+      // Reset tracking flag after a delay to allow for legitimate subsequent calls
+      setTimeout(() => {
+        trackingInProgress.current = false;
+      }, 2000);
     }
   }, []);
 

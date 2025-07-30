@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
 import { MapDataProvider } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
@@ -26,6 +26,9 @@ export default function Page() {
 
   // Visit tracking hook
   const { trackVisit, visitStats } = useVisitTracker()
+  
+  // Ref to track if visit has been recorded to prevent duplicates
+  const visitTracked = useRef(false)
 
   // Initialize dark mode from localStorage or system preference
   useEffect(() => {
@@ -87,8 +90,11 @@ export default function Page() {
 
   // Track visit when component mounts and when user changes
   useEffect(() => {
-    // Track visit on initial load
-    trackVisit(user)
+    // Only track visit once per session to prevent duplicates
+    if (!visitTracked.current) {
+      trackVisit(user)
+      visitTracked.current = true
+    }
   }, [user, trackVisit])
 
   const navigateBack = useCallback(() => {
@@ -354,7 +360,7 @@ export default function Page() {
                       </div>
                       <div className="text-gray-600 dark:text-gray-400 font-semibold">{stat.label}</div>
                       {stat.dynamic && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        <div className="text-xs text-white-500 dark:text-gray-400 mt-2">
                           {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique visitors`}
                         </div>
                       )}
@@ -795,7 +801,7 @@ export default function Page() {
               </div>
               
               {/* Visit Counter */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 ">
                 <VisitCounter showDetailed={false} />
               </div>
               
