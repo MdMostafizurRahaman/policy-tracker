@@ -3,6 +3,8 @@ import '../../styles/admin-dashboard.css'
 import { apiService, publicService } from '../../services/api'
 import { policyAreas } from '../../utils/constants'
 import AdminLogin from './AdminLogin'
+import VisitCounter from '../common/VisitCounter'
+import { useVisitTracker } from '../../hooks/useVisitTracker'
 
 // Use the imported policy areas instead of hardcoded ones
 const POLICY_AREAS = policyAreas;
@@ -36,6 +38,9 @@ export default function AdminDashboard() {
   // Get token for authenticated requests
   const token = localStorage.getItem('access_token');
 
+  // Visit tracking hook
+  const { visitStats, fetchDetailedStats } = useVisitTracker()
+
   // Check authentication on mount
   useEffect(() => {
     if (!token) {
@@ -64,8 +69,9 @@ export default function AdminDashboard() {
     if (token && view === 'dashboard') {
       fetchSubmissions()
       fetchStatistics()
+      fetchDetailedStats() // Fetch detailed visit statistics
     }
-  }, [currentPage, filterStatus])
+  }, [currentPage, filterStatus, fetchDetailedStats])
 
   // API Functions
   const fetchSubmissions = async () => {
@@ -543,7 +549,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
@@ -596,6 +602,74 @@ export default function AdminDashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-600">Master Policies</p>
                 <p className="text-2xl font-bold text-slate-900">{statistics.policies?.master || 0}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Visit Statistics Card */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Website Visits</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {visitStats.loading ? '...' : visitStats.total_visits.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Visit Analytics */}
+        <div className="mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Website Analytics</h3>
+              <div className="text-sm text-slate-500">
+                Real-time visitor tracking
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {visitStats.loading ? '...' : visitStats.total_visits.toLocaleString()}
+                </div>
+                <div className="text-sm text-slate-600">Total Visits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {visitStats.loading ? '...' : visitStats.unique_visitors.toLocaleString()}
+                </div>
+                <div className="text-sm text-slate-600">Unique Visitors</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {visitStats.loading ? '...' : visitStats.today_visits || 0}
+                </div>
+                <div className="text-sm text-slate-600">Today's Visits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-slate-600 mb-2">User Types</div>
+                <div className="flex justify-center gap-4 text-xs">
+                  <span className="text-slate-700">
+                    👁️ {visitStats.user_type_breakdown?.viewer || 0}
+                  </span>
+                  <span className="text-blue-700">
+                    👤 {visitStats.user_type_breakdown?.registered || 0}
+                  </span>
+                  <span className="text-purple-700">
+                    ⚙️ {visitStats.user_type_breakdown?.admin || 0}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

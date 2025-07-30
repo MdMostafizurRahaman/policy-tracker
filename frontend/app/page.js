@@ -9,6 +9,8 @@ import AdminPanel from "../src/components/admin/AdminDashboard.js"
 import AuthSystem from "../src/components/auth/AuthSystem.js"
 import AdminLogin from "../src/components/admin/AdminLogin.js"
 import PolicyChatAssistant from "../src/components/chatbot/PolicyChatAssistant.js"
+import VisitCounter from "../src/components/common/VisitCounter.js"
+import { useVisitTracker } from "../src/hooks/useVisitTracker.js"
 
 const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"), { ssr: false })
 
@@ -21,6 +23,9 @@ export default function Page() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [scrollY, setScrollY] = useState(0)
+
+  // Visit tracking hook
+  const { trackVisit, visitStats } = useVisitTracker()
 
   // Initialize dark mode from localStorage or system preference
   useEffect(() => {
@@ -79,6 +84,12 @@ export default function Page() {
       localStorage.removeItem('access_token')
     }
   }, [])
+
+  // Track visit when component mounts and when user changes
+  useEffect(() => {
+    // Track visit on initial load
+    trackVisit(user)
+  }, [user, trackVisit])
 
   const navigateBack = useCallback(() => {
     setView("home")
@@ -321,9 +332,15 @@ export default function Page() {
                 {/* Enhanced Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
                   {[
-                    { number: "195+", label: "Countries Analyzed", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-blue-500 to-cyan-600" },
-                    { number: "50K+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", gradient: "from-emerald-500 to-teal-600" },
-                    { number: "1M+", label: "Data Points", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z", gradient: "from-purple-500 to-pink-600" },
+                    { 
+                      number: visitStats.loading ? "..." : `${visitStats.total_visits.toLocaleString()}+`, 
+                      label: "Website Visits", 
+                      icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z", 
+                      gradient: "from-blue-500 to-cyan-600",
+                      dynamic: true 
+                    },
+                    { number: "195+", label: "Countries Analyzed", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-emerald-500 to-teal-600" },
+                    { number: "50K+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", gradient: "from-purple-500 to-pink-600" },
                     { number: "24/7", label: "Real-time Updates", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-orange-500 to-red-600" }
                   ].map((stat, index) => (
                     <div key={index} className="stat-card group" style={{ animationDelay: `${index * 0.2}s` }}>
@@ -336,6 +353,11 @@ export default function Page() {
                         {stat.number}
                       </div>
                       <div className="text-gray-600 dark:text-gray-400 font-semibold">{stat.label}</div>
+                      {stat.dynamic && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique visitors`}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -771,6 +793,12 @@ export default function Page() {
               <div className="text-gray-400 text-lg font-medium">
                 © 2025 Global Policy Tracker Platform. All rights reserved.
               </div>
+              
+              {/* Visit Counter */}
+              <div className="flex items-center gap-4">
+                <VisitCounter showDetailed={false} />
+              </div>
+              
               <div className="flex items-center gap-8 text-sm">
                 {['Privacy Policy', 'Terms of Service', 'API Documentation', 'Security'].map((item, index) => (
                   <a key={index} href="#" className="text-gray-400 hover:text-white transition-colors font-semibold hover:underline">

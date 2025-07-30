@@ -46,7 +46,8 @@ class DynamoDBClient:
                 'chat_sessions': None,
                 'admin_data': None,
                 'file_metadata': None,
-                'map_policies': None
+                'map_policies': None,
+                'visits': None
             }
             
             # Table name mapping - using ai_policy_database as base name
@@ -57,7 +58,8 @@ class DynamoDBClient:
                 'chat_sessions': 'ai_policy_database_chat_sessions',
                 'admin_data': 'ai_policy_database_admin_data',
                 'file_metadata': 'ai_policy_database_file_metadata',
-                'map_policies': 'ai_policy_database_map_policies'
+                'map_policies': 'ai_policy_database_map_policies',
+                'visits': 'ai_policy_database_visits'
             }
             
             logger.info("DynamoDB client initialized successfully")
@@ -265,6 +267,42 @@ class DynamoDBClient:
                         'KeySchema': [
                             {'AttributeName': 'policy_area', 'KeyType': 'HASH'},
                             {'AttributeName': 'approved_at', 'KeyType': 'RANGE'},
+                        ],
+                        'Projection': {'ProjectionType': 'ALL'},
+                        'ProvisionedThroughput': {
+                            'ReadCapacityUnits': 5,
+                            'WriteCapacityUnits': 5
+                        }
+                    }
+                ]
+            },
+            {
+                'name': 'visits',
+                'key_schema': [
+                    {'AttributeName': 'visit_id', 'KeyType': 'HASH'},
+                ],
+                'attribute_definitions': [
+                    {'AttributeName': 'visit_id', 'AttributeType': 'S'},
+                    {'AttributeName': 'date', 'AttributeType': 'S'},
+                    {'AttributeName': 'user_type', 'AttributeType': 'S'},
+                ],
+                'global_secondary_indexes': [
+                    {
+                        'IndexName': 'date-index',
+                        'KeySchema': [
+                            {'AttributeName': 'date', 'KeyType': 'HASH'},
+                        ],
+                        'Projection': {'ProjectionType': 'ALL'},
+                        'ProvisionedThroughput': {
+                            'ReadCapacityUnits': 5,
+                            'WriteCapacityUnits': 5
+                        }
+                    },
+                    {
+                        'IndexName': 'user-type-date-index',
+                        'KeySchema': [
+                            {'AttributeName': 'user_type', 'KeyType': 'HASH'},
+                            {'AttributeName': 'date', 'KeyType': 'RANGE'},
                         ],
                         'Projection': {'ProjectionType': 'ALL'},
                         'ProvisionedThroughput': {
