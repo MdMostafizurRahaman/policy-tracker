@@ -14,11 +14,15 @@ router = APIRouter(prefix="/api/visits", tags=["Visits"])
 
 @router.post("/track")
 async def track_visit(
-    request: Request,
-    user_data: Dict[str, Any] = None
+    request: Request
 ):
     """Track a website visit"""
     try:
+        # Parse request body
+        body = await request.json()
+        user_data = body.get("user_data", None)
+        is_new_registration = body.get("is_new_registration", False)
+        
         dynamodb = await get_dynamodb()
         
         # Get client info
@@ -47,13 +51,17 @@ async def track_visit(
             "user_type": user_type,
             "user_id": user_id,
             "session_start": datetime.now(timezone.utc).isoformat(),
-            "page_path": request.url.path if hasattr(request.url, 'path') else "/"
+            "page_path": request.url.path if hasattr(request.url, 'path') else "/",
+            "is_new_registration": is_new_registration
         }
         
         # Store in DynamoDB
         await dynamodb.insert_item('visits', visit_record)
         
-        logger.info(f"✅ Visit tracked: {user_type} user from {client_ip}")
+        if is_new_registration:
+            logger.info(f"🎉 New user registration tracked: {user_type} user from {client_ip}")
+        else:
+            logger.info(f"✅ Visit tracked: {user_type} user from {client_ip}")
         
         return {
             "success": True,
@@ -84,8 +92,8 @@ async def get_visit_statistics():
             "admin": 0
         }
         
-        # Count unique visitors by IP
-        unique_ips = set()
+        # Count unique visitors (enhanced logic)
+        unique_visitors = set()
         
         # Count visits by date (last 30 days)
         daily_visits = {}
@@ -96,9 +104,18 @@ async def get_visit_statistics():
             if user_type in user_type_counts:
                 user_type_counts[user_type] += 1
             
-            # Count unique IPs
-            if visit.get("client_ip"):
-                unique_ips.add(visit.get("client_ip"))
+            # Create unique visitor identifier (improved)
+            client_ip = visit.get("client_ip", "unknown")
+            user_id = visit.get("user_id", "")
+            user_agent = visit.get("user_agent", "")
+            
+            # Create composite unique identifier
+            if user_id:  # Registered/Admin users - use user ID
+                unique_id = f"user_{user_id}"
+            else:  # Anonymous visitors - use IP + User Agent fingerprint
+                unique_id = f"ip_{client_ip}_ua_{hash(user_agent) % 10000}"
+            
+            unique_visitors.add(unique_id)
             
             # Count daily visits
             try:
@@ -114,7 +131,7 @@ async def get_visit_statistics():
         
         statistics = {
             "total_visits": total_visits,
-            "unique_visitors": len(unique_ips),
+            "unique_visitors": len(unique_visitors),
             "today_visits": today_visits,
             "user_type_breakdown": user_type_counts,
             "daily_visits": daily_visits,
@@ -158,17 +175,26 @@ async def get_visit_summary():
         all_visits = await dynamodb.scan_table('visits')
         total_visits = len(all_visits)
         
-        # Count unique visitors
-        unique_ips = set()
+        # Count unique visitors (enhanced logic)
+        unique_visitors = set()
         for visit in all_visits:
-            if visit.get("client_ip"):
-                unique_ips.add(visit.get("client_ip"))
+            client_ip = visit.get("client_ip", "unknown")
+            user_id = visit.get("user_id", "")
+            user_agent = visit.get("user_agent", "")
+            
+            # Create composite unique identifier
+            if user_id:  # Registered/Admin users
+                unique_id = f"user_{user_id}"
+            else:  # Anonymous visitors
+                unique_id = f"ip_{client_ip}_ua_{hash(user_agent) % 10000}"
+            
+            unique_visitors.add(unique_id)
         
         return {
             "success": True,
             "total_visits": total_visits,
-            "unique_visitors": len(unique_ips),
-            "message": f"Website has been visited {total_visits} times by {len(unique_ips)} unique visitors"
+            "unique_visitors": len(unique_visitors),
+            "message": f"Website has been visited {total_visits} times by {len(unique_visitors)} unique visitors"
         }
         
     except Exception as e:
