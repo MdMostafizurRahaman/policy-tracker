@@ -23,6 +23,45 @@ export const useVisitTracker = () => {
   // Ref to prevent duplicate API calls in development (React Strict Mode)
   const trackingInProgress = useRef(false);
 
+  // Generate a browser fingerprint for better unique visitor identification
+  const generateBrowserFingerprint = useCallback(() => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillText('Browser fingerprint text', 2, 2);
+    
+    const fingerprint = {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      platform: navigator.platform,
+      cookieEnabled: navigator.cookieEnabled,
+      screenResolution: `${screen.width}x${screen.height}`,
+      screenColorDepth: screen.colorDepth,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      canvasFingerprint: canvas.toDataURL(),
+      hardwareConcurrency: navigator.hardwareConcurrency || 0,
+      deviceMemory: navigator.deviceMemory || 0,
+      webglVendor: (() => {
+        try {
+          const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+          return gl ? gl.getParameter(gl.VENDOR) : 'unknown';
+        } catch (e) {
+          return 'unknown';
+        }
+      })(),
+      sessionId: sessionStorage.getItem('session_id') || Date.now().toString(),
+      visitTimestamp: Date.now()
+    };
+    
+    // Store session ID for consistency within same browser session
+    if (!sessionStorage.getItem('session_id')) {
+      sessionStorage.setItem('session_id', fingerprint.sessionId);
+    }
+    
+    return fingerprint;
+  }, []);
+
   // Track a visit
   const trackVisit = useCallback(async (userData = null, isNewRegistration = false) => {
     // Prevent duplicate calls in rapid succession (but allow new registrations)
@@ -34,15 +73,36 @@ export const useVisitTracker = () => {
     trackingInProgress.current = true;
 
     try {
+      // Generate comprehensive browser fingerprint
+      const browserFingerprint = generateBrowserFingerprint();
+      
+      // Debug logging for fingerprint
+      console.log('🔍 Generated browser fingerprint:', {
+        userAgent: browserFingerprint.userAgent.substring(0, 50) + '...',
+        screenResolution: browserFingerprint.screenResolution,
+        timezone: browserFingerprint.timezone,
+        language: browserFingerprint.language,
+        sessionId: browserFingerprint.sessionId
+      });
+      
+      const requestData = {
+        user_data: userData,
+        is_new_registration: isNewRegistration,
+        browser_fingerprint: browserFingerprint,
+        visit_context: {
+          referrer: document.referrer,
+          current_url: window.location.href,
+          page_title: document.title,
+          visit_type: isNewRegistration ? 'new_registration' : 'regular_visit'
+        }
+      };
+
       const response = await fetch(`${API_BASE_URL}/visits/track`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          user_data: userData,
-          is_new_registration: isNewRegistration 
-        })
+        body: JSON.stringify(requestData)
       });
 
       const result = await response.json();
@@ -52,6 +112,11 @@ export const useVisitTracker = () => {
           console.log('🎉 New user registration tracked successfully');
         } else {
           console.log('✅ Visit tracked successfully');
+        }
+        
+        // Debug unique visitor ID
+        if (result.unique_visitor_id) {
+          console.log('🆔 Unique visitor ID:', result.unique_visitor_id);
         }
         
         // Refresh statistics after tracking
