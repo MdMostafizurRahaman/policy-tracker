@@ -297,20 +297,20 @@ function Worldmap({ viewMode: propViewMode }) {
     })
   }, [mapStats, isLoading, countries])
 
-  // Autocomplete suggestions
+  // Autocomplete suggestions - use geoFeatures to show ALL countries (including those with 0 policies)
   useEffect(() => {
-    if (!countries.length) return
+    if (!geoFeatures.length) return
     if (!searchValue) setSearchSuggestions([])
     else {
-      // Extract country names from countries array and filter
-      const countryNames = countries.map(countryData => countryData.country).filter(Boolean)
+      // Extract country names from geoFeatures (all countries) and filter
+      const allCountryNames = geoFeatures.map(feature => feature.properties.name).filter(Boolean)
       setSearchSuggestions(
-        countryNames.filter(countryName =>
+        allCountryNames.filter(countryName =>
           countryName.toLowerCase().includes(searchValue.toLowerCase())
         ).slice(0, 10)
       )
     }
-  }, [searchValue, countries])
+  }, [searchValue, geoFeatures])
 
   // Handle hover (with flicker fix) - memoized to prevent re-creation
   const handleMouseEnter = useCallback((geo, event) => {
@@ -466,11 +466,13 @@ function Worldmap({ viewMode: propViewMode }) {
                   {searchSuggestions.map((countryName, i) => {
                     const normalizedCountry = normalizeCountryName(countryName)
                     const stat = countryStats[normalizedCountry]
+                    const hasPolicy = stat && (stat.count > 0 || stat.totalPolicies > 0)
+                    
                     return (
-                      <li key={i} onClick={() => handleCountrySelect(countryName)}>
+                      <li key={i} onClick={() => handleCountrySelect(countryName)} className={!hasPolicy ? 'no-policies' : ''}>
                         <span className="country-name">{countryName}</span>
                         <span className="country-count">
-                          {stat ? `${stat.count} areas, ${stat.totalPolicies} policies` : 'No policies'}
+                          {stat ? `${stat.count} areas, ${stat.totalPolicies} policies` : '0 areas, 0 policies'}
                         </span>
                       </li>
                     )
