@@ -25,7 +25,7 @@ export default function Page() {
   const [scrollY, setScrollY] = useState(0)
 
   // Visit tracking hook
-  const { trackVisit, visitStats } = useVisitTracker()
+  const { trackVisit, trackNewRegistration, visitStats } = useVisitTracker()
   
   // Ref to track if visit has been recorded to prevent duplicates
   const visitTracked = useRef(false)

@@ -24,9 +24,9 @@ export const useVisitTracker = () => {
   const trackingInProgress = useRef(false);
 
   // Track a visit
-  const trackVisit = useCallback(async (userData = null) => {
-    // Prevent duplicate calls in rapid succession
-    if (trackingInProgress.current) {
+  const trackVisit = useCallback(async (userData = null, isNewRegistration = false) => {
+    // Prevent duplicate calls in rapid succession (but allow new registrations)
+    if (trackingInProgress.current && !isNewRegistration) {
       console.log('⏳ Visit tracking already in progress, skipping...');
       return { success: true, message: 'Already tracking' };
     }
@@ -39,13 +39,20 @@ export const useVisitTracker = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user_data: userData })
+        body: JSON.stringify({ 
+          user_data: userData,
+          is_new_registration: isNewRegistration 
+        })
       });
 
       const result = await response.json();
       
       if (result.success) {
-        console.log('✅ Visit tracked successfully');
+        if (isNewRegistration) {
+          console.log('🎉 New user registration tracked successfully');
+        } else {
+          console.log('✅ Visit tracked successfully');
+        }
         
         // Refresh statistics after tracking
         fetchVisitSummary();
@@ -135,9 +142,15 @@ export const useVisitTracker = () => {
     fetchVisitSummary();
   }, [fetchVisitSummary]);
 
+  // Track new user registration
+  const trackNewRegistration = useCallback(async (userData) => {
+    return await trackVisit(userData, true);
+  }, [trackVisit]);
+
   return {
     visitStats,
     trackVisit,
+    trackNewRegistration,
     fetchVisitSummary,
     fetchDetailedStats,
     refreshStats: fetchVisitSummary
