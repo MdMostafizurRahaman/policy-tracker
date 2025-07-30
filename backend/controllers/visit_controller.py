@@ -16,12 +16,14 @@ router = APIRouter(prefix="/api/visits", tags=["Visits"])
 async def track_visit(
     request: Request
 ):
-    """Track a website visit"""
+    """Track a website visit with enhanced browser fingerprinting"""
     try:
         # Parse request body
         body = await request.json()
         user_data = body.get("user_data", None)
         is_new_registration = body.get("is_new_registration", False)
+        browser_fingerprint = body.get("browser_fingerprint", {})
+        visit_context = body.get("visit_context", {})
         
         dynamodb = await get_dynamodb()
         
@@ -41,6 +43,26 @@ async def track_visit(
                 user_type = "registered"
             user_id = user_data.get("user_id") or user_data.get("email")
         
+        # Create enhanced unique visitor identifier
+        fingerprint_components = {
+            "ip": client_ip,
+            "user_agent": browser_fingerprint.get("userAgent", user_agent),
+            "screen_resolution": browser_fingerprint.get("screenResolution", "unknown"),
+            "timezone": browser_fingerprint.get("timezone", "unknown"),
+            "language": browser_fingerprint.get("language", "unknown"),
+            "platform": browser_fingerprint.get("platform", "unknown"),
+            "canvas_fingerprint": browser_fingerprint.get("canvasFingerprint", "")[:50],  # Truncate for storage
+            "webgl_vendor": browser_fingerprint.get("webglVendor", "unknown"),
+            "session_id": browser_fingerprint.get("sessionId", "unknown")
+        }
+        
+        # Generate composite unique identifier
+        unique_visitor_id = f"{client_ip}|{fingerprint_components['user_agent'][:100]}|{fingerprint_components['screen_resolution']}|{fingerprint_components['timezone']}"
+        
+        # For registered users, include user ID in unique identifier
+        if user_id:
+            unique_visitor_id = f"{unique_visitor_id}|user:{user_id}"
+        
         # Create visit record
         visit_record = {
             "visit_id": str(uuid.uuid4()),
@@ -50,13 +72,32 @@ async def track_visit(
             "referrer": referrer,
             "user_type": user_type,
             "user_id": user_id,
+            "unique_visitor_id": unique_visitor_id,
             "session_start": datetime.now(timezone.utc).isoformat(),
-            "page_path": request.url.path if hasattr(request.url, 'path') else "/",
-            "is_new_registration": is_new_registration
+            "page_path": visit_context.get("current_url", request.url.path if hasattr(request.url, 'path') else "/"),
+            "page_title": visit_context.get("page_title", "Unknown"),
+            "visit_type": visit_context.get("visit_type", "regular_visit"),
+            "is_new_registration": is_new_registration,
+            "browser_fingerprint": {
+                "screen_resolution": fingerprint_components["screen_resolution"],
+                "timezone": fingerprint_components["timezone"],
+                "language": fingerprint_components["language"],
+                "platform": fingerprint_components["platform"],
+                "color_depth": browser_fingerprint.get("screenColorDepth", 0),
+                "hardware_concurrency": browser_fingerprint.get("hardwareConcurrency", 0),
+                "device_memory": browser_fingerprint.get("deviceMemory", 0),
+                "cookie_enabled": browser_fingerprint.get("cookieEnabled", True),
+                "session_id": fingerprint_components["session_id"]
+            }
         }
         
         # Store in DynamoDB
         await dynamodb.insert_item('visits', visit_record)
+        
+        # Debug logging for unique visitor tracking
+        logger.info(f"🆔 Unique visitor ID generated: {unique_visitor_id}")
+        logger.info(f"🔍 Browser fingerprint: {fingerprint_components['user_agent'][:50]}...")
+        logger.info(f"📱 Screen: {fingerprint_components['screen_resolution']} | Timezone: {fingerprint_components['timezone']}")
         
         if is_new_registration:
             logger.info(f"🎉 New user registration tracked: {user_type} user from {client_ip}")
@@ -66,7 +107,8 @@ async def track_visit(
         return {
             "success": True,
             "message": "Visit tracked successfully",
-            "visit_id": visit_record["visit_id"]
+            "visit_id": visit_record["visit_id"],
+            "unique_visitor_id": unique_visitor_id  # Return for debugging
         }
         
     except Exception as e:
@@ -92,7 +134,7 @@ async def get_visit_statistics():
             "admin": 0
         }
         
-        # Count unique visitors (enhanced logic)
+        # Count unique visitors (enhanced fingerprinting logic)
         unique_visitors = set()
         
         # Count visits by date (last 30 days)
@@ -104,18 +146,23 @@ async def get_visit_statistics():
             if user_type in user_type_counts:
                 user_type_counts[user_type] += 1
             
-            # Create unique visitor identifier (improved)
-            client_ip = visit.get("client_ip", "unknown")
-            user_id = visit.get("user_id", "")
-            user_agent = visit.get("user_agent", "")
-            
-            # Create composite unique identifier
-            if user_id:  # Registered/Admin users - use user ID
-                unique_id = f"user_{user_id}"
-            else:  # Anonymous visitors - use IP + User Agent fingerprint
-                unique_id = f"ip_{client_ip}_ua_{hash(user_agent) % 10000}"
-            
-            unique_visitors.add(unique_id)
+            # Use enhanced unique visitor identification
+            if visit.get("unique_visitor_id"):
+                # Use the composite unique identifier we created during tracking
+                unique_visitors.add(visit["unique_visitor_id"])
+            else:
+                # Fallback for old records - create composite identifier
+                client_ip = visit.get("client_ip", "unknown")
+                user_id = visit.get("user_id", "")
+                user_agent = visit.get("user_agent", "")[:100]  # Truncate
+                
+                # Create composite unique identifier
+                if user_id:  # Registered/Admin users - use user ID
+                    unique_id = f"user_{user_id}"
+                else:  # Anonymous users - use IP + partial user agent
+                    unique_id = f"{client_ip}|{user_agent}"
+                
+                unique_visitors.add(unique_id)
             
             # Count daily visits
             try:
@@ -175,20 +222,26 @@ async def get_visit_summary():
         all_visits = await dynamodb.scan_table('visits')
         total_visits = len(all_visits)
         
-        # Count unique visitors (enhanced logic)
+        # Count unique visitors (enhanced fingerprinting logic)
         unique_visitors = set()
         for visit in all_visits:
-            client_ip = visit.get("client_ip", "unknown")
-            user_id = visit.get("user_id", "")
-            user_agent = visit.get("user_agent", "")
-            
-            # Create composite unique identifier
-            if user_id:  # Registered/Admin users
-                unique_id = f"user_{user_id}"
-            else:  # Anonymous visitors
-                unique_id = f"ip_{client_ip}_ua_{hash(user_agent) % 10000}"
-            
-            unique_visitors.add(unique_id)
+            # Use enhanced unique visitor identification
+            if visit.get("unique_visitor_id"):
+                # Use the composite unique identifier we created during tracking
+                unique_visitors.add(visit["unique_visitor_id"])
+            else:
+                # Fallback for old records - create composite identifier
+                client_ip = visit.get("client_ip", "unknown")
+                user_id = visit.get("user_id", "")
+                user_agent = visit.get("user_agent", "")[:100]  # Truncate
+                
+                # Create composite unique identifier
+                if user_id:  # Registered/Admin users
+                    unique_id = f"user_{user_id}"
+                else:  # Anonymous visitors - use IP + partial user agent
+                    unique_id = f"{client_ip}|{user_agent}"
+                
+                unique_visitors.add(unique_id)
         
         return {
             "success": True,
