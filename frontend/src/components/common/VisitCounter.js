@@ -22,7 +22,7 @@ const VisitCounter = ({ className = "", showDetailed = false }) => {
   if (visitStats.error) {
     return (
       <div className={`visit-counter ${className}`}>
-        <div className="text-gray-400 text-sm">
+        <div className="text-gray-600 dark:text-gray-400">
           <span>👁️ Visitor data unavailable</span>
         </div>
       </div>
