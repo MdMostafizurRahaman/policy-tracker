@@ -199,6 +199,32 @@ function Worldmap({ viewMode: propViewMode }) {
     }
   }, [propViewMode])
 
+  // Add keyboard and click handlers to hide tooltip
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && tooltipContent) {
+        setTooltipContent(null)
+        setHighlightedCountry(null)
+      }
+    }
+
+    const handleClickOutside = (e) => {
+      // Hide tooltip when clicking outside the map
+      if (tooltipContent && mapRef.current && !mapRef.current.contains(e.target)) {
+        setTooltipContent(null)
+        setHighlightedCountry(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('click', handleClickOutside)
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [tooltipContent])
+
   // Memoized country statistics calculation using API color data
   const countryStatsData = useMemo(() => {
     console.log('🔍 Building country stats from API color data. Countries loaded:', countries.length);
@@ -326,6 +352,13 @@ function Worldmap({ viewMode: propViewMode }) {
     setHighlightedCountry(countryName)
   }, [countryStats])
 
+  const handleMouseMove = useCallback((geo, event) => {
+    // Update mouse position for tooltip following
+    if (tooltipContent) {
+      setMousePosition({ x: event.clientX, y: event.clientY })
+    }
+  }, [tooltipContent])
+
   const handleMouseLeave = useCallback(() => {
     tooltipTimeout.current = setTimeout(() => {
       setTooltipContent(null)
@@ -386,17 +419,42 @@ function Worldmap({ viewMode: propViewMode }) {
   }, [])
 
   function getTooltipPosition(mouseX, mouseY) {
-    const tooltipWidth = 220
-    const tooltipHeight = 80
-    const offset = 16
-    if (!mapRef.current) return { top: mouseY + offset, left: mouseX + offset }
-    const rect = mapRef.current.getBoundingClientRect()
-    let left = mouseX - rect.left + offset
-    let top = mouseY - rect.top + offset
-    if (left + tooltipWidth > rect.width) left = rect.width - tooltipWidth - 8
-    if (top + tooltipHeight > rect.height) top = mouseY - rect.top - tooltipHeight - offset
-    if (left < 0) left = 8
-    return { top, left, position: "absolute", zIndex: 100 }
+    const tooltipWidth = 240
+    const tooltipHeight = 120
+    const offset = 12  // Reduced from 20 to 12 for closer positioning
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    
+    let left = mouseX + offset
+    let top = mouseY + offset
+    
+    // Check if tooltip would go off the right edge
+    if (left + tooltipWidth > viewportWidth) {
+      left = mouseX - tooltipWidth - offset
+    }
+    
+    // Check if tooltip would go off the bottom edge
+    if (top + tooltipHeight > viewportHeight) {
+      top = mouseY - tooltipHeight - offset
+    }
+    
+    // Ensure tooltip doesn't go off left edge
+    if (left < 10) {
+      left = 10
+    }
+    
+    // Ensure tooltip doesn't go off top edge
+    if (top < 10) {
+      top = mouseY + offset
+    }
+    
+    return { 
+      position: "fixed", 
+      left: `${left}px`, 
+      top: `${top}px`, 
+      zIndex: 1001,
+      pointerEvents: 'none'
+    }
   }
 
   return (
@@ -516,6 +574,7 @@ function Worldmap({ viewMode: propViewMode }) {
                             pressed: { outline: "none" }
                           }}
                           onMouseEnter={e => handleMouseEnter(geo, e)}
+                          onMouseMove={e => handleMouseMove(geo, e)}
                           onMouseLeave={handleMouseLeave}
                           onClick={() => handleClick(geo)}
                         />
