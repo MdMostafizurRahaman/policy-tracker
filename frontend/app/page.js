@@ -722,7 +722,7 @@ export default function Page() {
                   The world's most advanced platform for exploring, analyzing, and understanding 
                   global policy frameworks through cutting-edge AI visualization and real-time intelligence.
                 </p>
-                <div className="flex space-x-4">
+                {/* <div className="flex space-x-4">
                   {[
                     { name: 'Twitter', color: 'from-blue-400 to-blue-600' },
                     { name: 'LinkedIn', color: 'from-blue-600 to-blue-800' },
@@ -734,7 +734,7 @@ export default function Page() {
                       <div className="w-6 h-6 bg-white/90 rounded-lg"></div>
                     </a>
                   ))}
-                </div>
+                </div> */}
               </div>
 
               {/* Enhanced Quick Links */}
