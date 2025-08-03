@@ -1344,7 +1344,7 @@ const PolicySubmissionForm = () => {
 
       <div className="max-w-7xl mx-auto min-h-screen flex flex-col relative z-10">
         {/* Enhanced Header with Logo */}
-        <div className="text-center mb-8 flex-shrink-0 transform transition-all duration-1000 ease-out">
+        <div className={`text-center mb-8 flex-shrink-0 transform transition-all duration-1000 ease-out ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
           <div className="relative inline-block mb-6">
             {/* Logo Container */}
             <div className="flex items-center justify-center gap-4 mb-6">
@@ -1379,7 +1379,7 @@ const PolicySubmissionForm = () => {
         </div>
 
         {/* Enhanced User Info Card */}
-        <div className="flex-shrink-0 mb-6 transform transition-all duration-700 hover:scale-[1.02]">
+        <div className={`flex-shrink-0 mb-6 transform transition-all duration-700 hover:scale-[1.02] ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden group">
             {/* Animated gradient background */}
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -1407,7 +1407,7 @@ const PolicySubmissionForm = () => {
         </div>
 
         {/* Main Content Area - No extra scroll, let page scroll naturally */}
-        <div className="pr-2">
+        <div className={`pr-2 ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
           <div className="space-y-6">
           {/* Enhanced AI Auto-Fill and Submit Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -1662,9 +1662,13 @@ const PolicySubmissionForm = () => {
 
         {/* Policy Form Modal */}
         {showPolicyModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" id="policy-form-modal">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+          <div 
+            className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4" 
+            id="policy-form-modal"
+            style={{ position: 'fixed', zIndex: 9999, width: '100vw', height: '100vh', top: 0, left: 0 }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-[95%] max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-2xl">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1681,14 +1685,15 @@ const PolicySubmissionForm = () => {
                     setShowPolicyModal(false);
                     setModalPolicyArea(null);
                   }}
-                  className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-all"
+                  className="p-3 text-white/90 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center border border-white/20 hover:border-white/40 shadow-lg"
+                  title="Close Modal"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-              <div className="overflow-y-auto max-h-[calc(95vh-80px)]">
+              <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
                 {renderPolicyEditor()}
               </div>
             </div>
@@ -1697,24 +1702,28 @@ const PolicySubmissionForm = () => {
 
         {/* Auto-Fill Modal */}
         {showAutoFillModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[95vh] overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+          <div 
+            className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4"
+            style={{ position: 'fixed', zIndex: 9999, width: '100vw', height: '100vh', top: 0, left: 0 }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-[95%] max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-2xl">
                 <h2 className="text-2xl font-bold">AI Auto-Fill from Document</h2>
                 <button
                   onClick={() => {
                     setShowAutoFillModal(false);
                     setAutoFillFile(null);
                   }}
-                  className="p-2 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-all"
+                  className="p-3 text-white/90 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center border border-white/20 hover:border-white/40 shadow-lg"
+                  title="Close Modal"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
               
-              <div className="overflow-y-auto max-h-[calc(95vh-80px)] p-6">
+              <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
                 <div className="space-y-6">
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
                     <div className="flex items-start gap-4">
