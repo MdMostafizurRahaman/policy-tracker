@@ -421,35 +421,77 @@ function Worldmap({ viewMode: propViewMode }) {
   function getTooltipPosition(mouseX, mouseY) {
     const tooltipWidth = 240
     const tooltipHeight = 120
-    const offset = 12  // Reduced from 20 to 12 for closer positioning
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
+    const offset = 15  // Offset from the cursor
+    const mapElement = mapRef.current
     
-    let left = mouseX + offset
-    let top = mouseY + offset
-    
-    // Check if tooltip would go off the right edge
-    if (left + tooltipWidth > viewportWidth) {
-      left = mouseX - tooltipWidth - offset
+    if (!mapElement) {
+      return { 
+        position: "fixed", 
+        left: `${mouseX + offset}px`, 
+        top: `${mouseY + offset}px`, 
+        zIndex: 1001,
+        pointerEvents: 'none'
+      }
     }
     
-    // Check if tooltip would go off the bottom edge
-    if (top + tooltipHeight > viewportHeight) {
-      top = mouseY - tooltipHeight - offset
+    const mapRect = mapElement.getBoundingClientRect()
+    const relativeX = mouseX - mapRect.left
+    const relativeY = mouseY - mapRect.top
+    
+    let left = relativeX + offset
+    let top = relativeY + offset
+    
+    // Determine if we're near the edges of the map
+    const nearRightEdge = relativeX > mapRect.width - tooltipWidth - offset * 2
+    const nearBottomEdge = relativeY > mapRect.height - tooltipHeight - offset * 2
+    const nearLeftEdge = relativeX < tooltipWidth / 2
+    const nearTopEdge = relativeY < tooltipHeight / 2
+    
+    // Smart positioning based on cursor location within the map
+    if (nearRightEdge && nearBottomEdge) {
+      // Bottom-right corner: position to top-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearRightEdge && nearTopEdge) {
+      // Top-right corner: position to bottom-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY + offset
+    } else if (nearLeftEdge && nearBottomEdge) {
+      // Bottom-left corner: position to top-right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge && nearTopEdge) {
+      // Top-left corner: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
+    } else if (nearRightEdge) {
+      // Right edge: position to left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearBottomEdge) {
+      // Bottom edge: position above cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge) {
+      // Left edge: position to right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearTopEdge) {
+      // Top edge: position below cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY + offset
+    } else {
+      // Default: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
     }
     
-    // Ensure tooltip doesn't go off left edge
-    if (left < 10) {
-      left = 10
-    }
-    
-    // Ensure tooltip doesn't go off top edge
-    if (top < 10) {
-      top = mouseY + offset
-    }
+    // Final boundary checks to ensure tooltip stays within map bounds
+    left = Math.max(5, Math.min(left, mapRect.width - tooltipWidth - 5))
+    top = Math.max(5, Math.min(top, mapRect.height - tooltipHeight - 5))
     
     return { 
-      position: "fixed", 
+      position: "absolute", 
       left: `${left}px`, 
       top: `${top}px`, 
       zIndex: 1001,
@@ -545,7 +587,7 @@ function Worldmap({ viewMode: propViewMode }) {
       {/* Main Content */}
       <div className="worldmap-content">
         {/* Map Section */}
-        <div className="map-section" ref={mapRef}>
+        <div className="map-section" ref={mapRef} style={{ position: 'relative' }}>
           {viewMode === "map" && (
             <div className="map-container">
               <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
@@ -583,7 +625,7 @@ function Worldmap({ viewMode: propViewMode }) {
                   }
                 </Geographies>
               </ComposableMap>
-              {/* Floating Tooltip Near Mouse */}
+              {/* Floating Tooltip Positioned Relative to Map */}
               {tooltipContent && (
                 <div
                   className="tooltip-floating"
