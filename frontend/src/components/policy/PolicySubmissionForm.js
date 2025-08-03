@@ -1317,8 +1317,8 @@ const PolicySubmissionForm = () => {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
-      <div className="max-w-7xl mx-auto h-full flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
+      <div className="max-w-7xl mx-auto min-h-screen flex flex-col">
         {/* Header */}
         <div className="text-center mb-6 flex-shrink-0">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
@@ -1334,8 +1334,8 @@ const PolicySubmissionForm = () => {
           <UserSubmissionCard user={user} />
         </div>
 
-        {/* Scrollable Content Area - Single scroll bar for everything */}
-        <div className="flex-1 overflow-y-auto pr-2" style={{scrollbarWidth: 'thin'}}>
+        {/* Main Content Area - No extra scroll, let page scroll naturally */}
+        <div className="pr-2">
           <div className="space-y-6">
           {/* AI Auto-Fill and Submit Actions - Two Cards in One Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
