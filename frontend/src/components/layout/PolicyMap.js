@@ -341,63 +341,93 @@ function PolicyMap({ viewMode: propViewMode }) {
     }
   }, [searchValue, geoFeatures])
 
-  // Helper function to calculate optimal tooltip position
-  const calculateTooltipPosition = useCallback((event, countryName) => {
-    const mouseX = event.clientX
-    const mouseY = event.clientY
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
+  // Helper function to calculate optimal tooltip position relative to map
+  function getTooltipPosition(mouseX, mouseY) {
+    const tooltipWidth = 240
+    const tooltipHeight = 140  // Slightly taller for policy area info
+    const offset = 15  // Offset from the cursor
+    const mapElement = mapRef.current
     
-    // Tooltip dimensions (approximate)
-    const tooltipWidth = 200
-    const tooltipHeight = 120 // Slightly taller for policy map
-    
-    // Distance from country border
-    const offsetDistance = 15
-    
-    let x = mouseX + offsetDistance
-    let y = mouseY - offsetDistance
-    
-    // Check if country is in bottom half of screen (like Antarctica)
-    const isBottomCountry = mouseY > viewportHeight * 0.7
-    
-    // Check if country is in right side of screen
-    const isRightSide = mouseX > viewportWidth * 0.7
-    
-    // Adjust vertical position for bottom countries
-    if (isBottomCountry) {
-      y = mouseY - tooltipHeight - offsetDistance // Position above
+    if (!mapElement) {
+      return { 
+        position: "fixed", 
+        left: `${mouseX + offset}px`, 
+        top: `${mouseY + offset}px`, 
+        zIndex: 1001,
+        pointerEvents: 'none'
+      }
     }
     
-    // Adjust horizontal position for right side countries
-    if (isRightSide) {
-      x = mouseX - tooltipWidth - offsetDistance // Position to the left
+    const mapRect = mapElement.getBoundingClientRect()
+    const relativeX = mouseX - mapRect.left
+    const relativeY = mouseY - mapRect.top
+    
+    let left = relativeX + offset
+    let top = relativeY + offset
+    
+    // Determine if we're near the edges of the map
+    const nearRightEdge = relativeX > mapRect.width - tooltipWidth - offset * 2
+    const nearBottomEdge = relativeY > mapRect.height - tooltipHeight - offset * 2
+    const nearLeftEdge = relativeX < tooltipWidth / 2
+    const nearTopEdge = relativeY < tooltipHeight / 2
+    
+    // Smart positioning based on cursor location within the map
+    if (nearRightEdge && nearBottomEdge) {
+      // Bottom-right corner: position to top-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearRightEdge && nearTopEdge) {
+      // Top-right corner: position to bottom-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY + offset
+    } else if (nearLeftEdge && nearBottomEdge) {
+      // Bottom-left corner: position to top-right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge && nearTopEdge) {
+      // Top-left corner: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
+    } else if (nearRightEdge) {
+      // Right edge: position to left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearBottomEdge) {
+      // Bottom edge: position above cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge) {
+      // Left edge: position to right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearTopEdge) {
+      // Top edge: position below cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY + offset
+    } else {
+      // Default: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
     }
     
-    // Ensure tooltip stays within viewport bounds
-    if (x + tooltipWidth > viewportWidth - 10) {
-      x = viewportWidth - tooltipWidth - 10
-    }
-    if (x < 10) {
-      x = 10
-    }
-    if (y + tooltipHeight > viewportHeight - 10) {
-      y = viewportHeight - tooltipHeight - 10
-    }
-    if (y < 10) {
-      y = 10
-    }
+    // Final boundary checks to ensure tooltip stays within map bounds
+    left = Math.max(5, Math.min(left, mapRect.width - tooltipWidth - 5))
+    top = Math.max(5, Math.min(top, mapRect.height - tooltipHeight - 5))
     
-    return { x, y }
-  }, [])
+    return { 
+      position: "absolute", 
+      left: `${left}px`, 
+      top: `${top}px`, 
+      zIndex: 1001,
+      pointerEvents: 'none'
+    }
+  }
 
   // Handle hover (with flicker fix) - memoized to prevent re-creation
   const handleMouseEnter = useCallback((geo, event) => {
     clearTimeout(tooltipTimeout.current)
     const countryName = geo.properties.name
     const stat = countryStats[countryName] || { count: 0, color: DEFAULT_COLOR }
-    
-    const position = calculateTooltipPosition(event, countryName)
     
     setTooltipContent({
       name: countryName,
@@ -406,18 +436,16 @@ function PolicyMap({ viewMode: propViewMode }) {
       dominantArea: stat.dominantArea,
       areaCount: stat.areaCount || 0
     })
-    setMousePosition(position)
+    setMousePosition({ x: event.clientX, y: event.clientY })
     setHighlightedCountry(countryName)
-  }, [countryStats, calculateTooltipPosition])
+  }, [countryStats])
 
   const handleMouseMove = useCallback((geo, event) => {
-    // Update tooltip position but keep it near the country, not following cursor exactly
+    // Update mouse position for tooltip following
     if (tooltipContent) {
-      const countryName = geo.properties.name
-      const position = calculateTooltipPosition(event, countryName)
-      setMousePosition(position)
+      setMousePosition({ x: event.clientX, y: event.clientY })
     }
-  }, [tooltipContent, calculateTooltipPosition])
+  }, [tooltipContent])
 
   const handleMouseLeave = useCallback(() => {
     tooltipTimeout.current = setTimeout(() => {
@@ -666,7 +694,7 @@ function PolicyMap({ viewMode: propViewMode }) {
       {/* Main Content */}
       <div className="worldmap-content">
         {/* Map Section */}
-        <div className="map-section" ref={mapRef}>
+        <div className="map-section" ref={mapRef} style={{ position: 'relative' }}>
           {viewMode === "map" && (
             <div className="map-container">
               <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
@@ -699,60 +727,69 @@ function PolicyMap({ viewMode: propViewMode }) {
                   }
                 </Geographies>
               </ComposableMap>
-              {/* Smart Positioned Tooltip */}
+              {/* Floating Tooltip Positioned Relative to Map */}
               {tooltipContent && (
                 <div
-                  style={{
-                    position: "fixed",
-                    left: `${mousePosition.x}px`,
-                    top: `${mousePosition.y}px`,
-                    background: tooltipContent.color || "rgba(0,0,0,0.85)",
-                    color: tooltipContent.color && isLightColor(tooltipContent.color) ? "#000" : "#fff",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    fontSize: "13px",
-                    fontFamily: "sans-serif",
-                    pointerEvents: "none",
-                    zIndex: 1000,
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                    minWidth: "180px",
-                    maxWidth: "200px",
-                    backdropFilter: "blur(10px)",
-                    border: `2px solid ${tooltipContent.color || "#000"}`,
-                    opacity: 0.95
-                  }}
+                  className="tooltip-floating"
+                  style={getTooltipPosition(mousePosition.x, mousePosition.y)}
                 >
-                  <div style={{ fontWeight: "bold", marginBottom: "4px", fontSize: "14px" }}>
-                    {tooltipContent.name}
-                  </div>
-                  <div style={{ marginBottom: "2px", fontSize: "12px" }}>
-                    Policy Areas: {tooltipContent.count}/10
+                  <div style={{
+                    fontWeight: 700,
+                    fontSize: 18,
+                    color: tooltipContent.color,
+                    marginBottom: 4
+                  }}>{tooltipContent.name}</div>
+                  <div>
+                    <span style={{
+                      fontWeight: 600,
+                      color: tooltipContent.color
+                    }}>
+                      Policy Areas: {tooltipContent.count} / 10
+                    </span>
                   </div>
                   {tooltipContent.dominantArea && (
-                    <div style={{ marginBottom: "2px", fontSize: "11px", opacity: "0.9" }}>
-                      Dominant: <span style={{ 
-                        background: "rgba(255,255,255,0.2)", 
-                        padding: "1px 4px", 
-                        borderRadius: "3px",
-                        color: "#fbbf24" 
-                      }}>{tooltipContent.dominantArea}</span>
+                    <div style={{
+                      marginTop: 4,
+                      fontSize: 13,
+                      color: "#555"
+                    }}>
+                      <span style={{
+                        background: tooltipContent.color,
+                        color: "#fff",
+                        borderRadius: 4,
+                        padding: "1px 6px",
+                        fontWeight: 500,
+                        fontSize: 12
+                      }}>
+                        {tooltipContent.dominantArea}
+                      </span>
                     </div>
                   )}
                   {selectedPolicyArea && (
-                    <div style={{ marginBottom: "2px", fontSize: "11px", fontWeight: "bold" }}>
-                      Filter: <span style={{ 
-                        background: "rgba(255,255,255,0.2)", 
-                        padding: "1px 4px", 
-                        borderRadius: "3px",
-                        color: "#60a5fa" 
-                      }}>{POLICY_AREA_MAP[selectedPolicyArea] || selectedPolicyArea}</span>
+                    <div style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: "#666",
+                      fontWeight: 600
+                    }}>
+                      Filter: {POLICY_AREA_MAP[selectedPolicyArea] || selectedPolicyArea}
                     </div>
                   )}
-                  {tooltipContent.count > 0 && (
-                    <div style={{ fontSize: "11px", opacity: "0.8", marginTop: "4px" }}>
-                      Click to view details
-                    </div>
-                  )}
+                  <div style={{
+                    marginTop: 6,
+                    fontSize: 13,
+                    color: "#555"
+                  }}>
+                    <span style={{
+                      background: tooltipContent.count >= 8 ? "#22c55e" : tooltipContent.count >= 4 ? "#eab308" : "#ef4444",
+                      color: "#fff",
+                      borderRadius: 6,
+                      padding: "2px 8px",
+                      fontWeight: 500
+                    }}>
+                      {tooltipContent.count >= 8 ? "Excellent (8-10)" : tooltipContent.count >= 4 ? "Moderate (4-7)" : tooltipContent.count >= 1 ? "Needs Improvement (1-3)" : "No Policies"}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
