@@ -1317,164 +1317,244 @@ const PolicySubmissionForm = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
-      <div className="max-w-7xl mx-auto min-h-screen flex flex-col">
-        {/* Header */}
-        <div className="text-center mb-6 flex-shrink-0">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-3">
-            Policy Submission
-          </h1>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Submit comprehensive policy information across multiple areas for admin review and database storage.
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-black p-4 relative overflow-hidden">
+      {/* Enhanced Dynamic Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Primary floating orbs */}
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-r from-emerald-500/15 via-cyan-500/15 to-blue-500/15 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-gradient-to-r from-violet-500/12 via-purple-500/12 to-pink-500/12 rounded-full blur-3xl animate-bounce"></div>
+        
+        {/* Secondary moving elements */}
+        <div className="absolute top-1/4 left-1/3 w-48 h-48 bg-gradient-to-r from-teal-400/8 to-green-400/8 rounded-full blur-2xl animate-ping"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-32 h-32 bg-gradient-to-r from-amber-400/10 to-orange-400/10 rounded-full blur-2xl animate-pulse"></div>
+        
+        {/* Tertiary accent elements */}
+        <div className="absolute top-2/3 left-1/5 w-24 h-24 bg-gradient-to-r from-rose-400/6 to-pink-400/6 rounded-full blur-xl animate-bounce"></div>
+        <div className="absolute top-1/5 right-2/3 w-40 h-40 bg-gradient-to-r from-indigo-400/8 to-purple-400/8 rounded-full blur-2xl animate-pulse"></div>
+        
+        {/* Moving particles */}
+        <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-emerald-400/30 rounded-full animate-ping"></div>
+        <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-cyan-400/40 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-1/4 left-1/4 w-3 h-3 bg-violet-400/25 rounded-full animate-bounce"></div>
+        
+        {/* Gradient mesh overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-violet-500/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-500/3 via-transparent to-pink-500/3"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto min-h-screen flex flex-col relative z-10">
+        {/* Enhanced Header with Logo */}
+        <div className="text-center mb-8 flex-shrink-0 transform transition-all duration-1000 ease-out">
+          <div className="relative inline-block mb-6">
+            {/* Logo Container */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="relative">
+                {/* Main Logo */}
+                <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl transform transition-all duration-300 hover:rotate-3 hover:scale-105 border border-white/30">
+                  <svg className="w-10 h-10 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                {/* Subtle Glow Effect */}
+                <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl blur-lg opacity-20"></div>
+              </div>
+              
+              {/* Brand Text */}
+              <div className="text-left">
+                <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent mb-1 tracking-tight">
+                  PolicyTracker
+                </h1>
+                <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Submission Portal</p>
+              </div>
+            </div>
+            
+            {/* Main Title */}
+            <h2 className="text-3xl font-bold text-white mb-4 drop-shadow-lg">
+              Submit Your Policy Documentation
+            </h2>
+          </div>
+          <p className="text-lg text-gray-300 max-w-4xl mx-auto font-medium leading-relaxed">
+            🚀 Streamline your policy submission process with our comprehensive platform for expert admin review and secure database storage.
           </p>
         </div>
 
-        {/* User Info Card */}
-        <div className="flex-shrink-0 mb-4">
-          <UserSubmissionCard user={user} />
+        {/* Enhanced User Info Card */}
+        <div className="flex-shrink-0 mb-6 transform transition-all duration-700 hover:scale-[1.02]">
+          <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden group">
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            
+            <div className="flex items-center gap-6 relative z-10">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:rotate-3 group-hover:scale-105 border border-white/30">
+                  <svg className="w-8 h-8 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl blur-md opacity-20"></div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Submitting as</p>
+                <p className="text-2xl font-black text-white mb-1">{user.firstName} {user.lastName}</p>
+                <p className="text-base text-gray-300 font-medium">{user.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-400 rounded-full shadow-sm"></div>
+                <span className="text-sm font-semibold text-emerald-400">Active Session</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Main Content Area - No extra scroll, let page scroll naturally */}
         <div className="pr-2">
           <div className="space-y-6">
-          {/* AI Auto-Fill and Submit Actions - Two Cards in One Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* AI Auto-Fill Card */}
-            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-[1.02]">
-            {/* Animated background orbs */}
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl animate-pulse"></div>
-            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-cyan-400/20 rounded-full blur-2xl animate-bounce"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-white/30 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-lg">
-                  <svg className="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          {/* Enhanced AI Auto-Fill and Submit Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* AI Auto-Fill Card - Enhanced */}
+            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-emerald-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:-rotate-1">
+              {/* Enhanced animated background orbs */}
+              <div className="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse group-hover:animate-bounce"></div>
+              <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-emerald-400/20 rounded-full blur-3xl animate-bounce group-hover:animate-pulse"></div>
+              <div className="absolute top-1/2 left-1/2 w-20 h-20 bg-cyan-400/10 rounded-full blur-xl animate-ping"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:rotate-6 transition-all duration-300">
+                      <svg className="w-8 h-8 text-emerald-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-2xl blur-md opacity-15"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-black bg-gradient-to-r from-emerald-200 via-cyan-200 to-white bg-clip-text text-transparent mb-2">AI-Powered Auto-Fill</h3>
+                    <p className="text-sm text-white/90 font-semibold">✨ Smart document analysis & extraction</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
+                  <p className="text-sm text-white/95 leading-relaxed font-medium">
+                    🚀 Upload any policy document and watch AI magic happen! Supports PDF, DOC, DOCX, and TXT files with intelligent data extraction powered by advanced machine learning.
+                  </p>
+                </div>
+                
+                <button
+                  onClick={() => setShowAutoFillModal(true)}
+                  className="w-full px-8 py-4 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white font-bold rounded-2xl hover:from-emerald-400 hover:via-cyan-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-4 border border-emerald-400/30"
+                >
+                  <svg className="w-6 h-6 group-hover:rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-yellow-300 to-cyan-300 bg-clip-text text-transparent">AI-Powered Auto-Fill</h3>
-                  <p className="text-sm text-white/80 font-medium">Smart document analysis & extraction</p>
-                </div>
+                  <span className="text-lg">Launch AI Analysis</span>
+                </button>
               </div>
-              
-              <div className="mb-4 p-3 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
-                <p className="text-sm text-white/90 leading-relaxed">
-                  🚀 Upload any policy document and watch AI magic happen! Supports PDF, DOC, DOCX, and TXT files with intelligent data extraction.
-                </p>
-              </div>
-              
-              <button
-                onClick={() => setShowAutoFillModal(true)}
-                className="w-full px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold rounded-xl hover:from-yellow-300 hover:to-orange-400 transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 border border-yellow-300/50"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-                <span className="text-base">Launch AI Analysis</span>
-              </button>
             </div>
-          </div>
 
-          {/* Submit Policies Card */}
-          <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-[1.02]">
-            {/* Animated background orbs */}
-            <div className="absolute -top-4 -left-4 w-28 h-28 bg-emerald-400/20 rounded-full blur-2xl animate-pulse"></div>
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl animate-bounce"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-white/30 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20 shadow-lg">
-                  <svg className="w-6 h-6 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-yellow-300 to-emerald-300 bg-clip-text text-transparent">Submit Policies</h3>
-                  <p className="text-sm text-white/80 font-medium">Ready for comprehensive review</p>
-                </div>
-              </div>
+            {/* Submit Policies Card - Enhanced */}
+            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-violet-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:rotate-1">
+              {/* Enhanced animated background orbs */}
+              <div className="absolute -top-6 -left-6 w-36 h-36 bg-violet-400/20 rounded-full blur-3xl animate-pulse group-hover:animate-bounce"></div>
+              <div className="absolute -bottom-6 -right-6 w-28 h-28 bg-white/10 rounded-full blur-2xl animate-bounce group-hover:animate-pulse"></div>
+              <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-pink-400/10 rounded-full blur-xl animate-ping"></div>
               
-              <div className="mb-4 p-3 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
-                <p className="text-sm text-white/90 leading-relaxed">
-                  📋 Submit <span className="font-bold text-yellow-300">{getTotalPolicies()}</span> policies across <span className="font-bold text-emerald-300">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</span> areas for expert admin review and secure database storage.
-                </p>
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:-rotate-6 transition-all duration-300">
+                      <svg className="w-8 h-8 text-violet-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl blur-md opacity-15"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-black bg-gradient-to-r from-violet-200 via-purple-200 to-white bg-clip-text text-transparent mb-2">Submit Policies</h3>
+                    <p className="text-sm text-white/90 font-semibold">📋 Ready for comprehensive review</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
+                  <p className="text-sm text-white/95 leading-relaxed font-medium">
+                    Submit <span className="font-black text-violet-200 text-base">{getTotalPolicies()}</span> policies across <span className="font-black text-purple-200 text-base">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</span> areas for expert admin review and secure database storage.
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={handleSubmit}
+                  disabled={loading || getTotalPolicies() === 0}
+                  className="w-full px-8 py-4 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl hover:from-violet-400 hover:via-purple-400 hover:to-indigo-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-none flex items-center justify-center gap-4 border border-violet-400/30"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full"></div>
+                      <span className="text-lg">Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 group-hover:-rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span className="text-lg">Submit for Review</span>
+                    </>
+                  )}
+                </button>
               </div>
-              
-              <button 
-                onClick={handleSubmit}
-                disabled={loading || getTotalPolicies() === 0}
-                className="w-full px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 font-bold rounded-xl hover:from-yellow-300 hover:to-orange-400 transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 border border-yellow-300/50"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin w-5 h-5 border-3 border-gray-800 border-t-transparent rounded-full"></div>
-                    <span className="text-base">Submitting...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                    <span className="text-base">Submit for Review</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
-        </div>
 
           {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Total Policies Card */}
-            <div className="group relative bg-gradient-to-br from-rose-500 via-pink-600 to-purple-700 rounded-2xl shadow-2xl border border-white/20 p-4 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
               <div className="relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl border border-yellow-300/30">
-                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-cyan-100 rounded-2xl flex items-center justify-center shadow-md border border-emerald-200/50">
+                    <svg className="w-6 h-6 text-emerald-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Total Policies</p>
-                    <p className="text-2xl font-bold bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">{getTotalPolicies()}</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-emerald-200 to-cyan-200 bg-clip-text text-transparent">{getTotalPolicies()}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Areas Covered Card */}
-            <div className="group relative bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-2xl shadow-2xl border border-white/20 p-4 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
-              <div className="absolute -bottom-2 -left-2 w-20 h-20 bg-cyan-400/20 rounded-full blur-2xl animate-bounce"></div>
+            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+              <div className="absolute -bottom-2 -left-2 w-20 h-20 bg-violet-400/20 rounded-full blur-2xl animate-bounce"></div>
               <div className="relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-xl border border-emerald-300/30">
-                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-purple-100 rounded-2xl flex items-center justify-center shadow-md border border-violet-200/50">
+                    <svg className="w-6 h-6 text-violet-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Areas Covered</p>
-                    <p className="text-2xl font-bold bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-violet-200 to-purple-200 bg-clip-text text-transparent">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Max per Area Card */}
-            <div className="group relative bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 rounded-2xl shadow-2xl border border-white/20 p-4 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/15 rounded-full blur-lg animate-pulse"></div>
               <div className="relative z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-xl border border-cyan-300/30">
-                    <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center shadow-md border border-orange-200/50">
+                    <svg className="w-6 h-6 text-orange-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Max per Area</p>
-                    <p className="text-2xl font-bold bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">10</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-orange-200 to-pink-200 bg-clip-text text-transparent">10</p>
                   </div>
                 </div>
               </div>
@@ -1483,7 +1563,7 @@ const PolicySubmissionForm = () => {
 
         {/* Messages */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 text-red-200 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1494,7 +1574,7 @@ const PolicySubmissionForm = () => {
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl">
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1505,19 +1585,19 @@ const PolicySubmissionForm = () => {
         )}
 
           {/* Enhanced Country Selection */}
-          <div className="relative bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden">
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl animate-pulse"></div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-cyan-400/20 rounded-full blur-xl animate-bounce"></div>
+          <div className="relative bg-gradient-to-br from-slate-700 via-gray-700 to-slate-800 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden">
+            <div className="absolute -top-4 -right-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl animate-pulse"></div>
+            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-cyan-500/10 rounded-full blur-xl animate-bounce"></div>
             
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl border border-yellow-300/30">
-                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg border border-emerald-300/40">
+                  <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">Country Selection</h3>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Country Selection</h3>
                   <p className="text-sm text-white/80 font-medium">Select your country to continue</p>
                 </div>
               </div>
@@ -1534,7 +1614,7 @@ const PolicySubmissionForm = () => {
                     setShowCountryDropdown(true);
                   }}
                   onFocus={() => setShowCountryDropdown(true)}
-                  className="text-gray-900 w-full px-4 py-3 bg-white/95 backdrop-blur-sm border-2 border-white/30 rounded-xl focus:ring-4 focus:ring-yellow-400/50 focus:border-yellow-400 transition-all shadow-lg font-medium"
+                  className="text-gray-900 w-full px-4 py-3 bg-white/95 backdrop-blur-sm border-2 border-white/30 rounded-xl focus:ring-4 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all shadow-lg font-medium"
                   placeholder="🌍 Type to search countries..."
                 />
               
