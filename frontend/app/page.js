@@ -765,7 +765,7 @@ export default function Page() {
               </div>
 
               {/* Enhanced Contact */}
-              <div>
+              {/* <div>
                 <h4 className="text-xl font-black mb-8 text-blue-100">Get In Touch</h4>
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
@@ -791,7 +791,7 @@ export default function Page() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Enhanced Bottom Bar */}
