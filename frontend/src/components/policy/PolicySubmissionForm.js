@@ -135,6 +135,8 @@ const PolicySubmissionForm = () => {
   const [showAutoFillModal, setShowAutoFillModal] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
   const [autoFillFile, setAutoFillFile] = useState(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [modalPolicyArea, setModalPolicyArea] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -188,6 +190,16 @@ const PolicySubmissionForm = () => {
     setSelectedPolicyArea(areaId);
     setSelectedPolicyIndex(policyAreasState[areaId].length);
     setActiveTab("basic");
+    setModalPolicyArea(areaId);
+    setShowPolicyModal(true);
+    
+    // Auto-scroll to form after modal opens
+    setTimeout(() => {
+      const policyFormElement = document.getElementById('policy-form-modal');
+      if (policyFormElement) {
+        policyFormElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const removePolicyFromArea = (areaId, policyIndex) => {
@@ -667,6 +679,8 @@ const PolicySubmissionForm = () => {
                     setSelectedPolicyArea(area.id);
                     setSelectedPolicyIndex(index);
                     setActiveTab("basic");
+                    setModalPolicyArea(area.id);
+                    setShowPolicyModal(true);
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -719,7 +733,7 @@ const PolicySubmissionForm = () => {
     const currentPolicy = getCurrentPolicy();
     if (!currentPolicy) {
       return (
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
+        <div className="p-8 text-center">
           <svg className="w-24 h-24 mx-auto mb-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
@@ -732,24 +746,24 @@ const PolicySubmissionForm = () => {
     const selectedArea = POLICY_AREAS.find(area => area.id === selectedPolicyArea);
 
     return (
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-        <div className={`p-6 bg-gradient-to-r ${selectedArea.color} text-white`}>
+      <div className="bg-white">
+        <div className={`p-4 bg-gradient-to-r ${selectedArea.color} text-white border-b`}>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={selectedArea.icon} />
               </svg>
             </div>
             <div>
-              <h3 className="text-xl font-bold">{selectedArea.name}</h3>
+              <h3 className="text-lg font-bold">{selectedArea.name}</h3>
               <p className="text-sm opacity-90">Policy {selectedPolicyIndex + 1} of {policyAreasState[selectedPolicyArea].length}</p>
             </div>
           </div>
         </div>
 
         {/* Policy Editor Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex space-x-1 p-4">
+        <div className="border-b border-gray-200 bg-gray-50">
+          <div className="flex flex-wrap gap-1 p-2">
             {[
               { key: "basic", label: "Basic Info", icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
               { key: "implementation", label: "Implementation", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" },
@@ -760,28 +774,53 @@ const PolicySubmissionForm = () => {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeTab === tab.key
                     ? `bg-gradient-to-r ${selectedArea.color} text-white shadow-lg`
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 shadow-sm'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={tab.icon} />
                 </svg>
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Policy Editor Content */}
-        <div className="p-6">
+        <div className="p-4">
           {activeTab === "basic" && renderBasicInfo()}
           {activeTab === "implementation" && renderImplementation()}
           {activeTab === "evaluation" && renderEvaluation()}
           {activeTab === "participation" && renderParticipation()}
           {activeTab === "alignment" && renderAlignment()}
+          
+          {/* Modal Action Buttons */}
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => {
+                setShowPolicyModal(false);
+                setModalPolicyArea(null);
+              }}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all font-medium"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                setShowPolicyModal(false);
+                setModalPolicyArea(null);
+                // Optionally show a success message
+                setSuccess("Policy information saved successfully!");
+                setTimeout(() => setSuccess(""), 3000);
+              }}
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium"
+            >
+              Save & Close
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -792,8 +831,8 @@ const PolicySubmissionForm = () => {
     const uploadKey = `${selectedPolicyArea}-${selectedPolicyIndex}`;
 
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Policy Name *
@@ -802,7 +841,7 @@ const PolicySubmissionForm = () => {
               type="text"
               value={currentPolicy.policyName}
               onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyName", e.target.value)}
-              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="text-black w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               placeholder="Enter policy name"
             />
           </div>
@@ -815,19 +854,19 @@ const PolicySubmissionForm = () => {
               type="text"
               value={currentPolicy.policyId}
               onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyId", e.target.value)}
-              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="Policy Name - Nolicy number"
+              className="text-black w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              placeholder="Policy Name - Policy number"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
             Target Groups
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {TARGET_GROUPS.map(group => (
-              <label key={group} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-all">
+              <label key={group} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-all">
                 <input
                   type="checkbox"
                   checked={currentPolicy.targetGroups.includes(group)}
@@ -847,8 +886,8 @@ const PolicySubmissionForm = () => {
           <textarea
             value={currentPolicy.policyDescription}
             onChange={(e) => updatePolicy(selectedPolicyArea, selectedPolicyIndex, "policyDescription", e.target.value)}
-            className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-            rows="4"
+            className="text-black w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+            rows="3"
             placeholder="Describe the policy in detail..."
           />
         </div>
@@ -1278,96 +1317,346 @@ const PolicySubmissionForm = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-            Policy Submission
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Submit comprehensive policy information across multiple areas for admin review and database storage.
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-black p-4 relative overflow-hidden">
+      {/* Enhanced Dynamic Animated Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Primary floating orbs */}
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-r from-emerald-500/15 via-cyan-500/15 to-blue-500/15 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-gradient-to-r from-violet-500/12 via-purple-500/12 to-pink-500/12 rounded-full blur-3xl animate-bounce"></div>
+        
+        {/* Secondary moving elements */}
+        <div className="absolute top-1/4 left-1/3 w-48 h-48 bg-gradient-to-r from-teal-400/8 to-green-400/8 rounded-full blur-2xl animate-ping"></div>
+        <div className="absolute bottom-1/3 right-1/4 w-32 h-32 bg-gradient-to-r from-amber-400/10 to-orange-400/10 rounded-full blur-2xl animate-pulse"></div>
+        
+        {/* Tertiary accent elements */}
+        <div className="absolute top-2/3 left-1/5 w-24 h-24 bg-gradient-to-r from-rose-400/6 to-pink-400/6 rounded-full blur-xl animate-bounce"></div>
+        <div className="absolute top-1/5 right-2/3 w-40 h-40 bg-gradient-to-r from-indigo-400/8 to-purple-400/8 rounded-full blur-2xl animate-pulse"></div>
+        
+        {/* Moving particles */}
+        <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-emerald-400/30 rounded-full animate-ping"></div>
+        <div className="absolute top-1/4 right-1/3 w-1 h-1 bg-cyan-400/40 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-1/4 left-1/4 w-3 h-3 bg-violet-400/25 rounded-full animate-bounce"></div>
+        
+        {/* Gradient mesh overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-violet-500/5"></div>
+        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-500/3 via-transparent to-pink-500/3"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto min-h-screen flex flex-col relative z-10">
+        {/* Enhanced Header with Logo */}
+        <div className={`text-center mb-8 flex-shrink-0 transform transition-all duration-1000 ease-out ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
+          <div className="relative inline-block mb-6">
+            {/* Logo Container */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <div className="relative">
+                {/* Main Logo */}
+                <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl transform transition-all duration-300 hover:rotate-3 hover:scale-105 border border-white/30">
+                  <svg className="w-10 h-10 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                {/* Subtle Glow Effect */}
+                <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl blur-lg opacity-20"></div>
+              </div>
+              
+              {/* Brand Text */}
+              <div className="text-left">
+                <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent mb-1 tracking-tight">
+                  PolicyTracker
+                </h1>
+                <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Submission Portal</p>
+              </div>
+            </div>
+            
+            {/* Main Title */}
+            <h2 className="text-3xl font-bold text-white mb-4 drop-shadow-lg">
+              Submit Your Policy Documentation
+            </h2>
+          </div>
+          <p className="text-lg text-gray-300 max-w-4xl mx-auto font-medium leading-relaxed">
+            🚀 Streamline your policy submission process with our comprehensive platform for expert admin review and secure database storage.
           </p>
         </div>
 
-        {/* User Info Card */}
-        <UserSubmissionCard user={user} />
-
-        {/* Auto-Fill Quick Action */}
-        <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 rounded-2xl shadow-xl border border-gray-200 p-6 mb-8 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+        {/* Enhanced User Info and Country Selection Combined */}
+        <div className={`flex-shrink-0 mb-6 transform transition-all duration-700 hover:scale-[1.02] ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
+          <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden group">
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            
+            <div className="flex items-center gap-6 relative z-10">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg transform transition-all duration-300 group-hover:rotate-3 group-hover:scale-105 border border-white/30">
+                  <svg className="w-8 h-8 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 via-cyan-500 to-blue-600 rounded-2xl blur-md opacity-20"></div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold mb-2">AI-Powered Auto-Fill</h3>
-                <p className="text-lg opacity-90">Upload a policy document and let AI extract all the information automatically</p>
-                <p className="text-sm opacity-75 mt-1">Supports PDF, DOC, DOCX, and TXT files</p>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Submitting as</p>
+                <p className="text-2xl font-black text-white mb-1">{user.firstName} {user.lastName}</p>
+                <p className="text-base text-gray-300 font-medium">{user.email}</p>
+              </div>
+              
+              {/* Country Selection Section */}
+              <div className="flex-1 max-w-md">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg border border-emerald-300/40">
+                    <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Country *</p>
+                  </div>
+                </div>
+
+                <div className="relative z-50">
+                  <input
+                    type="text"
+                    value={formData.country}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, country: e.target.value }));
+                      setShowCountryDropdown(true);
+                    }}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    className="text-gray-900 w-full px-4 py-3 bg-white/95 backdrop-blur-sm border-2 border-white/30 rounded-xl focus:ring-4 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all shadow-lg font-medium pr-10"
+                    placeholder="🌍 Type to search countries..."
+                    autoComplete="off"
+                  />
+                  
+                  {/* Clear button */}
+                  {formData.country && (
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, country: '' }));
+                        setShowCountryDropdown(false);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 hover:text-gray-700 transition-colors"
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                
+                  {showCountryDropdown && filteredCountries.length > 0 && (
+                    <div 
+                      className="absolute z-[999999] bg-white border-2 border-emerald-400 rounded-xl shadow-2xl max-h-60 overflow-y-auto w-full"
+                      style={{
+                        top: '100%',
+                        left: '0',
+                        marginTop: '4px',
+                        zIndex: 999999,
+                        maxHeight: '300px',
+                        position: 'absolute'
+                      }}
+                    >
+                      {filteredCountries.map((country) => (
+                        <button
+                          key={country}
+                          onClick={() => handleCountrySelect(country)}
+                          className="w-full text-left px-4 py-3 text-gray-800 hover:bg-gradient-to-r hover:from-emerald-400 hover:to-cyan-400 hover:text-white transition-all border-b border-gray-200 last:border-0 font-medium group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-base font-semibold">{country}</span>
+                                <span className="text-xs text-gray-600 group-hover:text-white/80">Click to select</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500 group-hover:text-white/70 font-medium">
+                              Available
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                
+                  {formData.country && !countries.includes(formData.country) && filteredCountries.length === 0 && (
+                    <div className="mt-2 p-3 bg-red-500/20 border border-red-400/30 rounded-xl backdrop-blur-sm">
+                      <p className="text-sm text-red-100 flex items-center gap-2 font-medium">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        ⚠️ Country not found. Please select from the list.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-400 rounded-full shadow-sm"></div>
+                <span className="text-sm font-semibold text-emerald-400">Active Session</span>
               </div>
             </div>
-            <button
-              onClick={() => setShowAutoFillModal(true)}
-              className="px-8 py-4 bg-white text-purple-600 font-bold rounded-xl hover:bg-gray-50 transition-all transform hover:scale-105 shadow-lg flex items-center gap-3"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              Auto-Fill from Document
-            </button>
           </div>
         </div>
 
-        {/* User Info and Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+        {/* Main Content Area - No extra scroll, let page scroll naturally */}
+        <div className={`pr-2 ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
+          <div className="space-y-6">
+          {/* Enhanced AI Auto-Fill and Submit Actions */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* AI Auto-Fill Card - Enhanced */}
+            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-emerald-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:-rotate-1">
+              {/* Enhanced animated background orbs */}
+              <div className="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse group-hover:animate-bounce"></div>
+              <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-emerald-400/20 rounded-full blur-3xl animate-bounce group-hover:animate-pulse"></div>
+              <div className="absolute top-1/2 left-1/2 w-20 h-20 bg-cyan-400/10 rounded-full blur-xl animate-ping"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:rotate-6 transition-all duration-300">
+                      <svg className="w-8 h-8 text-emerald-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-2xl blur-md opacity-15"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-black bg-gradient-to-r from-emerald-200 via-cyan-200 to-white bg-clip-text text-transparent mb-2">AI-Powered Auto-Fill</h3>
+                    <p className="text-sm text-white/90 font-semibold">✨ Smart document analysis & extraction</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
+                  <p className="text-sm text-white/95 leading-relaxed font-medium">
+                    🚀 Upload any policy document and watch AI magic happen! Supports PDF, DOC, DOCX, and TXT files with intelligent data extraction powered by advanced machine learning.
+                  </p>
+                </div>
+                
+                <button
+                  onClick={() => setShowAutoFillModal(true)}
+                  className="w-full px-8 py-4 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 text-white font-bold rounded-2xl hover:from-emerald-400 hover:via-cyan-400 hover:to-blue-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-4 border border-emerald-400/30"
+                >
+                  <svg className="w-6 h-6 group-hover:rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                  </svg>
+                  <span className="text-lg">Launch AI Analysis</span>
+                </button>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Policies</p>
-                <p className="text-2xl font-bold text-gray-900">{getTotalPolicies()}</p>
+            </div>
+
+            {/* Submit Policies Card - Enhanced */}
+            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-violet-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:rotate-1">
+              {/* Enhanced animated background orbs */}
+              <div className="absolute -top-6 -left-6 w-36 h-36 bg-violet-400/20 rounded-full blur-3xl animate-pulse group-hover:animate-bounce"></div>
+              <div className="absolute -bottom-6 -right-6 w-28 h-28 bg-white/10 rounded-full blur-2xl animate-bounce group-hover:animate-pulse"></div>
+              <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-pink-400/10 rounded-full blur-xl animate-ping"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:-rotate-6 transition-all duration-300">
+                      <svg className="w-8 h-8 text-violet-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl blur-md opacity-15"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-black bg-gradient-to-r from-violet-200 via-purple-200 to-white bg-clip-text text-transparent mb-2">Submit Policies</h3>
+                    <p className="text-sm text-white/90 font-semibold">📋 Ready for comprehensive review</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
+                  <p className="text-sm text-white/95 leading-relaxed font-medium">
+                    Submit <span className="font-black text-violet-200 text-base">{getTotalPolicies()}</span> policies across <span className="font-black text-purple-200 text-base">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</span> areas for expert admin review and secure database storage.
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={handleSubmit}
+                  disabled={loading || getTotalPolicies() === 0}
+                  className="w-full px-8 py-4 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl hover:from-violet-400 hover:via-purple-400 hover:to-indigo-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-none flex items-center justify-center gap-4 border border-violet-400/30"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full"></div>
+                      <span className="text-lg">Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 group-hover:-rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span className="text-lg">Submit for Review</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Total Policies Card */}
+            {/* <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+              <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-100 to-cyan-100 rounded-2xl flex items-center justify-center shadow-md border border-emerald-200/50">
+                    <svg className="w-6 h-6 text-emerald-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Total Policies</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-emerald-200 to-cyan-200 bg-clip-text text-transparent">{getTotalPolicies()}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Areas Covered</p>
-                <p className="text-2xl font-bold text-gray-900">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</p>
+            </div> */}
+
+            {/* Areas Covered Card */}
+            {/* <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+              <div className="absolute -bottom-2 -left-2 w-20 h-20 bg-violet-400/20 rounded-full blur-2xl animate-bounce"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-purple-100 rounded-2xl flex items-center justify-center shadow-md border border-violet-200/50">
+                    <svg className="w-6 h-6 text-violet-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Areas Covered</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-violet-200 to-purple-200 bg-clip-text text-transparent">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            </div> */}
+
+            {/* Max per Area Card */}
+            {/* <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+              <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/15 rounded-full blur-lg animate-pulse"></div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-pink-100 rounded-2xl flex items-center justify-center shadow-md border border-orange-200/50">
+                    <svg className="w-6 h-6 text-orange-700 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white/80 uppercase tracking-wide">Max per Area</p>
+                    <p className="text-3xl font-bold bg-gradient-to-r from-orange-200 to-pink-200 bg-clip-text text-transparent">10</p>
+                  </div>
+                </div>
+              </div>
+            </div> */}
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 012 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Max per Area</p>
-                <p className="text-2xl font-bold text-gray-900">10</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Messages */}
+          {/* Messages */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 text-red-200 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1378,7 +1667,7 @@ const PolicySubmissionForm = () => {
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl">
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-400/30 text-emerald-200 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1388,93 +1677,77 @@ const PolicySubmissionForm = () => {
           </div>
         )}
 
-        {/* Country Selection */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-800">Country Selection</h3>
+          {/* Policy Areas Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {POLICY_AREAS.map(area => renderPolicyAreaCard(area))}
           </div>
+          </div>
+        </div>
 
-          <div className="relative">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Country *
-            </label>
-            <input
-              type="text"
-              value={formData.country}
-              onChange={(e) => {
-                setFormData(prev => ({ ...prev, country: e.target.value }));
-                setShowCountryDropdown(true);
-              }}
-              onFocus={() => setShowCountryDropdown(true)}
-              className="text-black w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              placeholder="Type to search countries..."
-            />
-            
-            {showCountryDropdown && filteredCountries.length > 0 && (
-              <div className="text-black absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                {filteredCountries.slice(0, 10).map((country) => (
-                  <button
-                    key={country}
-                    onClick={() => handleCountrySelect(country)}
-                    className="w-full text-left px-4 py-3 hover:bg-blue-500 transition-colors border-b border-gray-100 last:border-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className=" w-6 h-6 bg-blue-400 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      {country}
-                    </div>
-                  </button>
-                ))}
+        {/* Policy Form Modal */}
+        {showPolicyModal && (
+          <div 
+            className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4" 
+            id="policy-form-modal"
+            style={{ position: 'fixed', zIndex: 9999, width: '100vw', height: '100vh', top: 0, left: 0 }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-[95%] max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">Policy Information Form</h2>
+                    <p className="text-sm text-white/80">Fill in the details for your new policy</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPolicyModal(false);
+                    setModalPolicyArea(null);
+                  }}
+                  className="p-3 text-white/90 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center border border-white/20 hover:border-white/40 shadow-lg"
+                  title="Close Modal"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            )}
-            
-            {formData.country && !countries.includes(formData.country) && filteredCountries.length === 0 && (
-              <p className="text-sm text-red-600 mt-1 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Country not found. Please select from the list.
-              </p>
-            )}
+              <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+                {renderPolicyEditor()}
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Policy Areas Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-          {POLICY_AREAS.map(area => renderPolicyAreaCard(area))}
-        </div>
-
-        {/* Policy Editor */}
-        {renderPolicyEditor()}
+        )}
 
         {/* Auto-Fill Modal */}
         {showAutoFillModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-3xl font-bold text-gray-800">AI Auto-Fill from Document</h2>
-                  <button
-                    onClick={() => {
-                      setShowAutoFillModal(false);
-                      setAutoFillFile(null);
-                    }}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-
+          <div 
+            className="fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4"
+            style={{ position: 'fixed', zIndex: 9999, width: '100vw', height: '100vh', top: 0, left: 0 }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-[95%] max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-2xl">
+                <h2 className="text-2xl font-bold">AI Auto-Fill from Document</h2>
+                <button
+                  onClick={() => {
+                    setShowAutoFillModal(false);
+                    setAutoFillFile(null);
+                  }}
+                  className="p-3 text-white/90 hover:text-white hover:bg-white/20 rounded-xl transition-all duration-200 transform hover:scale-105 flex items-center justify-center border border-white/20 hover:border-white/40 shadow-lg"
+                  title="Close Modal"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
                 <div className="space-y-6">
                   <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
                     <div className="flex items-start gap-4">
@@ -1591,29 +1864,6 @@ const PolicySubmissionForm = () => {
             </div>
           </div>
         )}
-
-        {/* Submit Button */}
-        <div className="flex justify-center pt-8">
-          <button 
-            onClick={handleSubmit}
-            disabled={loading || getTotalPolicies() === 0}
-            className="inline-flex items-center gap-3 px-12 py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white font-bold rounded-2xl hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-lg"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full"></div>
-                Submitting...
-              </>
-            ) : (
-              <>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                Submit {getTotalPolicies()} Policies for Review
-              </>
-            )}
-          </button>
-        </div>
       </div>
     </div>
   );
