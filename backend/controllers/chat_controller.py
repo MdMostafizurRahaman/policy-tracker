@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 
 from models.chat import ChatRequest, ChatResponse, ChatMessage
-from services.chatbot_service_dynamodb import chatbot_service
+from services.chatbot_service_enhanced import enhanced_chatbot_service
 from utils.helpers import convert_objectid
 from middleware.auth import get_optional_user
 import logging
@@ -22,7 +22,7 @@ async def chat(
 ):
     """Chat with the AI assistant for policy queries (works for both authenticated and public access)"""
     try:
-        response = await chatbot_service.chat(request)
+        response = await enhanced_chatbot_service.chat(request)
         return response
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
@@ -32,7 +32,7 @@ async def chat(
 async def public_chat(request: ChatRequest):
     """Public chat endpoint that doesn't require authentication"""
     try:
-        response = await chatbot_service.chat(request)
+        response = await enhanced_chatbot_service.chat(request)
         return response
     except Exception as e:
         logger.error(f"Public chat error: {str(e)}")
@@ -46,7 +46,7 @@ async def get_conversation(
 ):
     """Get conversation history endpoint"""
     try:
-        messages = await chatbot_service.get_conversation_history(conversation_id)
+        messages = await enhanced_chatbot_service.get_conversation_history(conversation_id)
         return {
             "conversation_id": conversation_id, 
             "messages": [convert_objectid(msg.dict()) for msg in messages]
@@ -63,7 +63,7 @@ async def delete_conversation(
 ):
     """Delete conversation endpoint"""
     try:
-        success = await chatbot_service.delete_conversation(conversation_id)
+        success = await enhanced_chatbot_service.delete_conversation(conversation_id)
         return {
             "success": success, 
             "message": "Conversation deleted" if success else "Conversation not found"
@@ -80,7 +80,7 @@ async def get_conversations(
 ):
     """Get conversations list endpoint (works for both authenticated and public access)"""
     try:
-        conversations = await chatbot_service.get_user_conversations(limit)
+        conversations = await enhanced_chatbot_service.get_user_conversations(limit)
         return {"conversations": convert_objectid(conversations)}
     except Exception as e:
         logger.error(f"Get conversations error: {str(e)}")
@@ -94,7 +94,7 @@ async def policy_search(
 ):
     """Enhanced policy search endpoint for the sidebar"""
     try:
-        policies = await chatbot_service.search_policies(q)
+        policies = await enhanced_chatbot_service.search_policies(q)
         return {"policies": policies}
     except Exception as e:
         logger.error(f"Policy search error: {str(e)}")
@@ -107,7 +107,7 @@ async def chatbot_test():
     try:
         # Test basic functionality
         test_request = ChatRequest(message="help")
-        response = await chatbot_service.chat(test_request)
+        response = await enhanced_chatbot_service.chat(test_request)
         
         return {
             "status": "success",
