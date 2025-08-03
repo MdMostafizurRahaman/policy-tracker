@@ -1378,7 +1378,7 @@ const PolicySubmissionForm = () => {
           </p>
         </div>
 
-        {/* Enhanced User Info Card */}
+        {/* Enhanced User Info and Country Selection Combined */}
         <div className={`flex-shrink-0 mb-6 transform transition-all duration-700 hover:scale-[1.02] ${showPolicyModal || showAutoFillModal ? 'hidden' : ''}`}>
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 relative overflow-hidden group">
             {/* Animated gradient background */}
@@ -1398,6 +1398,100 @@ const PolicySubmissionForm = () => {
                 <p className="text-2xl font-black text-white mb-1">{user.firstName} {user.lastName}</p>
                 <p className="text-base text-gray-300 font-medium">{user.email}</p>
               </div>
+              
+              {/* Country Selection Section */}
+              <div className="flex-1 max-w-md">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg border border-emerald-300/40">
+                    <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Country *</p>
+                  </div>
+                </div>
+
+                <div className="relative z-50">
+                  <input
+                    type="text"
+                    value={formData.country}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, country: e.target.value }));
+                      setShowCountryDropdown(true);
+                    }}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    className="text-gray-900 w-full px-4 py-3 bg-white/95 backdrop-blur-sm border-2 border-white/30 rounded-xl focus:ring-4 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all shadow-lg font-medium pr-10"
+                    placeholder="🌍 Type to search countries..."
+                    autoComplete="off"
+                  />
+                  
+                  {/* Clear button */}
+                  {formData.country && (
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, country: '' }));
+                        setShowCountryDropdown(false);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500 hover:text-gray-700 transition-colors"
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                
+                  {showCountryDropdown && filteredCountries.length > 0 && (
+                    <div 
+                      className="absolute z-[999999] bg-white border-2 border-emerald-400 rounded-xl shadow-2xl max-h-60 overflow-y-auto w-full"
+                      style={{
+                        top: '100%',
+                        left: '0',
+                        marginTop: '4px',
+                        zIndex: 999999,
+                        maxHeight: '300px',
+                        position: 'absolute'
+                      }}
+                    >
+                      {filteredCountries.map((country) => (
+                        <button
+                          key={country}
+                          onClick={() => handleCountrySelect(country)}
+                          className="w-full text-left px-4 py-3 text-gray-800 hover:bg-gradient-to-r hover:from-emerald-400 hover:to-cyan-400 hover:text-white transition-all border-b border-gray-200 last:border-0 font-medium group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-base font-semibold">{country}</span>
+                                <span className="text-xs text-gray-600 group-hover:text-white/80">Click to select</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500 group-hover:text-white/70 font-medium">
+                              Available
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                
+                  {formData.country && !countries.includes(formData.country) && filteredCountries.length === 0 && (
+                    <div className="mt-2 p-3 bg-red-500/20 border border-red-400/30 rounded-xl backdrop-blur-sm">
+                      <p className="text-sm text-red-100 flex items-center gap-2 font-medium">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        ⚠️ Country not found. Please select from the list.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-emerald-400 rounded-full shadow-sm"></div>
                 <span className="text-sm font-semibold text-emerald-400">Active Session</span>
@@ -1504,10 +1598,9 @@ const PolicySubmissionForm = () => {
             </div>
           </div>
 
-          {/* Enhanced Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Total Policies Card */}
-            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            {/* <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1522,10 +1615,10 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Areas Covered Card */}
-            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            {/* <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -bottom-2 -left-2 w-20 h-20 bg-violet-400/20 rounded-full blur-2xl animate-bounce"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1540,10 +1633,10 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Max per Area Card */}
-            <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            {/* <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/15 rounded-full blur-lg animate-pulse"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1558,10 +1651,10 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
 
-        {/* Messages */}
+          {/* Messages */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-400/30 text-red-200 rounded-xl backdrop-blur-sm">
             <div className="flex items-center gap-3">
@@ -1583,75 +1676,6 @@ const PolicySubmissionForm = () => {
             </div>
           </div>
         )}
-
-          {/* Enhanced Country Selection */}
-          <div className="relative bg-gradient-to-br from-slate-700 via-gray-700 to-slate-800 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden">
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl animate-pulse"></div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-cyan-500/10 rounded-full blur-xl animate-bounce"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg border border-emerald-300/40">
-                  <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-300 to-cyan-300 bg-clip-text text-transparent">Country Selection</h3>
-                  <p className="text-sm text-white/80 font-medium">Select your country to continue</p>
-                </div>
-              </div>
-
-              <div className="relative">
-                <label className="block text-sm font-bold text-white/90 mb-2 uppercase tracking-wide">
-                  Country *
-                </label>
-                <input
-                  type="text"
-                  value={formData.country}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, country: e.target.value }));
-                    setShowCountryDropdown(true);
-                  }}
-                  onFocus={() => setShowCountryDropdown(true)}
-                  className="text-gray-900 w-full px-4 py-3 bg-white/95 backdrop-blur-sm border-2 border-white/30 rounded-xl focus:ring-4 focus:ring-emerald-400/50 focus:border-emerald-400 transition-all shadow-lg font-medium"
-                  placeholder="🌍 Type to search countries..."
-                />
-              
-                {showCountryDropdown && filteredCountries.length > 0 && (
-                  <div className="absolute z-20 w-full mt-2 bg-white/95 backdrop-blur-md border-2 border-white/30 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
-                    {filteredCountries.slice(0, 10).map((country) => (
-                      <button
-                        key={country}
-                        onClick={() => handleCountrySelect(country)}
-                        className="w-full text-left px-4 py-3 text-gray-800 hover:bg-gradient-to-r hover:from-emerald-400 hover:to-cyan-400 hover:text-white transition-all border-b border-gray-200/50 last:border-0 font-medium"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <span className="text-base">{country}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              
-                {formData.country && !countries.includes(formData.country) && filteredCountries.length === 0 && (
-                  <div className="mt-2 p-3 bg-red-500/20 border border-red-400/30 rounded-xl backdrop-blur-sm">
-                    <p className="text-sm text-red-100 flex items-center gap-2 font-medium">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      ⚠️ Country not found. Please select from the list.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Policy Areas Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
