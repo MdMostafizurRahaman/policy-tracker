@@ -23,6 +23,7 @@ export default function Page() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [scrollY, setScrollY] = useState(0)
+  const [isClient, setIsClient] = useState(false)
 
   // Visit tracking hook
   const { trackVisit, trackNewRegistration, visitStats } = useVisitTracker()
@@ -32,6 +33,7 @@ export default function Page() {
 
   // Initialize dark mode from localStorage or system preference
   useEffect(() => {
+    setIsClient(true)
     const savedDarkMode = localStorage.getItem('darkMode')
     if (savedDarkMode !== null) {
       setDarkMode(JSON.parse(savedDarkMode))
@@ -277,66 +279,90 @@ export default function Page() {
       default:
         return (
           <div className={`min-h-screen ${animate ? 'animate-page-enter' : ''} relative overflow-hidden`}>
-            {/* Dynamic Background */}
-            <div className="fixed inset-0 bg-gradient-mesh from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900"></div>
-            <div className="floating-orbs">
-              <div className="orb orb-1" style={{
-                transform: `translate(${mousePosition.x * 0.01}px, ${mousePosition.y * 0.01}px)`
-              }}></div>
-              <div className="orb orb-2" style={{
-                transform: `translate(${mousePosition.x * 0.015}px, ${mousePosition.y * 0.015}px)`
-              }}></div>
-              <div className="orb orb-3" style={{
-                transform: `translate(${mousePosition.x * 0.008}px, ${mousePosition.y * 0.008}px)`
-              }}></div>
-            </div>
+            {/* Enhanced Dynamic Background with Floating Particles */}
+            <div className="fixed inset-0 bg-cosmic-gradient"></div>
+            {isClient && (
+              <div className="floating-particles">
+                {[...Array(50)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="particle" 
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 20}s`,
+                      animationDuration: `${15 + Math.random() * 10}s`
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Enhanced Floating Orbs with Mouse Interaction */}
+            {isClient && (
+              <div className="floating-orbs">
+                <div className="orb orb-cosmic-1" style={{
+                  transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px) rotate(${scrollY * 0.1}deg)`
+                }}></div>
+                <div className="orb orb-cosmic-2" style={{
+                  transform: `translate(${mousePosition.x * -0.015}px, ${mousePosition.y * 0.025}px) rotate(${scrollY * -0.05}deg)`
+                }}></div>
+                <div className="orb orb-cosmic-3" style={{
+                  transform: `translate(${mousePosition.x * 0.01}px, ${mousePosition.y * -0.01}px) scale(${1 + Math.sin(Date.now() * 0.001) * 0.1})`
+                }}></div>
+                <div className="orb orb-cosmic-4" style={{
+                  transform: `translate(${mousePosition.x * -0.008}px, ${mousePosition.y * 0.012}px)`
+                }}></div>
+              </div>
+            )}
 
-            {/* Hero Section */}
-            <section className="relative py-32 px-4 overflow-hidden" style={{
+            {/* Enhanced Hero Section */}
+            <section className="relative py-8 px-4 overflow-hidden" style={{
               transform: `translateY(${scrollY * 0.1}px)`
             }}>
               <div className="relative max-w-7xl mx-auto text-center">
-                <h1 className="text-4xl md:text-8xl font-black mb-12 leading-tight">
-                  <span className="hero-text bg-gradient-to-r from-white to-yellow-300 bg-clip-text text-transparent">
+                <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
+                  <span className="hero-text-cosmic bg-gradient-to-r from-white via-cyan-300 to-purple-300 bg-clip-text text-transparent">
                     Global Policy Tracker
                   </span>
                 </h1>
                 
-                <p className="text-2xl md:text-3xl text-gray-600 dark:text-gray-300 max-w-5xl mx-auto leading-relaxed mb-16 font-light">
+                <p className="text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed mb-8 font-light">
                   <b>Discover, analyze, and understand global policy frameworks through our </b>
                   <span className="font-semibold bg-gradient-to-r from-yellow-300 to-yellow-600 bg-clip-text text-transparent"> AI-powered platform </span>
                   <b>with real-time visualization technology.</b>
                 </p>
 
                 {/* Enhanced CTA Buttons */}
-                <div className="flex flex-col sm:flex-row gap-8 justify-center items-center mb-20">
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
                   <button
                     onClick={() => setView("worldmap")}
-                    className="hero-button-primary group"
+                    className="cosmic-button-primary group relative"
                   >
-                    <span className="relative z-10 flex items-center gap-4">
-                      <span className="text-2xl">🌍</span>
-                      <span className="font-bold text-xl">Explore World Map</span>
-                      <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-spin-slow">🌍</span>
+                      <span>Explore World Map</span>
+                      <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
                     </span>
-                    <div className="button-glow"></div>
                   </button>
                   
                   <button
                     onClick={() => setView("chatbot")}
-                    className="hero-button-secondary group"
+                    className="cosmic-button-secondary group relative"
                   >
-                    <span className="flex items-center gap-4">
-                      <span className="text-2xl">🤖</span>
-                      <span className="font-bold text-xl text-white">Policy Bot</span>
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-bounce-gentle">🤖</span>
+                      <span>Policy Bot</span>
                     </span>
                   </button>
                 </div>
 
                 {/* Enhanced Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
                   {[
                     { 
                       number: visitStats.loading ? "..." : `${visitStats.total_visits.toLocaleString()}+`, 
@@ -349,21 +375,24 @@ export default function Page() {
                     { number: "50K+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", gradient: "from-purple-500 to-pink-600" },
                     { number: "24/7", label: "Real-time Updates", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-orange-500 to-red-600" }
                   ].map((stat, index) => (
-                    <div key={index} className="stat-card group" style={{ animationDelay: `${index * 0.2}s` }}>
-                      <div className={`w-16 h-16 bg-gradient-to-br ${stat.gradient} rounded-2xl flex items-center justify-center mb-6 mx-auto shadow-2xl group-hover:scale-110 transition-all duration-500`}>
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
-                        </svg>
-                      </div>
-                      <div className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-3">
-                        {stat.number}
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-400 font-semibold">{stat.label}</div>
-                      {stat.dynamic && (
-                        <div className="text-xs text-white-500 dark:text-gray-400 mt-2">
-                          {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique visitors`}
+                    <div key={index} className="cosmic-stat-card group" style={{ animationDelay: `${index * 0.2}s` }}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20"></div>
+                      <div className="relative z-10 p-6">
+                        <div className={`w-14 h-14 bg-gradient-to-br ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-2xl group-hover:scale-110 transition-all duration-500`}>
+                          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                          </svg>
                         </div>
-                      )}
+                        <div className="text-3xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2 animate-number-glow">
+                          {stat.number}
+                        </div>
+                        <div className="text-white/80 font-semibold text-sm">{stat.label}</div>
+                        {stat.dynamic && (
+                          <div className="text-xs text-cyan-300 mt-1">
+                            {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique visitors`}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -372,13 +401,13 @@ export default function Page() {
 
             {/* Enhanced Features Section */}
             <section className="py-32 px-4 relative">
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-transparent dark:via-gray-900/50"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-transparent"></div>
               <div className="relative max-w-7xl mx-auto">
                 <div className="text-center mb-20">
-                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-gray-900 via-blue-600 to-purple-600 dark:from-white dark:via-blue-400 dark:to-purple-400 bg-clip-text text-transparent mb-8">
+                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-orange-300 bg-clip-text text-transparent mb-8">
                     Revolutionary Features
                   </h2>
-                  <p className="text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto font-light">
+                  <p className="text-2xl text-white/70 max-w-4xl mx-auto font-light">
                     Cutting-edge technology meets intuitive design for unparalleled policy analysis
                   </p>
                 </div>
@@ -407,15 +436,16 @@ export default function Page() {
                       bgGradient: "from-emerald-50 via-green-50 to-lime-100"
                     }
                   ].map((feature, index) => (
-                    <div key={index} className="feature-card group" style={{ animationDelay: `${index * 0.3}s` }}>
-                      <div className="feature-card-inner">
+                    <div key={index} className="cosmic-feature-card group" style={{ animationDelay: `${index * 0.3}s` }}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/10 group-hover:border-white/30 transition-all duration-700"></div>
+                      <div className="relative z-10 p-10">
                         <div className={`w-20 h-20 bg-gradient-to-br ${feature.gradient} rounded-3xl flex items-center justify-center mb-8 shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-700`}>
                           <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={feature.icon} />
                           </svg>
                         </div>
-                        <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">{feature.title}</h3>
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg">{feature.description}</p>
+                        <h3 className="text-3xl font-bold text-white mb-6">{feature.title}</h3>
+                        <p className="text-white/70 leading-relaxed text-lg">{feature.description}</p>
                       </div>
                     </div>
                   ))}
@@ -425,14 +455,14 @@ export default function Page() {
 
             {/* Enhanced Navigation Cards */}
             <section className="py-32 px-4 relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-50/50 via-purple-50/50 to-pink-50/50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20"></div>
+              <div className="absolute inset-0 bg-gradient-radial from-purple-900/40 via-transparent to-cyan-900/40"></div>
               <div className="relative max-w-7xl mx-auto">
                 <div className="text-center mb-20">
-                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-gray-900 via-indigo-600 to-purple-600 dark:from-white dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent mb-8">
+                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-orange-300 via-yellow-300 to-cyan-300 bg-clip-text text-transparent mb-8">
                     Choose Your Journey
                   </h2>
-                  <p className="text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto font-light">
-                    Multiple pathways to explore the world of global policy Tracker
+                  <p className="text-2xl text-white/70 max-w-4xl mx-auto font-light">
+                    Multiple pathways to explore the world of global policy tracker
                   </p>
                 </div>
 
@@ -441,17 +471,18 @@ export default function Page() {
                     <div
                       key={item.key}
                       onClick={() => setView(item.key)}
-                      className="navigation-card group"
+                      className="cosmic-portal-card group cursor-pointer"
                       style={{ animationDelay: `${index * 0.2}s` }}
                     >
-                      <div className="navigation-card-inner">
+                      <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient || 'from-white/10 to-white/5'} backdrop-blur-xl rounded-3xl border border-white/20 group-hover:border-white/40 transition-all duration-700`}></div>
+                      <div className="relative z-10 p-12">
                         <div className="flex items-start gap-6">
-                          <div className={`w-24 h-24 bg-gradient-to-br ${item.gradient} rounded-3xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 flex-shrink-0`}>
+                          <div className={`w-24 h-24 bg-gradient-to-br ${item.gradient} rounded-3xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 flex-shrink-0 animate-float-gentle`}>
                             <span className="text-4xl">{item.emoji}</span>
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">{item.label.replace(item.emoji + ' ', '')}</h3>
-                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg mb-6">{item.description}</p>
+                            <h3 className="text-3xl font-bold text-white mb-4">{item.label.replace(item.emoji + ' ', '')}</h3>
+                            <p className="text-white/70 leading-relaxed text-lg mb-6">{item.description}</p>
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center gap-2 text-lg font-bold bg-gradient-to-r ${item.gradient} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
                                 Launch Platform
@@ -694,11 +725,13 @@ export default function Page() {
           {/* Animated Background */}
           <div className="absolute inset-0">
             <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-            <div className="floating-orbs">
-              <div className="orb orb-footer-1"></div>
-              <div className="orb orb-footer-2"></div>
-              <div className="orb orb-footer-3"></div>
-            </div>
+            {isClient && (
+              <div className="floating-orbs">
+                <div className="orb orb-footer-1"></div>
+                <div className="orb orb-footer-2"></div>
+                <div className="orb orb-footer-3"></div>
+              </div>
+            )}
           </div>
 
           <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 py-20">
