@@ -1,5 +1,7 @@
 """
 Enhanced Chatbot Service with GPT API for human-like responses
+Covers 10 policy domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, 
+Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation
 Only responds with database information, redirects non-policy queries to registration
 """
 import os
@@ -39,10 +41,6 @@ class EnhancedChatbotService:
         self.last_cache_update = None
         self.cache_duration = 3600  # 1 hour
         
-        # Registration and submission links
-        self.registration_url = os.getenv('FRONTEND_URL', 'http://localhost:3000') + '/register'
-        self.submission_url = os.getenv('FRONTEND_URL', 'http://localhost:3000') + '/submit-policy'
-        
         # Greeting responses
         self.greeting_keywords = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hola']
         
@@ -52,16 +50,16 @@ class EnhancedChatbotService:
         # Country comparison keywords
         self.comparison_keywords = ['compare', 'difference', 'vs', 'versus', 'between', 'different', 'contrast']
         
-        # Out of scope topics (non-policy related)
+        # Out of scope topics (non-policy related) - expanded to exclude general topics
         self.non_policy_topics = [
-            'weather', 'sports', 'entertainment', 'movies', 'music', 'food', 'recipes',
-            'gaming', 'fashion', 'travel', 'jokes', 'memes', 'dating', 'relationships',
-            'stocks', 'cryptocurrency', 'bitcoin', 'shopping', 'technology news',
-            'programming', 'coding', 'software development', 'math', 'physics',
-            'chemistry', 'biology', 'medicine', 'health tips', 'fitness', 'exercise',
-            'color', 'colors', 'rainbow', 'art', 'painting', 'drawing', 'science facts',
-            'general knowledge', 'trivia', 'history', 'geography', 'animals', 'plants',
-            'space', 'astronomy', 'literature', 'books', 'cooking', 'recipes'
+            'weather', 'sports', 'entertainment news', 'movies', 'music', 'food', 'recipes',
+            'fashion', 'travel', 'jokes', 'memes', 'dating', 'relationships',
+            'stocks', 'cryptocurrency', 'bitcoin', 'shopping', 'celebrity news',
+            'programming tutorials', 'coding help', 'software development', 'math homework', 
+            'physics', 'chemistry', 'biology', 'science facts', 'personal advice',
+            'general knowledge', 'trivia', 'history facts', 'geography', 'animals', 'plants',
+            'space', 'astronomy', 'literature', 'books', 'cooking', 'personal finance',
+            'car maintenance', 'home improvement', 'gardening', 'pets', 'hobbies'
         ]
 
     async def get_db(self):
@@ -147,11 +145,27 @@ class EnhancedChatbotService:
                 timestamp=datetime.utcnow()
             )
             
-            # Generate AI response
-            ai_response = await self._generate_ai_response(
-                request.message, 
-                conversation.messages
-            )
+            # Extract conversation context from history
+            context = self._extract_conversation_context(conversation.messages, request.message)
+            
+            # Check if this is a policy-related query with context
+            is_policy_query = await self._is_policy_related_query(request.message, context)
+            
+            # Generate AI response based on whether it's policy-related
+            if is_policy_query:
+                # Check if it's a comparison query
+                if self._is_comparison_query(request.message):
+                    ai_response = await self._handle_country_comparison(request.message, conversation.messages, context)
+                else:
+                    # Find relevant policies with context
+                    policies = await self._find_relevant_policies_with_context(request.message, context)
+                    if policies:
+                        ai_response = await self._get_policy_response(request.message, policies, conversation.messages)
+                    else:
+                        ai_response = await self._get_no_data_response(request.message)
+            else:
+                # Non-policy response
+                ai_response = await self._get_non_policy_response(request.message)
             
             # Create AI message
             ai_message = ChatMessage(
@@ -249,15 +263,34 @@ class EnhancedChatbotService:
             print(f"Error saving conversation: {e}")
 
     async def _is_policy_related_query(self, message: str) -> bool:
-        """Check if the message is related to AI policy or governance"""
+        """Check if the message is related to any policy area or governance"""
         message_lower = message.lower()
         
-        # Policy-related keywords
+        # Policy-related keywords (expanded for all 10 policy areas)
         policy_keywords = [
             'policy', 'policies', 'governance', 'regulation', 'law', 'legislation',
-            'government', 'ai', 'artificial intelligence', 'digital', 'technology',
-            'ethics', 'safety', 'framework', 'strategy', 'implementation',
-            'evaluation', 'compliance', 'standard', 'guideline', 'principle'
+            'government', 'framework', 'strategy', 'implementation', 'evaluation', 
+            'compliance', 'standard', 'guideline', 'principle',
+            # AI Safety
+            'ai', 'artificial intelligence', 'ai safety', 'machine learning', 'automation',
+            # CyberSafety
+            'cyber', 'cybersecurity', 'digital security', 'data protection', 'privacy',
+            # Digital Education
+            'digital education', 'online learning', 'educational technology', 'e-learning',
+            # Digital Inclusion
+            'digital divide', 'digital inclusion', 'accessibility', 'internet access',
+            # Digital Leisure
+            'gaming', 'digital leisure', 'entertainment', 'online gaming', 'digital recreation',
+            # Disinformation
+            'misinformation', 'disinformation', 'fake news', 'information', 'media literacy',
+            # Digital Work
+            'digital work', 'remote work', 'gig economy', 'digital employment', 'future of work',
+            # Mental Health
+            'mental health', 'digital wellness', 'screen time', 'digital wellbeing',
+            # Physical Health
+            'physical health', 'healthcare technology', 'telemedicine', 'health tech',
+            # Social Media/Gaming Regulation
+            'social media', 'platform regulation', 'content moderation', 'gaming regulation'
         ]
         
         # Check if message contains any policy keywords
@@ -279,81 +312,240 @@ class EnhancedChatbotService:
         
         return False
 
+    def _extract_conversation_context(self, conversation_history: List[ChatMessage], current_message: str) -> Dict[str, Any]:
+        """Extract relevant context from recent conversation history"""
+        context = {
+            'mentioned_countries': set(),
+            'mentioned_areas': set(),
+            'recent_queries': [],
+            'last_topic': None
+        }
+        
+        # Analyze last 10 messages (5 exchanges) for context
+        recent_messages = conversation_history[-10:] if len(conversation_history) > 10 else conversation_history
+        
+        for message in recent_messages:
+            # Check if message has role or message_type attribute
+            message_role = getattr(message, 'role', None) or getattr(message, 'message_type', None)
+            if message_role == "user":
+                content_lower = message.content.lower()
+                context['recent_queries'].append(content_lower)
+                
+                # Extract countries mentioned in recent conversation
+                if self.countries_cache:
+                    for country in self.countries_cache:
+                        if country:
+                            country_lower = country.lower()
+                            if (country_lower in content_lower or
+                                (country_lower == "united states" and any(term in content_lower for term in ["usa", "us ", " us", "america", "american"])) or
+                                (country_lower == "united kingdom" and any(term in content_lower for term in ["uk ", " uk", "britain", "british"]))):
+                                context['mentioned_countries'].add(country)
+                
+                # Extract policy areas mentioned
+                if self.areas_cache:
+                    for area in self.areas_cache:
+                        if area and area.lower() in content_lower:
+                            context['mentioned_areas'].add(area)
+                        elif area == "AI Safety" and any(term in content_lower for term in ["ai", "artificial intelligence", "ai policy"]):
+                            context['mentioned_areas'].add(area)
+                
+                # Identify the topic of the last substantial query
+                if any(keyword in content_lower for keyword in ['policy', 'policies', 'ai', 'cyber', 'digital', 'governance']):
+                    context['last_topic'] = content_lower
+        
+        return context
+
+    def _is_comparison_query(self, message: str) -> bool:
+        """Check if the message is asking for a comparison between countries/policies"""
+        message_lower = message.lower()
+        comparison_patterns = [
+            'difference between',
+            'compare',
+            'vs',
+            'versus',
+            'different from',
+            'contrast',
+            'how does',
+            'what\'s the difference',
+            'whats the difference'
+        ]
+        
+        return any(pattern in message_lower for pattern in comparison_patterns)
+
+    async def _is_policy_related_query(self, message: str, context: Dict[str, Any] = None) -> bool:
+        """Enhanced policy-related query detection with conversation context"""
+        message_lower = message.lower()
+        
+        # If context suggests we're already discussing policies, be more lenient
+        if context and (context.get('mentioned_countries') or context.get('mentioned_areas') or 
+                       any('policy' in query for query in context.get('recent_queries', []))):
+            # Allow follow-up questions that might not explicitly mention policy keywords
+            comparison_words = ['difference', 'compare', 'vs', 'versus', 'between', 'different', 'contrast', 'how does']
+            if any(word in message_lower for word in comparison_words):
+                return True
+        
+        # Original policy detection logic
+        policy_keywords = [
+            'policy', 'policies', 'governance', 'regulation', 'law', 'legislation',
+            'government', 'framework', 'strategy', 'implementation', 'evaluation', 
+            'compliance', 'standard', 'guideline', 'principle',
+            # AI Safety
+            'ai', 'artificial intelligence', 'ai safety', 'machine learning', 'automation',
+            # CyberSafety
+            'cyber', 'cybersecurity', 'digital security', 'data protection', 'privacy',
+            # Digital Education
+            'digital education', 'online learning', 'educational technology', 'e-learning',
+            # Digital Inclusion
+            'digital divide', 'digital inclusion', 'accessibility', 'internet access',
+            # Digital Leisure
+            'gaming', 'digital leisure', 'entertainment', 'online gaming', 'digital recreation',
+            # Disinformation
+            'misinformation', 'disinformation', 'fake news', 'information', 'media literacy',
+            # Digital Work
+            'digital work', 'remote work', 'gig economy', 'digital employment', 'future of work',
+            # Mental Health
+            'mental health', 'digital wellness', 'screen time', 'digital wellbeing',
+            # Physical Health
+            'physical health', 'healthcare technology', 'telemedicine', 'health tech',
+            # Social Media/Gaming Regulation
+            'social media', 'platform regulation', 'content moderation', 'gaming regulation'
+        ]
+        
+        # Check if message contains any policy keywords
+        for keyword in policy_keywords:
+            if keyword in message_lower:
+                return True
+        
+        # Check if message mentions any country from our database
+        if self.countries_cache:
+            for country in self.countries_cache:
+                if country and country.lower() in message_lower:
+                    return True
+        
+        # Check if message mentions any policy area from our database
+        if self.areas_cache:
+            for area in self.areas_cache:
+                if area and area.lower() in message_lower:
+                    return True
+
     async def _generate_ai_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate AI response based on message and context"""
+        """Generate AI response based on message and context with conversation memory"""
         # Ensure message is a string
         if not isinstance(message, str):
             message = str(message)
             
         message_lower = message.lower().strip()
         
+        # Extract conversation context from recent messages (last 5 exchanges)
+        recent_context = self._extract_conversation_context(conversation_history, message)
+        
         # Check for greetings
         if any(keyword in message_lower for keyword in self.greeting_keywords):
-            return await self._get_ai_greeting_response(message, conversation_history)
+            return await self._get_greeting_response(message, conversation_history)
         
         # Check for help requests
         if any(keyword in message_lower for keyword in self.help_keywords):
-            return await self._get_ai_help_response(message, conversation_history)
+            return await self._get_help_response(message, conversation_history)
         
         # Check for explicit non-policy topics first
         if any(topic in message_lower for topic in self.non_policy_topics):
             return await self._get_non_policy_response(message)
         
-        # Check if the query is actually policy-related
-        if not await self._is_policy_related_query(message):
+        # Check if the query is actually policy-related (enhanced with context)
+        if not await self._is_policy_related_query(message, recent_context):
             return await self._get_non_policy_response(message)
         
-        # Check for country comparison requests
+        # Enhanced comparison detection with context awareness
         if any(keyword in message_lower for keyword in self.comparison_keywords):
-            return await self._handle_country_comparison(message)
-        if any(keyword in message_lower for keyword in self.comparison_keywords):
-            return await self._handle_country_comparison(message)
+            return await self._handle_country_comparison_with_context(message, recent_context)
         
-        # Search for relevant policies
-        relevant_policies = await self._find_relevant_policies(message)
+        # Search for relevant policies (enhanced with context)
+        relevant_policies = await self._find_relevant_policies_with_context(message, recent_context)
         
         if relevant_policies:
-            return await self._get_ai_policy_response(message, relevant_policies, conversation_history)
+            return await self._get_policy_response(message, relevant_policies, conversation_history)
         else:
             # No relevant policies found - suggest submission
             return await self._get_no_data_response(message)
 
     async def _find_relevant_policies(self, query: str) -> List[Dict]:
-        """Find policies relevant to the query"""
+        """Find policies relevant to the query - strict matching for precise results"""
         if not self.policy_cache:
             return []
         
         query_lower = query.lower()
         relevant_policies = []
         
-        # Score policies based on relevance
+        # Extract specific country and area mentions for strict filtering
+        mentioned_countries = []
+        mentioned_areas = []
+        
+        # Find mentioned countries (support common variations and typos)
+        if self.countries_cache:
+            for country in self.countries_cache:
+                if country and (country.lower() in query_lower or 
+                               # Handle common variations and typos
+                               (country.lower() == "united states" and any(term in query_lower for term in ["usa", "us ", " us", "america", "american", "use "])) or  # "use" might be typo for "us"
+                               (country.lower() == "united kingdom" and any(term in query_lower for term in ["uk ", " uk", "britain", "british"]))):
+                    mentioned_countries.append(country.lower())
+        
+        # Find mentioned areas
+        if self.areas_cache:
+            for area in self.areas_cache:
+                if area and area.lower() in query_lower:
+                    mentioned_areas.append(area.lower())
+        
+        # Score policies based on relevance with strict filtering
         for policy in self.policy_cache:
             score = 0
+            country = policy.get('country', '').lower()
+            area = policy.get('area_name', '').lower()
             
-            # Check country match
-            if policy.get('country') and policy['country'].lower() in query_lower:
+            # If user mentioned specific countries, only show those countries
+            if mentioned_countries and country not in mentioned_countries:
+                continue
+                
+            # If user mentioned specific areas, only show those areas
+            if mentioned_areas and area not in mentioned_areas:
+                continue
+            
+            # Score based on matches (be more flexible with country matching)
+            if (country in query_lower or 
+                # Handle common country name variations and typos
+                (country == "united states" and any(term in query_lower for term in ["usa", "us ", " us", "america", "american", "use "])) or  # "use" might be typo for "us"
+                (country == "united kingdom" and any(term in query_lower for term in ["uk ", " uk", "britain", "british"]))):
                 score += 10
             
-            # Check area match
-            if policy.get('area_name') and policy['area_name'].lower() in query_lower:
-                score += 8
+            # Enhanced area matching - be more flexible with AI Safety terms
+            area_match_score = 0
+            if area in query_lower:
+                area_match_score = 8
+            elif area == "ai safety" and any(term in query_lower for term in ["ai", "artificial intelligence", "ai policy", "ai governance"]):
+                area_match_score = 6
+            elif area == "cybersafety" and any(term in query_lower for term in ["cyber", "cybersecurity", "digital security"]):
+                area_match_score = 6
+            
+            score += area_match_score
             
             # Check policy name match
             if policy.get('policy_name') and policy['policy_name'].lower() in query_lower:
                 score += 15
             
-            # Check description match
+            # Check description match (only if no specific country/area mentioned or if they match)
             if policy.get('policy_description'):
                 description_words = policy['policy_description'].lower().split()
                 query_words = query_lower.split()
                 common_words = set(description_words) & set(query_words)
-                score += len(common_words) * 2
+                if common_words:
+                    score += len(common_words) * 2
             
             # Check implementation, evaluation, participation
             for field in ['implementation', 'evaluation', 'participation']:
                 field_value = policy.get(field)
-                if field_value and isinstance(field_value, str) and any(word in field_value.lower() for word in query_words):
-                    score += 3
+                if field_value and isinstance(field_value, str):
+                    query_words = query_lower.split()
+                    if any(word in field_value.lower() for word in query_words):
+                        score += 3
             
             if score > 0:
                 policy['relevance_score'] = score
@@ -363,7 +555,47 @@ class EnhancedChatbotService:
         relevant_policies.sort(key=lambda x: x['relevance_score'], reverse=True)
         return relevant_policies[:10]  # Return top 10 relevant policies
 
-    async def _get_ai_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+    async def _find_relevant_policies_with_context(self, query: str, context: Dict[str, Any]) -> List[Dict]:
+        """Find relevant policies with conversation context"""
+        # Start with the base query
+        policies = await self._find_relevant_policies(query)
+        
+        # If no policies found but we have context, try expanding the search
+        if not policies and context:
+            expanded_queries = []
+            
+            # Add context from mentioned countries
+            for country in context.get('mentioned_countries', []):
+                expanded_queries.append(f"{query} {country}")
+            
+            # Add context from mentioned areas
+            for area in context.get('mentioned_areas', []):
+                expanded_queries.append(f"{query} {area}")
+            
+            # Try the last topic if available
+            if context.get('last_topic'):
+                expanded_queries.append(f"{query} {context['last_topic']}")
+            
+            # Search with expanded queries
+            for expanded_query in expanded_queries:
+                expanded_policies = await self._find_relevant_policies(expanded_query)
+                if expanded_policies:
+                    policies.extend(expanded_policies)
+            
+            # Remove duplicates based on policy_id
+            seen_ids = set()
+            unique_policies = []
+            for policy in policies:
+                policy_id = policy.get('policy_id') or policy.get('id')
+                if policy_id and policy_id not in seen_ids:
+                    seen_ids.add(policy_id)
+                    unique_policies.append(policy)
+            
+            policies = unique_policies
+        
+        return policies
+
+    async def _get_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
         """Generate AI greeting response with your policy data context"""
         try:
             # Get sample policies for context
@@ -372,9 +604,12 @@ class EnhancedChatbotService:
             prompt = f"""
             A user just greeted you with: "{message}"
             
-            Respond as a world-class policy expert who has deep knowledge of the policies in your database.
+            Respond as a world-class policy expert who has deep knowledge of policies across 10 key domains in your database:
+            AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, 
+            (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation.
+            
             Reference specific countries and policy areas you know about.
-            Make it warm, professional, and show your expertise.
+            Make it warm, professional, and show your expertise across these domains.
             
             Keep it conversational and under 3 sentences.
             """
@@ -383,16 +618,16 @@ class EnhancedChatbotService:
             
         except Exception as e:
             print(f"Error generating greeting: {e}")
-            return "Hello! I'm your AI Policy Expert Assistant with deep knowledge of AI policies from around the world. I can help you explore policies, compare different countries' approaches, and provide detailed insights. What would you like to know?"
+            return "Hello! I'm your Policy Expert Assistant with deep knowledge of policies from around the world across 10 key domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. I can help you explore policies, compare different countries' approaches, and provide detailed insights. What would you like to know?"
 
-    async def _get_ai_help_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+    async def _get_help_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
         """Generate AI help response"""
         try:
             available_countries = ', '.join(self.countries_cache[:10]) + ('...' if len(self.countries_cache) > 10 else '')
             available_areas = ', '.join(self.areas_cache[:8]) + ('...' if len(self.areas_cache) > 8 else '')
             
             prompt = f"""
-            You are a helpful AI Policy Expert Assistant. A user is asking for help: "{message}"
+            You are a helpful Policy Expert Assistant covering 10 key policy domains. A user is asking for help: "{message}"
             
             Explain what you can help with in a friendly, conversational way:
             
@@ -401,11 +636,23 @@ class EnhancedChatbotService:
             - Policy Areas: {available_areas}
             - Total policies: {len(self.policy_cache)}
             
+            You specialize in 10 policy domains:
+            1. AI Safety - AI systems safety and governance
+            2. CyberSafety - Cybersecurity and digital safety
+            3. Digital Education - Educational technology policies
+            4. Digital Inclusion - Bridging digital divides
+            5. Digital Leisure - Gaming and entertainment policies
+            6. (Dis)Information - Combating misinformation
+            7. Digital Work - Future of work policies
+            8. Mental Health - Digital wellness policies
+            9. Physical Health - Healthcare technology policies
+            10. Social Media/Gaming Regulation - Platform regulation
+            
             You can help with:
             1. Finding policies by country or area
             2. Comparing policies between countries
             3. Explaining specific policy details
-            4. Searching policy descriptions
+            4. Searching policy descriptions across all domains
             
             Give 2-3 example questions they could ask. Keep it friendly and under 4 sentences.
             """
@@ -414,25 +661,28 @@ class EnhancedChatbotService:
             
         except Exception as e:
             print(f"Error generating help: {e}")
-            return f"I can help you explore AI policies from {len(self.countries_cache)} countries and {len(self.areas_cache)} policy areas. Try asking me about specific countries like '{self.countries_cache[0] if self.countries_cache else 'United States'}', policy areas like '{self.areas_cache[0] if self.areas_cache else 'AI Safety'}', or compare policies between countries. What would you like to explore?"
+            return f"I can help you explore policies across 10 key domains from {len(self.countries_cache)} countries and {len(self.areas_cache)} policy areas. Try asking me about specific countries like '{self.countries_cache[0] if self.countries_cache else 'United States'}', policy areas like '{self.areas_cache[0] if self.areas_cache else 'AI Safety'}', or compare policies between countries. What would you like to explore?"
 
-    async def _get_ai_policy_response(self, query: str, policies: List[Dict], conversation_history: List[ChatMessage]) -> str:
-        """Generate AI response about policies using your data for training context"""
+    async def _get_policy_response(self, query: str, policies: List[Dict], conversation_history: List[ChatMessage]) -> str:
+        """Generate AI response about policies using ONLY database information"""
         try:
             prompt = f"""
             User Query: "{query}"
             
-            Based on your extensive knowledge and the specific policies in your database, provide an expert analysis.
-            Draw upon your training on these policies to give detailed, nuanced insights.
+            You are responding based EXCLUSIVELY on the specific policies in your database. Do not make assumptions or add information not present in the data.
             
-            Focus on:
-            1. Directly answering the user's question with specific policy details
-            2. Comparing different approaches where relevant
-            3. Explaining implementation nuances you've learned
-            4. Providing expert context about effectiveness and challenges
-            5. Sound like a policy expert who has personally studied each policy
+            Available policies for this query: {len(policies)} relevant entries from your database.
             
-            Be conversational but authoritative. Use specific examples and comparisons.
+            Instructions:
+            1. Answer the user's question using ONLY the specific policy data provided
+            2. If the data is insufficient for a complete answer, say so clearly
+            3. Cite specific policy names, countries, and details from your actual database
+            4. Do not supplement with general knowledge or assumptions
+            5. Be conversational but accurate to your database
+            6. If comparisons are possible with your data, provide them
+            7. Focus on implementation details, evaluation methods, and participation frameworks from your database
+            
+            Be helpful and informative, but stay strictly within your database boundaries.
             """
             
             return await self._call_ai_api(prompt, policies)
@@ -441,25 +691,108 @@ class EnhancedChatbotService:
             print(f"Error generating policy response: {e}")
             return self._format_fallback_policy_response(policies)
 
-    async def _handle_country_comparison(self, message: str) -> str:
-        """Handle country comparison requests"""
+    async def _handle_country_comparison(self, message: str, conversation_history: List[ChatMessage] = None, context: Dict[str, Any] = None) -> str:
+        """Handle country comparison requests with enhanced country detection and conversation context"""
         try:
-            # Extract country names from the message
+            message_lower = message.lower()
             mentioned_countries = []
+            
+            # Start with countries from conversation context if available
+            if context and context.get('mentioned_countries'):
+                for country in context['mentioned_countries']:
+                    if country not in mentioned_countries:
+                        mentioned_countries.append(country)
+            
+            # Enhanced country detection with common variations
             for country in self.countries_cache:
-                if country and country.lower() in message.lower():
-                    mentioned_countries.append(country)
+                if country:
+                    country_lower = country.lower()
+                    # Direct match
+                    if country_lower in message_lower:
+                        if country not in mentioned_countries:
+                            mentioned_countries.append(country)
+                    # Handle common variations
+                    elif country_lower == "united states" and any(term in message_lower for term in ["usa", "us ", " us", "america", "american"]):
+                        if country not in mentioned_countries:
+                            mentioned_countries.append(country)
+                    elif country_lower == "united kingdom" and any(term in message_lower for term in ["uk ", " uk", "britain", "british"]):
+                        if country not in mentioned_countries:
+                            mentioned_countries.append(country)
+                    elif country_lower == "russia" and any(term in message_lower for term in ["russian"]):
+                        if country not in mentioned_countries:
+                            mentioned_countries.append(country)
+                    elif country_lower == "china" and any(term in message_lower for term in ["chinese"]):
+                        if country not in mentioned_countries:
+                            mentioned_countries.append(country)
+            
+            # Remove duplicates while preserving order
+            mentioned_countries = list(dict.fromkeys(mentioned_countries))
             
             if len(mentioned_countries) < 2:
-                # If less than 2 countries mentioned, suggest available countries
+                # Enhanced fallback - try to extract from comparison keywords context
+                comparison_phrases = [
+                    "difference between", "compare", "vs", "versus", "between", 
+                    "and", "differ", "contrast"
+                ]
+                
+                # Look for patterns like "USA and Russia", "difference between X and Y"
+                for phrase in comparison_phrases:
+                    if phrase in message_lower:
+                        # Extract text around comparison phrases
+                        parts = message_lower.split(phrase)
+                        if len(parts) >= 2:
+                            # Look for country names in both parts
+                            for country in self.countries_cache:
+                                country_variations = [country.lower()]
+                                if country.lower() == "united states":
+                                    country_variations.extend(["usa", "us", "america", "american"])
+                                elif country.lower() == "united kingdom":
+                                    country_variations.extend(["uk", "britain", "british"])
+                                elif country.lower() == "russia":
+                                    country_variations.extend(["russian"])
+                                elif country.lower() == "china":
+                                    country_variations.extend(["chinese"])
+                                
+                                for variation in country_variations:
+                                    if any(variation in part for part in parts) and country not in mentioned_countries:
+                                        mentioned_countries.append(country)
+                                        break
+                        break
+            
+            if len(mentioned_countries) < 2:
+                # Still no luck - provide helpful guidance
                 countries_list = ', '.join(self.countries_cache[:8])
-                return f"I can help you compare AI policies between countries! Please specify which countries you'd like to compare. We have data for: {countries_list}. For example, you could ask 'Compare AI policies between United States and Germany'."
+                return f"I can help you compare policies across 10 key domains between countries! Please specify which countries you'd like to compare. We have data for: {countries_list}. For example, you could ask 'Compare AI policies between United States and Russia' or 'What's the difference between Canada and Australia cybersafety policies?'"
             
             # Get policies for mentioned countries
             comparison_data = {}
             for country in mentioned_countries[:3]:  # Limit to 3 countries
                 country_policies = [p for p in self.policy_cache 
                                   if p.get('country') and p['country'].lower() == country.lower()]
+                
+                # If we have context about specific policy areas, filter further
+                if context and context.get('mentioned_areas'):
+                    area_filtered_policies = []
+                    for policy in country_policies:
+                        policy_area = policy.get('policy_area', '').lower()
+                        policy_name = policy.get('policy_name', '').lower()
+                        policy_desc = policy.get('policy_description', '').lower()
+                        
+                        # Check if policy matches any mentioned areas
+                        for mentioned_area in context['mentioned_areas']:
+                            mentioned_area_lower = mentioned_area.lower()
+                            if (mentioned_area_lower in policy_area or
+                                mentioned_area_lower in policy_name or
+                                mentioned_area_lower in policy_desc or
+                                # Special handling for AI Safety
+                                (mentioned_area == "AI Safety" and any(term in policy_name or term in policy_desc 
+                                    for term in ["ai", "artificial intelligence", "machine learning", "automation"]))):
+                                area_filtered_policies.append(policy)
+                                break
+                    
+                    if area_filtered_policies:
+                        country_policies = area_filtered_policies
+                
                 comparison_data[country] = country_policies
             
             if not any(comparison_data.values()):
@@ -469,31 +802,46 @@ class EnhancedChatbotService:
             
         except Exception as e:
             print(f"Error handling comparison: {e}")
-            return "I can help you compare AI policies between countries. Please specify which countries you'd like to compare from our available data."
+            return "I can help you compare policies between countries across 10 key policy domains. Please specify which countries you'd like to compare from our available data."
 
     async def _generate_country_comparison(self, countries: List[str], data: Dict[str, List], original_query: str) -> str:
-        """Generate AI-powered country comparison using your policy data for enhanced context"""
+        """Generate AI-powered country comparison using ONLY your database data"""
         try:
             # Collect all relevant policies for training context
             all_comparison_policies = []
             for country_policies in data.values():
                 all_comparison_policies.extend(country_policies[:5])  # Top 5 per country
             
+            # Check if we have sufficient data for comparison
+            countries_with_data = [country for country, policies in data.items() if policies]
+            countries_without_data = [country for country, policies in data.items() if not policies]
+            
+            if len(countries_with_data) < 2:
+                # Not enough data for comparison
+                missing_countries = ', '.join(countries_without_data)
+                available_countries = ', '.join(countries_with_data) if countries_with_data else "none of the requested countries"
+                
+                return f"I don't have sufficient policy data to compare {', '.join(countries)}. I have data for {available_countries} but not for {missing_countries}. Would you like me to share information about policies from {available_countries[0] if countries_with_data else 'countries where I do have data'}?"
+            
             prompt = f"""
             User Query: "{original_query}"
-            Countries to Compare: {', '.join(countries)}
+            Countries to Compare: {', '.join(countries_with_data)}
             
-            As a policy expert who has extensively studied these countries' approaches, provide a detailed comparison.
-            Draw on your deep knowledge of each country's policy framework, implementation style, and regulatory philosophy.
+            You are comparing policies using ONLY the data from your specific database. Do not add external knowledge.
             
-            Structure your response to:
-            1. Highlight the most significant differences in approach
-            2. Explain the reasoning behind each country's strategy
-            3. Compare implementation mechanisms and effectiveness
-            4. Note any unique innovations or focus areas
-            5. Use specific policy examples to illustrate points
+            Available data:
+            - Countries with data: {', '.join(countries_with_data)}
+            - Countries without data: {', '.join(countries_without_data) if countries_without_data else 'None'}
             
-            Make it sound like an expert briefing between policy professionals.
+            Instructions:
+            1. Compare ONLY the countries for which you have actual database entries
+            2. If some requested countries lack data, mention this clearly
+            3. Use specific policy names, implementation details, and frameworks from your database
+            4. Highlight actual differences and similarities based on your data
+            5. Do not speculate or add information not in your database
+            6. Be clear about the scope and limitations of your comparison
+            
+            Structure your response professionally but stay strictly within your database boundaries.
             """
             
             return await self._call_ai_api(prompt, all_comparison_policies)
@@ -504,43 +852,104 @@ class EnhancedChatbotService:
 
     async def _get_non_policy_response(self, message: str) -> str:
         """Response for non-policy related queries"""
-        return f"""I'm sorry, but as an AI Policy Expert Assistant, I specialize exclusively in AI policies and governance frameworks. I can't help with general questions like "{message}".
+        return f"""I'm sorry, but as a Policy Expert Assistant, I specialize exclusively in policy areas and governance frameworks across 10 key domains. I can't help with general questions like "{message}".
 
 However, I'd be happy to answer questions about:
-• AI policies from {len(self.countries_cache)} countries
+• Policies from {len(self.countries_cache)} countries across 10 policy areas
+• AI Safety, CyberSafety, Digital Education, Digital Inclusion
+• Digital Leisure, (Dis)Information, Digital Work
+• Mental Health, Physical Health, Social Media/Gaming Regulation
 • Policy comparisons between nations  
 • Specific governance frameworks and implementations
 
-If you're an expert in other areas, we'd love for you to contribute your knowledge!
-
-🔗 **Register as Expert**: {self.registration_url}
-📝 **Submit Policy Info**: {self.submission_url}"""
+If you're an expert in any policy areas, we'd love for you to contribute your knowledge to expand our database!"""
 
     async def _get_no_data_response(self, message: str) -> str:
-        """Response when no relevant policies found"""
+        """Response when no relevant policies found - handles intelligently based on query specificity"""
         try:
-            available_info = f"We currently have policies from {len(self.countries_cache)} countries covering areas like {', '.join(self.areas_cache[:5])}"
+            # Extract specific country and policy area from the message
+            mentioned_country = None
+            mentioned_area = None
             
-            response = await self._call_ai_api(f"""
-            A user asked: "{message}" but we don't have relevant policy data.
+            # Check for specific country mention
+            if self.countries_cache:
+                for country in self.countries_cache:
+                    if country and country.lower() in message.lower():
+                        mentioned_country = country
+                        break
             
-            Politely explain that we don't have that specific information in our database.
-            Mention: {available_info}
-            Suggest they could contribute as a policy expert if they have knowledge to share.
-            Be encouraging and helpful (2-3 sentences).
-            """)
+            # Check for specific policy area mention
+            if self.areas_cache:
+                for area in self.areas_cache:
+                    if area and area.lower() in message.lower():
+                        mentioned_area = area
+                        break
             
-            return f"{response}\n\n🌟 **Are you a policy expert?** Help expand our database!\n🔗 **Register**: {self.registration_url}\n📝 **Submit Policy**: {self.submission_url}"
+            # Generate intelligent response based on query specificity
+            if mentioned_country and mentioned_area:
+                # Very specific query - user wants specific country + area
+                response = f"I don't have {mentioned_area} policy data for {mentioned_country} in our database. This could be a valuable addition to our collection!"
+                
+            elif mentioned_country:
+                # Country-specific query - check if we actually have any policies for this country first
+                country_policies = []
+                if self.policy_cache:
+                    for policy in self.policy_cache:
+                        if policy.get('country', '').lower() == mentioned_country.lower():
+                            country_policies.append(policy)
+                
+                if country_policies:
+                    # We have policies for this country but not the specific area requested
+                    available_areas = list(set([p.get('area_name', '') for p in country_policies if p.get('area_name')]))
+                    response = f"I don't have the specific policy information you're looking for about {mentioned_country}. However, I do have {mentioned_country} policies in: {', '.join(available_areas[:5])}{'...' if len(available_areas) > 5 else ''}. Would you like information about these areas instead?"
+                else:
+                    # We truly don't have data for this country
+                    response = f"I don't have policy data for {mentioned_country} in our database yet. We're always looking to expand our coverage to include more countries."
+                
+            elif mentioned_area:
+                # Area-specific query - only suggest alternatives if explicitly no data exists
+                area_countries = []
+                if self.policy_cache:
+                    for policy in self.policy_cache:
+                        if policy.get('area_name', '').lower() == mentioned_area.lower():
+                            country = policy.get('country', '')
+                            if country and country not in area_countries:
+                                area_countries.append(country)
+                
+                if area_countries:
+                    # Don't automatically suggest other countries - just acknowledge we have that area
+                    response = f"I don't have the specific {mentioned_area} data you're looking for. I do have {mentioned_area} policies from other countries in our database if you'd like to explore that area generally."
+                else:
+                    response = f"I don't have {mentioned_area} policy data in our database yet."
+            else:
+                # General query
+                response = f"I don't have specific information about that in our current database."
+            
+            # Add contribution encouragement
+            response += f"\n\n🌟 **Know about this policy area?** Help us expand our database by contributing your expertise!"
+            
+            return response
             
         except Exception as e:
             print(f"Error generating no-data response: {e}")
-            return f"I don't have specific information about that in our current database. We cover {len(self.countries_cache)} countries and areas like {', '.join(self.areas_cache[:3])}. If you're a policy expert, consider contributing!\n\n🔗 **Register**: {self.registration_url}\n📝 **Submit Policy**: {self.submission_url}"
+            return f"I don't have specific information about that in our current database. If you're a policy expert, consider contributing your knowledge to help expand our coverage!"
 
     async def _create_enhanced_system_prompt(self, context_policies: List[Dict] = None) -> str:
         """Create enhanced system prompt using your policy database for training context"""
         
         # Base system prompt
-        base_prompt = """You are an Expert AI Policy Assistant with deep knowledge of global AI governance frameworks. You have been trained on a comprehensive database of AI policies from around the world.
+        base_prompt = """You are an Expert Policy Assistant with deep knowledge of global governance frameworks across 10 key policy domains. You have been trained on a comprehensive database of policies from around the world covering:
+
+1. **AI Safety** - AI systems safety and governance
+2. **CyberSafety** - Cybersecurity and digital safety  
+3. **Digital Education** - Educational technology policies
+4. **Digital Inclusion** - Bridging digital divides
+5. **Digital Leisure** - Gaming and entertainment policies
+6. **(Dis)Information** - Combating misinformation
+7. **Digital Work** - Future of work policies
+8. **Mental Health** - Digital wellness policies
+9. **Physical Health** - Healthcare technology policies
+10. **Social Media/Gaming Regulation** - Platform regulation
 
 **YOUR EXPERTISE COVERS:**"""
         
@@ -585,14 +994,25 @@ If you're an expert in other areas, we'd love for you to contribute your knowled
         base_prompt += """
 
 **YOUR RESPONSE STYLE:**
-- Act as a world-renowned policy expert who has personally analyzed each policy
-- Provide specific, detailed responses citing exact policy names, countries, and implementation details
-- Compare and contrast different approaches when relevant
+- Act as a specialized policy expert who ONLY knows about policies in your specific database
+- NEVER make up or assume policy information that's not in your database
+- If asked about specific countries/areas not in your data, clearly state you don't have that information
+- Only suggest alternatives when explicitly asked or when it would be genuinely helpful
+- Provide specific, detailed responses citing exact policy names, countries, and implementation details from your database
+- Compare and contrast different approaches when relevant, but only using your actual data
 - Use professional yet conversational tone
-- Always ground responses in the actual policy data provided
-- If asked about areas outside AI policy, politely redirect while acknowledging their expertise needs
+- If asked about areas outside these 10 policy domains, politely redirect while acknowledging their expertise needs
+- When you don't have specific data, encourage contribution rather than providing irrelevant alternatives
 
-**REMEMBER:** You have intimate knowledge of each policy's nuances, implementation challenges, and real-world impacts. Use this expertise to provide exceptional insights."""
+**CRITICAL RULES:**
+1. ONLY use information from your actual policy database
+2. If specific country/area data doesn't exist, say so clearly and don't substitute with other data unless explicitly asked
+3. Be helpful but precise - don't overwhelm users with irrelevant information when they ask for specific country/area combinations
+4. When user asks for specific country policies (like "USA", "America", "US"), focus ONLY on that country's data
+5. Encourage data contribution when gaps are identified
+6. If user asks about "AI policy in [country]" or "[country] AI policies", show ONLY that country's AI-related policies
+
+**REMEMBER:** You have intimate knowledge of each policy's nuances, implementation challenges, and real-world impacts across AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Use this expertise to provide exceptional insights, but ONLY from your actual database."""
         
         return base_prompt
 
@@ -670,7 +1090,7 @@ If you're an expert in other areas, we'd love for you to contribute your knowled
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a professional AI Policy Expert Assistant. Provide helpful, accurate, and conversational responses about AI policies."
+                        "content": "You are a professional Policy Expert Assistant covering 10 key policy domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Provide helpful, accurate, and conversational responses about policies across these domains."
                     },
                     {
                         "role": "user",
@@ -816,7 +1236,7 @@ If you're an expert in other areas, we'd love for you to contribute your knowled
                         },
                         {
                             "role": "user", 
-                            "content": f"What AI policies does {country} have in {area}?"
+                            "content": f"What {area} policies does {country} have?"
                         },
                         {
                             "role": "assistant",
@@ -858,11 +1278,11 @@ If you're an expert in other areas, we'd love for you to contribute your knowled
                             },
                             {
                                 "role": "user",
-                                "content": f"Compare AI policies between {country1} and {country2}"
+                                "content": f"Compare policies between {country1} and {country2}"
                             },
                             {
                                 "role": "assistant",
-                                "content": f"Comparing {country1} and {country2}'s AI policy approaches reveals distinct strategic differences. {country1} focuses on {policies1[0].get('area_name', 'comprehensive governance')} with policies like '{policies1[0].get('policy_name', '')}', while {country2} emphasizes {policies2[0].get('area_name', 'targeted regulation')} through initiatives such as '{policies2[0].get('policy_name', '')}'. The implementation strategies differ significantly, with {country1} adopting {policies1[0].get('implementation', 'systematic approaches')} versus {country2}'s {policies2[0].get('implementation', 'adaptive frameworks')}."
+                                "content": f"Comparing {country1} and {country2}'s policy approaches reveals distinct strategic differences. {country1} focuses on {policies1[0].get('area_name', 'comprehensive governance')} with policies like '{policies1[0].get('policy_name', '')}', while {country2} emphasizes {policies2[0].get('area_name', 'targeted regulation')} through initiatives such as '{policies2[0].get('policy_name', '')}'. The implementation strategies differ significantly, with {country1} adopting {policies1[0].get('implementation', 'systematic approaches')} versus {country2}'s {policies2[0].get('implementation', 'adaptive frameworks')}."
                             }
                         ]
                     })
@@ -889,6 +1309,73 @@ If you're an expert in other areas, we'd love for you to contribute your knowled
         """Search policies"""
         await self._update_cache()
         return await self._find_relevant_policies(query)
+    
+    async def get_available_data_summary(self) -> Dict[str, Any]:
+        """Get summary of available data in the database for debugging/info"""
+        await self._update_cache()
+        
+        # Group policies by country and area
+        country_data = {}
+        for policy in self.policy_cache:
+            country = policy.get('country', 'Unknown')
+            area = policy.get('area_name', 'Unknown')
+            
+            if country not in country_data:
+                country_data[country] = {}
+            if area not in country_data[country]:
+                country_data[country][area] = 0
+            country_data[country][area] += 1
+        
+        return {
+            'total_policies': len(self.policy_cache),
+            'total_countries': len(self.countries_cache),
+            'total_areas': len(self.areas_cache),
+            'countries': self.countries_cache,
+            'areas': self.areas_cache,
+            'country_area_breakdown': country_data
+        }
+    
+    def check_specific_data(self, country: str = None, area: str = None) -> Dict[str, Any]:
+        """Check if specific country/area data exists in cache"""
+        if not self.policy_cache:
+            return {'status': 'cache_empty', 'message': 'Policy cache not loaded'}
+        
+        matching_policies = []
+        
+        for policy in self.policy_cache:
+            match = True
+            policy_country = policy.get('country', '').strip()
+            policy_area = policy.get('area_name', '').strip()
+            
+            if country:
+                # Handle common country name variations
+                country_matches = (
+                    policy_country.lower() == country.lower() or
+                    (country.lower() in ["usa", "us", "america", "american"] and policy_country.lower() == "united states") or
+                    (country.lower() in ["uk", "britain", "british"] and policy_country.lower() == "united kingdom")
+                )
+                if not country_matches:
+                    match = False
+                    
+            if area and policy_area.lower() != area.lower():
+                match = False
+            
+            if match:
+                matching_policies.append({
+                    'country': policy_country,
+                    'area': policy_area,
+                    'policy_name': policy.get('policy_name'),
+                    'has_description': bool(policy.get('policy_description'))
+                })
+        
+        return {
+            'query': {'country': country, 'area': area},
+            'found': len(matching_policies),
+            'policies': matching_policies[:5],  # First 5 for preview
+            'total_available': len(matching_policies),
+            'all_countries_in_cache': sorted(list(set([p.get('country', '') for p in self.policy_cache if p.get('country')]))),
+            'all_areas_in_cache': sorted(list(set([p.get('area_name', '') for p in self.policy_cache if p.get('area_name')])))
+        }
 
 
 # Global instance
