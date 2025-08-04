@@ -112,6 +112,16 @@ export default function Page() {
   }, [])
 
   const navigationItems = [
+    {
+      key: "home",
+      label: "🏠 Home",
+      icon: "M3 12l9-9 9 9M4 10v10a2 2 0 002 2h4a2 2 0 002-2v-4h4v4a2 2 0 002 2h4a2 2 0 002-2V10",
+      gradient: "from-gray-400 via-blue-300 to-indigo-400",
+      bgGradient: "from-gray-50 via-blue-50 to-indigo-100",
+      description: "Go to home page",
+      emoji: "🏠",
+      category: "home"
+    },
     { 
       key: "worldmap", 
       label: "🌍 Explore Map", 
