@@ -412,7 +412,7 @@ export default function Page() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {[
                     {
                       title: "AI-Powered Visualization",
@@ -481,8 +481,8 @@ export default function Page() {
                             <span className="text-4xl">{item.emoji}</span>
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-3xl font-bold text-white mb-4">{item.label.replace(item.emoji + ' ', '')}</h3>
-                            <p className="text-white/70 leading-relaxed text-lg mb-6">{item.description}</p>
+                            <h3 className="text-3xl font-bold text-black mb-4">{item.label.replace(item.emoji + ' ', '')}</h3>
+                            <p className="text-black leading-relaxed text-lg mb-6 ">{item.description}</p>
                             <div className="flex items-center gap-3">
                               <span className={`inline-flex items-center gap-2 text-lg font-bold bg-gradient-to-r ${item.gradient} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
                                 Launch Platform
