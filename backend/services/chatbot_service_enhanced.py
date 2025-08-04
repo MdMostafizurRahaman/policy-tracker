@@ -42,7 +42,13 @@ class EnhancedChatbotService:
         self.cache_duration = 3600  # 1 hour
         
         # Greeting responses
-        self.greeting_keywords = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hola']
+        self.greeting_keywords = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hola', 'thanks', 'thank you', 'thank', 'appreciate', 'goodbye', 'bye', 'see you', 'farewell', 'have a nice day', 'take care']
+        
+        # Simple acknowledgment keywords (conversational responses)
+        self.acknowledgment_keywords = ['ok', 'okay', 'alright', 'sure', 'right', 'got it', 'understood', 'i see', 'makes sense', 'cool', 'fine', 'no problem', 'no worries', 'all good', 'nice', 'great', 'awesome', 'perfect', 'excellent', 'wonderful']
+        
+        # Apologetic/polite phrases that should get gentle responses
+        self.apologetic_keywords = ['sorry', 'apologize', 'my bad', 'oops', 'excuse me']
         
         # Help keywords
         self.help_keywords = ['help', 'what can you do', 'assist', 'guide', 'support', 'how to use']
@@ -61,6 +67,132 @@ class EnhancedChatbotService:
             'space', 'astronomy', 'literature', 'books', 'cooking', 'personal finance',
             'car maintenance', 'home improvement', 'gardening', 'pets', 'hobbies'
         ]
+        
+        # Spelling correction mappings for common typos
+        self.spelling_corrections = {
+            # Common greeting/thank you typos
+            'thnks': 'thanks',
+            'thanx': 'thanks', 
+            'thx': 'thanks',
+            'thnak': 'thank',
+            'thnk': 'thank',
+            'thankyou': 'thank you',
+            'helo': 'hello',
+            'hllo': 'hello',
+            'hi': 'hi',  # Keep as is
+            'hy': 'hi',
+            'hii': 'hi',
+            'heelo': 'hello',
+            'hellow': 'hello',
+            'helo': 'hello',
+            'helllo': 'hello',
+            'hi there': 'hi there',  # Keep as is
+            
+            # Common acknowledgment typos
+            'ok': 'ok',  # Keep as is
+            'okey': 'okay',
+            'okk': 'ok',
+            'okya': 'okay',
+            'oky': 'okay',
+            'alrigt': 'alright',
+            'alrite': 'alright',
+            'alrigth': 'alright',
+            'alrigh': 'alright',
+            'sure': 'sure',  # Keep as is
+            'sur': 'sure',
+            'shure': 'sure',
+            'rigt': 'right',
+            'rigth': 'right',
+            'rite': 'right',
+            'riht': 'right',
+            
+            # Common apologetic typos
+            'sory': 'sorry',
+            'sorri': 'sorry',
+            'sori': 'sorry',
+            'sorr': 'sorry',
+            'soory': 'sorry',
+            'apologise': 'apologize',
+            'appologize': 'apologize',
+            'apoligize': 'apologize',
+            
+            # Common goodbye typos
+            'by': 'bye',
+            'bai': 'bye',
+            'bey': 'bye',
+            'byee': 'bye',
+            'goodby': 'goodbye',
+            'gooodbye': 'goodbye',
+            'good bye': 'goodbye',
+            
+            # Policy-related typos
+            'polcy': 'policy',
+            'poicy': 'policy',
+            'polici': 'policy',
+            'policys': 'policies',
+            'polcies': 'policies',
+            'poicies': 'policies',
+            'comparision': 'comparison',
+            'comparision': 'comparison',
+            'diference': 'difference',
+            'diferent': 'different',
+            'diferrence': 'difference',
+            'betwen': 'between',
+            'betwenn': 'between',
+            'beetween': 'between',
+            'contries': 'countries',
+            'coutries': 'countries',
+            'countires': 'countries',
+            
+            # AI and tech-related typos
+            'artifical': 'artificial',
+            'artifical intelligence': 'artificial intelligence',
+            'ai safety': 'ai safety',  # Keep as is
+            'cyber security': 'cybersecurity',
+            'cyber-security': 'cybersecurity',
+            'saftey': 'safety',
+            'safty': 'safety',
+            'secuirty': 'security',
+            'securty': 'security',
+            'secrity': 'security',
+            
+            # Common word typos
+            'adn': 'and',
+            'an': 'and',  # Context dependent, but often a typo
+            'teh': 'the',
+            'te': 'the',
+            'thhe': 'the',
+            'tehre': 'there',
+            'ther': 'there',
+            'thier': 'their',
+            'theri': 'their',
+            'form': 'from',  # Context dependent
+            'fomr': 'from',
+            'wit': 'with',
+            'wiht': 'with',
+            'wih': 'with',
+            'whit': 'with',
+            'wnat': 'want',
+            'waht': 'what',
+            'wnat': 'want',
+            'whta': 'what',
+            'hwat': 'what',
+            'hwo': 'how',
+            'how': 'how',  # Keep as is
+            'cna': 'can',
+            'acn': 'can',
+            'yuor': 'your',
+            'yoru': 'your',
+            'oyu': 'you',
+            'yuo': 'you',
+            'u': 'you',
+            'ur': 'your',
+            'pls': 'please',
+            'plz': 'please',
+            'plase': 'please',
+            'pleae': 'please',
+            'plese': 'please'
+        }
 
     async def get_db(self):
         """Get DynamoDB connection"""
@@ -126,11 +258,245 @@ class EnhancedChatbotService:
         except Exception as e:
             print(f"Error updating cache: {e}")
 
+    def _correct_spelling_mistakes(self, message: str) -> tuple[str, bool]:
+        """
+        Detect and correct common spelling mistakes in user messages.
+        Returns (corrected_message, was_corrected)
+        """
+        try:
+            original_message = message
+            corrected_message = message.lower()
+            corrections_made = []
+            
+            # Split message into words for word-level corrections
+            words = corrected_message.split()
+            corrected_words = []
+            
+            for word in words:
+                # Remove punctuation for matching but keep it for reconstruction
+                clean_word = re.sub(r'[^\w]', '', word)
+                punctuation = re.sub(r'[\w]', '', word)
+                
+                # Check if the clean word needs correction
+                if clean_word in self.spelling_corrections:
+                    corrected_word = self.spelling_corrections[clean_word]
+                    corrected_words.append(corrected_word + punctuation)
+                    corrections_made.append(f"'{clean_word}' → '{corrected_word}'")
+                else:
+                    corrected_words.append(word)
+            
+            corrected_message = ' '.join(corrected_words)
+            
+            # Additional phrase-level corrections for multi-word expressions
+            phrase_corrections = {
+                'thank u': 'thank you',
+                'thnk u': 'thank you', 
+                'thnk you': 'thank you',
+                'thanx u': 'thank you',
+                'good mornig': 'good morning',
+                'good evning': 'good evening',
+                'good afernoon': 'good afternoon',
+                'good afteroon': 'good afternoon',
+                'artifical intelligence': 'artificial intelligence',
+                'cyber saftey': 'cybersafety',
+                'cyber safty': 'cybersafety',
+                'ai safty': 'ai safety',
+                'ai saftey': 'ai safety',
+                'comparision between': 'comparison between',
+                'diference between': 'difference between',
+                'beetween countries': 'between countries'
+            }
+            
+            for incorrect_phrase, correct_phrase in phrase_corrections.items():
+                if incorrect_phrase in corrected_message:
+                    corrected_message = corrected_message.replace(incorrect_phrase, correct_phrase)
+                    corrections_made.append(f"'{incorrect_phrase}' → '{correct_phrase}'")
+            
+            # Check if any corrections were made
+            was_corrected = len(corrections_made) > 0
+            
+            if was_corrected:
+                print(f"Spelling corrections made: {', '.join(corrections_made)}")
+                # Preserve original capitalization pattern as much as possible
+                corrected_message = self._preserve_capitalization(original_message, corrected_message)
+            
+            return corrected_message if was_corrected else original_message, was_corrected
+            
+        except Exception as e:
+            print(f"Error in spelling correction: {e}")
+            return message, False
+
+    def _preserve_capitalization(self, original: str, corrected: str) -> str:
+        """
+        Attempt to preserve the original capitalization pattern in the corrected message
+        """
+        try:
+            # Simple approach: if original was all caps, return all caps
+            if original.isupper():
+                return corrected.upper()
+            
+            # If original started with capital letter, capitalize the corrected message
+            if original and original[0].isupper():
+                return corrected.capitalize()
+            
+            # Otherwise return as is
+            return corrected
+            
+        except Exception as e:
+            print(f"Error preserving capitalization: {e}")
+            return corrected
+
+    def _calculate_similarity(self, word1: str, word2: str) -> float:
+        """
+        Calculate similarity between two words using simple edit distance
+        Returns a score between 0 and 1 (1 = identical)
+        """
+        try:
+            if word1 == word2:
+                return 1.0
+            
+            # Simple Levenshtein distance calculation
+            len1, len2 = len(word1), len(word2)
+            if len1 == 0:
+                return 0.0 if len2 > 0 else 1.0
+            if len2 == 0:
+                return 0.0
+            
+            # Create a matrix for dynamic programming
+            matrix = [[0] * (len2 + 1) for _ in range(len1 + 1)]
+            
+            # Initialize first row and column
+            for i in range(len1 + 1):
+                matrix[i][0] = i
+            for j in range(len2 + 1):
+                matrix[0][j] = j
+            
+            # Fill the matrix
+            for i in range(1, len1 + 1):
+                for j in range(1, len2 + 1):
+                    cost = 0 if word1[i-1] == word2[j-1] else 1
+                    matrix[i][j] = min(
+                        matrix[i-1][j] + 1,      # deletion
+                        matrix[i][j-1] + 1,      # insertion
+                        matrix[i-1][j-1] + cost  # substitution
+                    )
+            
+            # Calculate similarity score
+            max_len = max(len1, len2)
+            distance = matrix[len1][len2]
+            similarity = (max_len - distance) / max_len
+            
+            return similarity
+            
+        except Exception as e:
+            print(f"Error calculating similarity: {e}")
+            return 0.0
+
+    def _smart_spell_check(self, message: str) -> tuple[str, bool, list]:
+        """
+        Intelligent spell checking that suggests corrections for unknown words
+        Returns (corrected_message, was_corrected, suggestions)
+        """
+        try:
+            # First apply direct corrections
+            corrected_message, was_directly_corrected = self._correct_spelling_mistakes(message)
+            
+            if was_directly_corrected:
+                return corrected_message, True, []
+            
+            # If no direct corrections, try fuzzy matching for potential typos
+            words = message.lower().split()
+            suggestions = []
+            
+            for word in words:
+                clean_word = re.sub(r'[^\w]', '', word)
+                if len(clean_word) > 2:  # Only check words longer than 2 characters
+                    
+                    # Check against greeting keywords
+                    best_match = None
+                    best_score = 0.0
+                    
+                    # Check all keyword categories for fuzzy matches
+                    all_keywords = (self.greeting_keywords + 
+                                  self.acknowledgment_keywords + 
+                                  self.apologetic_keywords + 
+                                  self.help_keywords)
+                    
+                    for keyword in all_keywords:
+                        for keyword_word in keyword.split():
+                            similarity = self._calculate_similarity(clean_word, keyword_word)
+                            if similarity > best_score and similarity > 0.7:  # 70% similarity threshold
+                                best_score = similarity
+                                best_match = keyword_word
+                    
+                    if best_match and best_score > 0.7:
+                        suggestions.append({
+                            'original': clean_word,
+                            'suggestion': best_match,
+                            'confidence': best_score
+                        })
+            
+            return message, False, suggestions
+            
+        except Exception as e:
+            print(f"Error in smart spell check: {e}")
+            return message, False, []
+
+    def _is_simple_conversational(self, message_lower: str) -> bool:
+        """Check if message is a simple conversational phrase that should get acknowledgment response"""
+        # Patterns for simple conversational phrases
+        simple_patterns = [
+            # Apologetic phrases
+            "oh ok, sorry",
+            "sorry for asking",
+            "my bad",
+            "oops",
+            # Simple expressions  
+            "nice",
+            "cool",
+            "great",
+            "awesome",
+            "perfect",
+            "excellent",
+            "wonderful",
+            "interesting",
+            # Combination phrases
+            "oh ok",
+            "oh alright", 
+            "oh sure",
+            "ah ok",
+            "ah i see",
+            # Short responses
+            "i see",
+            "makes sense",
+            "got it"
+        ]
+        
+        # Check if the message is short and matches conversational patterns
+        if len(message_lower.split()) <= 5:  # 5 words or less
+            for pattern in simple_patterns:
+                if pattern in message_lower:
+                    return True
+                    
+            # Check for single word acknowledgments
+            single_words = ['nice', 'cool', 'great', 'awesome', 'perfect', 'excellent', 'wonderful', 'interesting']
+            if message_lower.strip() in single_words:
+                return True
+        
+        return False
+
     async def chat(self, request: ChatRequest) -> ChatResponse:
-        """Main chat endpoint"""
+        """Main chat endpoint with intelligent spelling correction"""
         try:
             # Update cache first
             await self._update_cache()
+            
+            # Apply intelligent spelling correction to user message
+            original_message = request.message
+            corrected_message, was_corrected = self._correct_spelling_mistakes(original_message)
+            
+            # Use corrected message for processing
+            processed_message = corrected_message
             
             # Get or create conversation
             conversation = await self._get_or_create_conversation(
@@ -138,34 +504,47 @@ class EnhancedChatbotService:
                 request.user_id
             )
             
-            # Create user message
+            # Create user message (store original message but process corrected one)
             user_message = ChatMessage(
                 role="user",
-                content=request.message,
+                content=original_message,  # Store original for conversation history
                 timestamp=datetime.utcnow()
             )
             
             # Extract conversation context from history
-            context = self._extract_conversation_context(conversation.messages, request.message)
+            context = self._extract_conversation_context(conversation.messages, processed_message)
             
-            # Check if this is a policy-related query with context
-            is_policy_query = await self._is_policy_related_query(request.message, context)
-            
-            # Generate AI response based on whether it's policy-related
-            if is_policy_query:
-                # Check if it's a comparison query
-                if self._is_comparison_query(request.message):
-                    ai_response = await self._handle_country_comparison(request.message, conversation.messages, context)
-                else:
-                    # Find relevant policies with context
-                    policies = await self._find_relevant_policies_with_context(request.message, context)
-                    if policies:
-                        ai_response = await self._get_policy_response(request.message, policies, conversation.messages)
-                    else:
-                        ai_response = await self._get_no_data_response(request.message)
+            # Check for greetings first (priority handling) - using corrected message
+            message_lower = processed_message.lower().strip()
+            if any(keyword in message_lower for keyword in self.greeting_keywords):
+                ai_response = await self._get_greeting_response(processed_message, conversation.messages, was_corrected, original_message)
+            # Check for simple acknowledgments or apologetic phrases
+            elif (any(keyword == message_lower for keyword in self.acknowledgment_keywords) or 
+                  any(keyword in message_lower for keyword in self.apologetic_keywords) or
+                  self._is_simple_conversational(message_lower)):
+                ai_response = await self._get_acknowledgment_response(processed_message, conversation.messages, was_corrected, original_message)
+            # Check for help requests
+            elif any(keyword in message_lower for keyword in self.help_keywords):
+                ai_response = await self._get_help_response(processed_message, conversation.messages)
             else:
-                # Non-policy response
-                ai_response = await self._get_non_policy_response(request.message)
+                # Check if this is a policy-related query with context
+                is_policy_query = await self._is_policy_related_query(processed_message, context)
+                
+                # Generate AI response based on whether it's policy-related
+                if is_policy_query:
+                    # Check if it's a comparison query
+                    if self._is_comparison_query(processed_message):
+                        ai_response = await self._handle_country_comparison(processed_message, conversation.messages, context)
+                    else:
+                        # Find relevant policies with context
+                        policies = await self._find_relevant_policies_with_context(processed_message, context)
+                        if policies:
+                            ai_response = await self._get_policy_response(processed_message, policies, conversation.messages)
+                        else:
+                            ai_response = await self._get_no_data_response(processed_message)
+                else:
+                    # Non-policy response
+                    ai_response = await self._get_non_policy_response(processed_message)
             
             # Create AI message
             ai_message = ChatMessage(
@@ -596,72 +975,186 @@ class EnhancedChatbotService:
         return policies
 
     async def _get_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate AI greeting response with your policy data context"""
+        """Generate human-friendly greeting response"""
         try:
-            # Get sample policies for context
-            sample_policies = self.policy_cache[:5] if self.policy_cache else []
+            message_lower = message.lower().strip()
             
-            prompt = f"""
-            A user just greeted you with: "{message}"
+            # Check if this is a thank you/appreciation after conversation (context-aware)
+            is_thank_you = any(word in message_lower for word in ['thank', 'appreciate'])
+            is_goodbye = any(word in message_lower for word in ['goodbye', 'bye', 'see you', 'farewell', 'have a nice day', 'take care'])
+            has_conversation_history = len(conversation_history) > 2  # More than just this exchange
             
-            Respond as a world-class policy expert who has deep knowledge of policies across 10 key domains in your database:
-            AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, 
-            (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation.
+            # If it's a thank you or goodbye after conversation, give a simple, natural response
+            if (is_thank_you or is_goodbye) and has_conversation_history:
+                if is_goodbye:
+                    farewell_responses = [
+                        "Goodbye! Feel free to come back anytime you have policy questions.",
+                        "Take care! I'm always here when you need policy insights.",
+                        "See you later! Don't hesitate to ask if you need help with policies.",
+                        "Have a great day! Come back whenever you need policy information.",
+                        "Farewell! I'll be here whenever you want to explore policy topics.",
+                        "Bye! Always happy to help with policy questions."
+                    ]
+                    import random
+                    return random.choice(farewell_responses)
+                else:  # is_thank_you
+                    thank_responses = [
+                        "You're very welcome! I'm glad I could help.",
+                        "Happy to assist! That's what I'm here for.",
+                        "You're welcome! Feel free to ask anytime.",
+                        "My pleasure! Always happy to help with policy insights.",
+                        "Glad I could help! Don't hesitate to reach out if you need anything else.",
+                        "You're most welcome! Have a great day!",
+                        "Anytime! Feel free to come back whenever you have policy questions."
+                    ]
+                    import random
+                    return random.choice(thank_responses)
             
-            Reference specific countries and policy areas you know about.
-            Make it warm, professional, and show your expertise across these domains.
+            # Detect greeting type for appropriate response (initial greetings)
+            if is_thank_you:
+                greeting_responses = [
+                    "You're very welcome! I'm glad I could help.",
+                    "Happy to assist! That's what I'm here for.",
+                    "You're welcome! Feel free to ask anytime.",
+                    "My pleasure! Always happy to help with policy insights."
+                ]
+            elif is_goodbye:
+                greeting_responses = [
+                    "Goodbye! Feel free to come back anytime.",
+                    "Take care! I'm always here when you need help.",
+                    "See you later! Don't hesitate to ask if you need assistance.",
+                    "Have a great day! Come back whenever you need information."
+                ]
+            elif any(word in message_lower for word in ['good morning', 'morning']):
+                greeting_responses = [
+                    "Good morning! Hope you're having a great day.",
+                    "Morning! Ready to explore some policy insights?",
+                    "Good morning! What policy area interests you today?"
+                ]
+            elif any(word in message_lower for word in ['good afternoon', 'afternoon']):
+                greeting_responses = [
+                    "Good afternoon! How can I help you today?",
+                    "Afternoon! What policy questions do you have?",
+                    "Good afternoon! Ready to dive into some policy analysis?"
+                ]
+            elif any(word in message_lower for word in ['good evening', 'evening']):
+                greeting_responses = [
+                    "Good evening! What brings you here today?",
+                    "Evening! Looking for some policy insights?",
+                    "Good evening! How can I assist you tonight?"
+                ]
+            else:
+                greeting_responses = [
+                    "Hello there! Great to meet you.",
+                    "Hi! Welcome, I'm excited to help you today.",
+                    "Hey! Nice to see you here.",
+                    "Hello! Wonderful to connect with you."
+                ]
             
-            Keep it conversational and under 3 sentences.
-            """
+            # Pick a friendly greeting
+            import random
+            friendly_greeting = random.choice(greeting_responses)
             
-            return await self._call_ai_api(prompt, sample_policies)
+            # Add the helpful information only for initial greetings (not for thank you/goodbye responses)
+            if not (is_thank_you or is_goodbye):
+                helpful_info = f"""\n\nI'd be happy to answer questions about:
+• Policies from {len(self.countries_cache)} countries across 10 policy areas
+• AI Safety, CyberSafety, Digital Education, Digital Inclusion
+• Digital Leisure, (Dis)Information, Digital Work  
+• Mental Health, Physical Health, Social Media/Gaming Regulation
+• Policy comparisons between nations
+• Specific governance frameworks and implementations
+
+If you're an expert in any policy areas, we'd love for you to contribute your knowledge to expand our database! Just use our form submission option to submit your expertise."""
+                return friendly_greeting + helpful_info
+            else:
+                # For thank you and goodbye, just return the friendly response
+                return friendly_greeting
             
         except Exception as e:
             print(f"Error generating greeting: {e}")
-            return "Hello! I'm your Policy Expert Assistant with deep knowledge of policies from around the world across 10 key domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. I can help you explore policies, compare different countries' approaches, and provide detailed insights. What would you like to know?"
+            return "Hello! Great to meet you. I'm your Policy Expert Assistant with deep knowledge of policies from around the world across 10 key domains. I'd be happy to answer questions about policies from multiple countries, help with comparisons, and provide detailed insights. What would you like to explore today?"
+
+    async def _get_acknowledgment_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+        """Generate natural response to simple acknowledgments"""
+        try:
+            message_lower = message.lower().strip()
+            
+            # Check if it's an apologetic message
+            is_apologetic = any(keyword in message_lower for keyword in self.apologetic_keywords)
+            
+            if is_apologetic:
+                # Gentle responses to apologies
+                apologetic_responses = [
+                    "No need to apologize! I'm here to help with any policy questions you might have.",
+                    "Don't worry about it! Feel free to ask me anything about policies.",
+                    "No problem at all! I'm always happy to help with policy-related questions.",
+                    "That's perfectly fine! Ask me anything about policies whenever you're ready.",
+                    "No worries! I'm here whenever you need policy information.",
+                    "Don't apologize! I'm here to assist with any policy questions."
+                ]
+                import random
+                return random.choice(apologetic_responses)
+            
+            # Natural responses to acknowledgments
+            acknowledgment_responses = [
+                "Great! Is there anything else you'd like to know about policies?",
+                "Perfect! Feel free to ask if you have any other policy questions.",
+                "Sounds good! What else can I help you with?",
+                "Excellent! Let me know if you need any other policy insights.",
+                "Wonderful! I'm here if you have more questions.",
+                "Nice! Anything else about policies you'd like to explore?",
+                "Got it! Feel free to ask about any policy area that interests you.",
+                "Awesome! I'm ready to help with any other policy queries."
+            ]
+            
+            # If there's conversation history, be more contextual
+            if len(conversation_history) > 2:
+                contextual_responses = [
+                    "Got it! Let me know if you have any other questions.",
+                    "Perfect! I'm here if you need anything else.",
+                    "Sounds good! Feel free to ask if something else comes to mind.",
+                    "Understood! I'm ready to help with anything else you need.",
+                    "Great! Don't hesitate to reach out if you have more questions."
+                ]
+                import random
+                return random.choice(contextual_responses)
+            else:
+                # For initial acknowledgments, be more welcoming
+                import random
+                return random.choice(acknowledgment_responses)
+            
+        except Exception as e:
+            print(f"Error generating acknowledgment response: {e}")
+            return "Great! Let me know if you have any other policy questions I can help with."
 
     async def _get_help_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate AI help response"""
+        """Generate friendly help response"""
         try:
             available_countries = ', '.join(self.countries_cache[:10]) + ('...' if len(self.countries_cache) > 10 else '')
-            available_areas = ', '.join(self.areas_cache[:8]) + ('...' if len(self.areas_cache) > 8 else '')
             
-            prompt = f"""
-            You are a helpful Policy Expert Assistant covering 10 key policy domains. A user is asking for help: "{message}"
+            friendly_help = f"""I'm here to help you explore global policy insights! Here's what I can do for you:
+
+🔍 **Find Policies**: Ask about specific countries or policy areas
+   Example: "What are the AI policies in the United States?" or "Tell me about Canada's cybersecurity policies"
+
+🌍 **Compare Countries**: See how different nations approach similar challenges  
+   Example: "Compare AI safety policies between US and EU" or "How do Canada and Australia handle digital education?"
+
+📊 **Explore Areas**: Dive deep into any of our 10 policy domains:
+   AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, Social Media/Gaming Regulation
+
+📈 **Get Details**: Learn about implementation, evaluation, and participation frameworks
+
+**Available Data**: {len(self.policy_cache)} policies from {len(self.countries_cache)} countries including {available_countries}
+
+Try asking something like "What digital education policies does Germany have?" or "Compare mental health policies between Nordic countries" - I'm here to help! 🚀"""
             
-            Explain what you can help with in a friendly, conversational way:
-            
-            Available data:
-            - Countries: {available_countries}
-            - Policy Areas: {available_areas}
-            - Total policies: {len(self.policy_cache)}
-            
-            You specialize in 10 policy domains:
-            1. AI Safety - AI systems safety and governance
-            2. CyberSafety - Cybersecurity and digital safety
-            3. Digital Education - Educational technology policies
-            4. Digital Inclusion - Bridging digital divides
-            5. Digital Leisure - Gaming and entertainment policies
-            6. (Dis)Information - Combating misinformation
-            7. Digital Work - Future of work policies
-            8. Mental Health - Digital wellness policies
-            9. Physical Health - Healthcare technology policies
-            10. Social Media/Gaming Regulation - Platform regulation
-            
-            You can help with:
-            1. Finding policies by country or area
-            2. Comparing policies between countries
-            3. Explaining specific policy details
-            4. Searching policy descriptions across all domains
-            
-            Give 2-3 example questions they could ask. Keep it friendly and under 4 sentences.
-            """
-            
-            return await self._call_ai_api(prompt)
+            return friendly_help
             
         except Exception as e:
             print(f"Error generating help: {e}")
-            return f"I can help you explore policies across 10 key domains from {len(self.countries_cache)} countries and {len(self.areas_cache)} policy areas. Try asking me about specific countries like '{self.countries_cache[0] if self.countries_cache else 'United States'}', policy areas like '{self.areas_cache[0] if self.areas_cache else 'AI Safety'}', or compare policies between countries. What would you like to explore?"
+            return f"I can help you explore policies across 10 key domains from {len(self.countries_cache)} countries! Try asking me about specific countries, policy areas like AI Safety or CyberSafety, or compare policies between countries. What would you like to explore?"
 
     async def _get_policy_response(self, query: str, policies: List[Dict], conversation_history: List[ChatMessage]) -> str:
         """Generate AI response about policies using ONLY database information"""
@@ -852,6 +1345,23 @@ class EnhancedChatbotService:
 
     async def _get_non_policy_response(self, message: str) -> str:
         """Response for non-policy related queries"""
+        # Check if it's a very short message that might be conversational
+        message_lower = message.lower().strip()
+        
+        # Handle apologetic phrases gently
+        if any(word in message_lower for word in ['sorry', 'apologize', 'my bad', 'oops']):
+            return "No need to apologize! I'm here to help with any policy questions you might have."
+        
+        # Handle simple conversational words
+        short_conversational = ['ok', 'okay', 'alright', 'sure', 'right', 'cool', 'fine', 'hmm', 'oh', 'ah', 'yes', 'no', 'yeah', 'yep', 'nope', 'nice', 'great', 'awesome', 'perfect', 'excellent', 'wonderful']
+        
+        if message_lower in short_conversational:
+            return "I understand! Is there anything specific about policies you'd like to know?"
+        
+        # Handle short conversational phrases
+        if len(message_lower.split()) <= 3 and any(word in message_lower for word in short_conversational):
+            return "I understand! Is there anything specific about policies you'd like to know?"
+        
         return f"""I'm sorry, but as a Policy Expert Assistant, I specialize exclusively in policy areas and governance frameworks across 10 key domains. I can't help with general questions like "{message}".
 
 However, I'd be happy to answer questions about:
