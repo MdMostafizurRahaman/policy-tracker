@@ -4,6 +4,7 @@ Handles HTTP requests for chatbot and conversation operations
 """
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
+from datetime import datetime
 
 from models.chat import ChatRequest, ChatResponse, ChatMessage
 from services.chatbot_service_enhanced import enhanced_chatbot_service
@@ -15,27 +16,35 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     current_user: dict = Depends(get_optional_user)
 ):
     """Chat with the AI assistant for policy queries (works for both authenticated and public access)"""
     try:
+        logger.info(f"💬 Chat request: {request.message[:50]}...")
         response = await enhanced_chatbot_service.chat(request)
+        logger.info(f"✅ Chat response generated: {len(response.response)} chars")
         return response
     except Exception as e:
-        logger.error(f"Chat error: {str(e)}")
+        logger.error(f"❌ Chat error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 @router.post("/public", response_model=ChatResponse)
 async def public_chat(request: ChatRequest):
     """Public chat endpoint that doesn't require authentication"""
     try:
+        logger.info(f"🌐 Public chat request: {request.message[:50]}...")
         response = await enhanced_chatbot_service.chat(request)
+        logger.info(f"✅ Public chat response generated: {len(response.response)} chars")
         return response
     except Exception as e:
-        logger.error(f"Public chat error: {str(e)}")
+        logger.error(f"❌ Public chat error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 
@@ -118,5 +127,52 @@ async def chatbot_test():
         logger.error(f"Chatbot test error: {str(e)}")
         return {
             "status": "error",
-            "message": f"Chatbot test failed: {str(e)}"
+            "message": str(e)
+        }
+
+@router.get("/debug/cache-status")
+async def cache_status():
+    """Debug endpoint to check cache status"""
+    try:
+        cache_info = {
+            "cache_loaded": enhanced_chatbot_service.policy_cache is not None,
+            "policies_count": len(enhanced_chatbot_service.policy_cache) if enhanced_chatbot_service.policy_cache else 0,
+            "countries_count": len(enhanced_chatbot_service.countries_cache) if enhanced_chatbot_service.countries_cache else 0,
+            "areas_count": len(enhanced_chatbot_service.areas_cache) if enhanced_chatbot_service.areas_cache else 0,
+            "last_update": enhanced_chatbot_service.last_cache_update,
+            "cache_age_hours": (
+                (datetime.utcnow().timestamp() - enhanced_chatbot_service.last_cache_update) / 3600
+                if enhanced_chatbot_service.last_cache_update else None
+            )
+        }
+        
+        return {
+            "status": "success",
+            "cache": cache_info
+        }
+    except Exception as e:
+        logger.error(f"Cache status error: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+@router.post("/debug/refresh-cache")
+async def refresh_cache():
+    """Force refresh the chatbot cache"""
+    try:
+        # Force cache refresh
+        enhanced_chatbot_service.last_cache_update = None
+        await enhanced_chatbot_service._update_cache()
+        
+        return {
+            "status": "success",
+            "message": "Cache refreshed successfully",
+            "policies_loaded": len(enhanced_chatbot_service.policy_cache) if enhanced_chatbot_service.policy_cache else 0
+        }
+    except Exception as e:
+        logger.error(f"Cache refresh error: {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e)
         }

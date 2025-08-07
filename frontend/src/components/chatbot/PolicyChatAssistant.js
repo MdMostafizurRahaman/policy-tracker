@@ -31,12 +31,37 @@ const PolicyChatAssistant = () => {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api';
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatContainerRef.current && messages.length > 0) {
+      const container = chatContainerRef.current;
+      
+      // Find the user's most recent question
+      const lastUserMessageIndex = messages.map((msg, idx) => msg.role === 'user' ? idx : -1)
+                                           .filter(idx => idx !== -1)
+                                           .pop();
+      
+      if (lastUserMessageIndex !== undefined) {
+        // Get all message elements
+        const messageElements = container.querySelectorAll('[data-message-index]');
+        const userMessageElement = messageElements[lastUserMessageIndex];
+        
+        if (userMessageElement) {
+          // Scroll to show the user's question at the top of the viewport
+          const containerTop = container.getBoundingClientRect().top;
+          const elementTop = userMessageElement.getBoundingClientRect().top;
+          const scrollOffset = elementTop - containerTop + container.scrollTop - 20; // 20px padding
+          
+          container.scrollTop = Math.max(0, scrollOffset);
+        }
+      }
+    }
   };
 
+  // Auto-scroll to show user question + beginning of bot answer
   useEffect(() => {
     if (messages.length > 0) {
-      scrollToBottom();
+      setTimeout(() => {
+        scrollToBottom();
+      }, 200); // Longer delay to ensure DOM is fully updated
     }
   }, [messages]);
 
@@ -341,9 +366,9 @@ const PolicyChatAssistant = () => {
   };
 
   return (
-    <div className="flex h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
       {/* Enhanced Sidebar */}
-      <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white/80 backdrop-blur-lg border-r border-gray-200/50 flex flex-col overflow-hidden shadow-xl`}>
+      <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white/80 backdrop-blur-lg border-r border-gray-200/50 flex flex-col shadow-xl`}>
         <div className="p-6 border-b border-gray-100/50 bg-gradient-to-r from-blue-600 to-indigo-600">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-white flex items-center gap-3">
@@ -479,7 +504,7 @@ const PolicyChatAssistant = () => {
 
         {/* Enhanced Conversations */}
         {showHistory && (
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-4">
               <h3 className="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" />
@@ -579,7 +604,7 @@ const PolicyChatAssistant = () => {
         {/* Enhanced Messages */}
         <div 
           ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0"
+          className="flex-1 overflow-y-auto p-6 space-y-6"
         >
           {messages.length === 0 ? (
             <div className="text-center py-12">
@@ -648,6 +673,7 @@ const PolicyChatAssistant = () => {
             messages.map((message, index) => (
               <div
                 key={index}
+                data-message-index={index}
                 className={`flex gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 {message.role === 'assistant' && (
@@ -736,7 +762,7 @@ const PolicyChatAssistant = () => {
               <button
                 onClick={() => sendMessage()}
                 disabled={!inputMessage.trim() || isLoading}
-                className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl disabled:hover:shadow-lg"
+                className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl disabled:hover:shadow-lg flex-shrink-0"
               >
                 <Send className="w-6 h-6" />
               </button>

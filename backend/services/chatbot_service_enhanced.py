@@ -9,6 +9,7 @@ import json
 import httpx
 import asyncio
 import re
+import random
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from dotenv import load_dotenv
@@ -39,16 +40,15 @@ class EnhancedChatbotService:
         self.countries_cache = None
         self.areas_cache = None
         self.last_cache_update = None
-        self.cache_duration = 3600  # 1 hour
+        self.cache_duration = 21600  # 6 hours for longer cache retention
         
-        # Greeting responses
-        self.greeting_keywords = ['hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 'good evening', 'howdy', 'hola', 'thanks', 'thank you', 'thank', 'appreciate', 'goodbye', 'bye', 'see you', 'farewell', 'have a nice day', 'take care']
-        
-        # Simple acknowledgment keywords (conversational responses)
-        self.acknowledgment_keywords = ['ok', 'okay', 'alright', 'sure', 'right', 'got it', 'understood', 'i see', 'makes sense', 'cool', 'fine', 'no problem', 'no worries', 'all good', 'nice', 'great', 'awesome', 'perfect', 'excellent', 'wonderful']
-        
-        # Apologetic/polite phrases that should get gentle responses
-        self.apologetic_keywords = ['sorry', 'apologize', 'my bad', 'oops', 'excuse me']
+        # Greeting responses - expanded to include casual greetings and responses
+        self.greeting_keywords = [
+            'hello', 'hi', 'hey', 'greetings', 'good morning', 'good afternoon', 
+            'good evening', 'howdy', 'hola', 'bye', 'goodbye', 'see you', 'farewell',
+            'thanks', 'thank you', 'thx', 'ok', 'okay', 'nice', 'cool', 'great',
+            'awesome', 'perfect', 'no', 'nope', 'yes', 'yeah', 'yep', 'sure'
+        ]
         
         # Help keywords
         self.help_keywords = ['help', 'what can you do', 'assist', 'guide', 'support', 'how to use']
@@ -201,62 +201,84 @@ class EnhancedChatbotService:
         return self._db
 
     async def _update_cache(self):
-        """Update policy cache with latest data"""
+        """Update policy cache with latest data - optimized with longer cache duration"""
         try:
             current_time = datetime.utcnow().timestamp()
             
-            # Check if cache needs update
+            # Check if cache needs update (increased cache duration to 6 hours)
             if (self.last_cache_update and 
-                current_time - self.last_cache_update < self.cache_duration and 
-                self.policy_cache):
+                current_time - self.last_cache_update < 21600 and  # 6 hours instead of 1
+                self.policy_cache is not None):
                 return
             
+            print("🔄 Updating chatbot cache...")
             db = await self.get_db()
             
-            # Get all approved policies
-            all_policies = await db.scan_table('policies')
+            # Use query instead of scan when possible, or implement pagination
+            try:
+                # Get approved policies with optimized query
+                all_policies = await db.scan_table('policies')
+                print(f"📊 Fetched {len(all_policies)} total policies from database")
+            except Exception as scan_error:
+                print(f"❌ Error scanning policies table: {scan_error}")
+                # Initialize with empty cache if scan fails
+                self.policy_cache = []
+                self.countries_cache = []
+                self.areas_cache = []
+                return
             
             # Process and cache policy data
             self.policy_cache = []
             countries_set = set()
             areas_set = set()
             
+            processed_count = 0
             for policy in all_policies:
-                if policy.get('status') in ['approved', 'master']:
-                    country = policy.get('country', '').strip()
-                    if country:
-                        countries_set.add(country)
-                    
-                    policy_areas = policy.get('policy_areas', [])
-                    for area in policy_areas:
-                        area_name = area.get('area_name', '').strip()
-                        if area_name:
-                            areas_set.add(area_name)
+                try:
+                    if policy.get('status') in ['approved', 'master']:
+                        country = policy.get('country', '').strip()
+                        if country:
+                            countries_set.add(country)
                         
-                        for p in area.get('policies', []):
-                            if p.get('status') == 'approved' or policy.get('status') == 'master':
-                                policy_data = {
-                                    'country': country,
-                                    'area_name': area_name,
-                                    'policy_name': p.get('policyName', ''),
-                                    'policy_description': p.get('policyDescription', ''),
-                                    'implementation': p.get('implementation', ''),
-                                    'evaluation': p.get('evaluation', ''),
-                                    'participation': p.get('participation', ''),
-                                    'policy_id': policy.get('policy_id'),
-                                    'created_at': policy.get('created_at'),
-                                    'approved_at': p.get('approved_at')
-                                }
-                                self.policy_cache.append(policy_data)
+                        policy_areas = policy.get('policy_areas', [])
+                        for area in policy_areas:
+                            area_name = area.get('area_name', '').strip()
+                            if area_name:
+                                areas_set.add(area_name)
+                            
+                            for p in area.get('policies', []):
+                                if p.get('status') == 'approved' or policy.get('status') == 'master':
+                                    policy_data = {
+                                        'country': country,
+                                        'area_name': area_name,
+                                        'policy_name': p.get('policyName', ''),
+                                        'policy_description': p.get('policyDescription', ''),
+                                        'implementation': p.get('implementation', ''),
+                                        'evaluation': p.get('evaluation', ''),
+                                        'participation': p.get('participation', ''),
+                                        'policy_id': policy.get('policy_id'),
+                                        'created_at': policy.get('created_at'),
+                                        'approved_at': p.get('approved_at')
+                                    }
+                                    self.policy_cache.append(policy_data)
+                                    processed_count += 1
+                except Exception as policy_error:
+                    print(f"⚠️ Error processing policy {policy.get('policy_id', 'unknown')}: {policy_error}")
+                    continue
             
             self.countries_cache = sorted(list(countries_set))
             self.areas_cache = sorted(list(areas_set))
             self.last_cache_update = current_time
             
-            print(f"Cache updated: {len(self.policy_cache)} policies, {len(self.countries_cache)} countries, {len(self.areas_cache)} areas")
+            print(f"✅ Cache updated: {len(self.policy_cache)} policies, {len(self.countries_cache)} countries, {len(self.areas_cache)} areas")
             
         except Exception as e:
-            print(f"Error updating cache: {e}")
+            print(f"❌ Critical error updating cache: {e}")
+            # Initialize with empty cache to prevent crashes
+            if self.policy_cache is None:
+                self.policy_cache = []
+                self.countries_cache = []
+                self.areas_cache = []
 
     def _correct_spelling_mistakes(self, message: str) -> tuple[str, bool]:
         """
@@ -486,10 +508,13 @@ class EnhancedChatbotService:
         return False
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
-        """Main chat endpoint with intelligent spelling correction"""
+        """Main chat endpoint - optimized to avoid cache updates on every request"""
         try:
-            # Update cache first
-            await self._update_cache()
+            # Only update cache if it's completely empty or very old (>6 hours)
+            if (self.policy_cache is None or 
+                not self.last_cache_update or 
+                datetime.utcnow().timestamp() - self.last_cache_update > 21600):
+                await self._update_cache()
             
             # Apply intelligent spelling correction to user message
             original_message = request.message
@@ -514,18 +539,22 @@ class EnhancedChatbotService:
             # Extract conversation context from history
             context = self._extract_conversation_context(conversation.messages, processed_message)
             
-            # Check for greetings first (priority handling) - using corrected message
-            message_lower = processed_message.lower().strip()
+            # Check for greetings and casual responses first
+            message_lower = request.message.lower().strip()
             if any(keyword in message_lower for keyword in self.greeting_keywords):
-                ai_response = await self._get_greeting_response(processed_message, conversation.messages, was_corrected, original_message)
-            # Check for simple acknowledgments or apologetic phrases
-            elif (any(keyword == message_lower for keyword in self.acknowledgment_keywords) or 
-                  any(keyword in message_lower for keyword in self.apologetic_keywords) or
-                  self._is_simple_conversational(message_lower)):
-                ai_response = await self._get_acknowledgment_response(processed_message, conversation.messages, was_corrected, original_message)
-            # Check for help requests
-            elif any(keyword in message_lower for keyword in self.help_keywords):
-                ai_response = await self._get_help_response(processed_message, conversation.messages)
+                ai_response = await self._get_greeting_response(request.message, conversation.messages)
+            # Check if this is a policy-related query with context
+            elif await self._is_policy_related_query(request.message, context):
+                # Check if it's a comparison query
+                if self._is_comparison_query(request.message):
+                    ai_response = await self._handle_country_comparison(request.message, conversation.messages, context)
+                else:
+                    # Find relevant policies with context
+                    policies = await self._find_relevant_policies_with_context(request.message, context)
+                    if policies:
+                        ai_response = await self._get_policy_response(request.message, policies, conversation.messages)
+                    else:
+                        ai_response = await self._get_no_data_response(request.message)
             else:
                 # Check if this is a policy-related query with context
                 is_policy_query = await self._is_policy_related_query(processed_message, context)
@@ -566,7 +595,9 @@ class EnhancedChatbotService:
             )
             
         except Exception as e:
-            print(f"Chat error: {e}")
+            print(f"❌ Chat error: {e}")
+            import traceback
+            traceback.print_exc()
             return ChatResponse(
                 response="I apologize, but I'm experiencing some technical difficulties. Please try again in a moment.",
                 conversation_id=request.conversation_id or "new"
@@ -641,6 +672,59 @@ class EnhancedChatbotService:
         except Exception as e:
             print(f"Error saving conversation: {e}")
 
+    async def _get_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
+        """Generate human-like greeting response"""
+        message_lower = message.lower().strip()
+        print(f"🎯 Processing greeting: '{message_lower}'")
+        
+        # Categorize the greeting type
+        if any(word in message_lower for word in ['bye', 'goodbye', 'see you', 'farewell']):
+            responses = [
+                "Goodbye! Feel free to come back anytime if you have questions about policies! 👋",
+                "See you later! I'll be here whenever you need policy insights! 😊",
+                "Take care! Don't hesitate to ask if you need help with policy research! 🌟",
+                "Farewell! Looking forward to helping you with policy questions again! ✨"
+            ]
+        elif any(word in message_lower for word in ['thanks', 'thank you', 'thx']):
+            responses = [
+                "You're very welcome! Happy to help with policy research anytime! 😊",
+                "My pleasure! That's what I'm here for - to make policy exploration easier! 🎯",
+                "Glad I could help! Feel free to ask me about any policy topics! 💡",
+                "Anytime! I love helping people understand policy frameworks! 🌟"
+            ]
+        elif any(word in message_lower for word in ['ok', 'okay', 'nice', 'cool', 'great', 'awesome', 'perfect']):
+            responses = [
+                "Great! Is there anything specific about policy areas you'd like to explore? 🚀",
+                "Awesome! I'm ready to help with any policy questions you might have! 💫",
+                "Perfect! What policy topics interest you most? 🎯",
+                "Cool! Feel free to ask me about policies from any of our 15+ countries! 🌍"
+            ]
+        elif any(word in message_lower for word in ['no', 'nope']):
+            responses = [
+                "No worries! I'm here whenever you're ready to explore policy topics! 😊",
+                "That's totally fine! Just let me know if you'd like to learn about any policies! 🌟",
+                "All good! Feel free to ask me anything about governance frameworks anytime! 💡"
+            ]
+        elif any(word in message_lower for word in ['yes', 'yeah', 'yep', 'sure']):
+            responses = [
+                "Excellent! What policy area would you like to dive into? 🚀",
+                "Great! I can help you explore policies across 10 key domains - what interests you? 🎯",
+                "Perfect! Feel free to ask about any country's policies or compare between nations! 🌍"
+            ]
+        else:
+            # Regular greeting
+            responses = [
+                "Hi there! 👋 I'm your Policy Expert Assistant! I can help you explore governance frameworks across 10 key domains from 15+ countries. What would you like to know?",
+                "Hello! 😊 Great to see you! I specialize in policy research across AI Safety, CyberSafety, Digital Education, and 7 other key areas. How can I assist you today?",
+                "Hey! 🌟 Welcome! I'm here to help you navigate policy landscapes from around the world. Whether you want country comparisons or specific policy details, I've got you covered!",
+                "Greetings! 💡 I'm your go-to expert for policy insights across global governance frameworks. What policy topics are you curious about?"
+            ]
+        
+        # Return a random response from the appropriate category
+        selected_response = random.choice(responses)
+        print(f"✅ Selected direct greeting response: {selected_response[:50]}...")
+        return selected_response
+
     async def _is_policy_related_query(self, message: str) -> bool:
         """Check if the message is related to any policy area or governance"""
         message_lower = message.lower()
@@ -660,8 +744,9 @@ class EnhancedChatbotService:
             'digital divide', 'digital inclusion', 'accessibility', 'internet access',
             # Digital Leisure
             'gaming', 'digital leisure', 'entertainment', 'online gaming', 'digital recreation',
-            # Disinformation
+            # Disinformation - expanded keywords
             'misinformation', 'disinformation', 'fake news', 'information', 'media literacy',
+            'dis information', 'disinformation', 'false information', 'propaganda', 'fact checking',
             # Digital Work
             'digital work', 'remote work', 'gig economy', 'digital employment', 'future of work',
             # Mental Health
@@ -683,11 +768,21 @@ class EnhancedChatbotService:
                 if country and country.lower() in message_lower:
                     return True
         
-        # Check if message mentions any policy area from our database
+        # Check if message mentions any policy area from our database (improved matching)
         if self.areas_cache:
             for area in self.areas_cache:
-                if area and area.lower() in message_lower:
-                    return True
+                if area:
+                    # Clean the area name for better matching
+                    clean_area = area.lower().replace('(', '').replace(')', '').replace('-', ' ')
+                    area_words = clean_area.split()
+                    
+                    # Check if any words from the area appear in the message
+                    if any(word in message_lower for word in area_words if len(word) > 2):
+                        return True
+                    
+                    # Also check the original area name
+                    if area.lower() in message_lower:
+                        return True
         
         return False
 
@@ -973,160 +1068,6 @@ class EnhancedChatbotService:
             policies = unique_policies
         
         return policies
-
-    async def _get_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate human-friendly greeting response"""
-        try:
-            message_lower = message.lower().strip()
-            
-            # Check if this is a thank you/appreciation after conversation (context-aware)
-            is_thank_you = any(word in message_lower for word in ['thank', 'appreciate'])
-            is_goodbye = any(word in message_lower for word in ['goodbye', 'bye', 'see you', 'farewell', 'have a nice day', 'take care'])
-            has_conversation_history = len(conversation_history) > 2  # More than just this exchange
-            
-            # If it's a thank you or goodbye after conversation, give a simple, natural response
-            if (is_thank_you or is_goodbye) and has_conversation_history:
-                if is_goodbye:
-                    farewell_responses = [
-                        "Goodbye! Feel free to come back anytime you have policy questions.",
-                        "Take care! I'm always here when you need policy insights.",
-                        "See you later! Don't hesitate to ask if you need help with policies.",
-                        "Have a great day! Come back whenever you need policy information.",
-                        "Farewell! I'll be here whenever you want to explore policy topics.",
-                        "Bye! Always happy to help with policy questions."
-                    ]
-                    import random
-                    return random.choice(farewell_responses)
-                else:  # is_thank_you
-                    thank_responses = [
-                        "You're very welcome! I'm glad I could help.",
-                        "Happy to assist! That's what I'm here for.",
-                        "You're welcome! Feel free to ask anytime.",
-                        "My pleasure! Always happy to help with policy insights.",
-                        "Glad I could help! Don't hesitate to reach out if you need anything else.",
-                        "You're most welcome! Have a great day!",
-                        "Anytime! Feel free to come back whenever you have policy questions."
-                    ]
-                    import random
-                    return random.choice(thank_responses)
-            
-            # Detect greeting type for appropriate response (initial greetings)
-            if is_thank_you:
-                greeting_responses = [
-                    "You're very welcome! I'm glad I could help.",
-                    "Happy to assist! That's what I'm here for.",
-                    "You're welcome! Feel free to ask anytime.",
-                    "My pleasure! Always happy to help with policy insights."
-                ]
-            elif is_goodbye:
-                greeting_responses = [
-                    "Goodbye! Feel free to come back anytime.",
-                    "Take care! I'm always here when you need help.",
-                    "See you later! Don't hesitate to ask if you need assistance.",
-                    "Have a great day! Come back whenever you need information."
-                ]
-            elif any(word in message_lower for word in ['good morning', 'morning']):
-                greeting_responses = [
-                    "Good morning! Hope you're having a great day.",
-                    "Morning! Ready to explore some policy insights?",
-                    "Good morning! What policy area interests you today?"
-                ]
-            elif any(word in message_lower for word in ['good afternoon', 'afternoon']):
-                greeting_responses = [
-                    "Good afternoon! How can I help you today?",
-                    "Afternoon! What policy questions do you have?",
-                    "Good afternoon! Ready to dive into some policy analysis?"
-                ]
-            elif any(word in message_lower for word in ['good evening', 'evening']):
-                greeting_responses = [
-                    "Good evening! What brings you here today?",
-                    "Evening! Looking for some policy insights?",
-                    "Good evening! How can I assist you tonight?"
-                ]
-            else:
-                greeting_responses = [
-                    "Hello there! Great to meet you.",
-                    "Hi! Welcome, I'm excited to help you today.",
-                    "Hey! Nice to see you here.",
-                    "Hello! Wonderful to connect with you."
-                ]
-            
-            # Pick a friendly greeting
-            import random
-            friendly_greeting = random.choice(greeting_responses)
-            
-            # Add the helpful information only for initial greetings (not for thank you/goodbye responses)
-            if not (is_thank_you or is_goodbye):
-                helpful_info = f"""\n\nI'd be happy to answer questions about:
-• Policies from {len(self.countries_cache)} countries across 10 policy areas
-• AI Safety, CyberSafety, Digital Education, Digital Inclusion
-• Digital Leisure, (Dis)Information, Digital Work  
-• Mental Health, Physical Health, Social Media/Gaming Regulation
-• Policy comparisons between nations
-• Specific governance frameworks and implementations
-
-If you're an expert in any policy areas, we'd love for you to contribute your knowledge to expand our database! Just use our form submission option to submit your expertise."""
-                return friendly_greeting + helpful_info
-            else:
-                # For thank you and goodbye, just return the friendly response
-                return friendly_greeting
-            
-        except Exception as e:
-            print(f"Error generating greeting: {e}")
-            return "Hello! Great to meet you. I'm your Policy Expert Assistant with deep knowledge of policies from around the world across 10 key domains. I'd be happy to answer questions about policies from multiple countries, help with comparisons, and provide detailed insights. What would you like to explore today?"
-
-    async def _get_acknowledgment_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate natural response to simple acknowledgments"""
-        try:
-            message_lower = message.lower().strip()
-            
-            # Check if it's an apologetic message
-            is_apologetic = any(keyword in message_lower for keyword in self.apologetic_keywords)
-            
-            if is_apologetic:
-                # Gentle responses to apologies
-                apologetic_responses = [
-                    "No need to apologize! I'm here to help with any policy questions you might have.",
-                    "Don't worry about it! Feel free to ask me anything about policies.",
-                    "No problem at all! I'm always happy to help with policy-related questions.",
-                    "That's perfectly fine! Ask me anything about policies whenever you're ready.",
-                    "No worries! I'm here whenever you need policy information.",
-                    "Don't apologize! I'm here to assist with any policy questions."
-                ]
-                import random
-                return random.choice(apologetic_responses)
-            
-            # Natural responses to acknowledgments
-            acknowledgment_responses = [
-                "Great! Is there anything else you'd like to know about policies?",
-                "Perfect! Feel free to ask if you have any other policy questions.",
-                "Sounds good! What else can I help you with?",
-                "Excellent! Let me know if you need any other policy insights.",
-                "Wonderful! I'm here if you have more questions.",
-                "Nice! Anything else about policies you'd like to explore?",
-                "Got it! Feel free to ask about any policy area that interests you.",
-                "Awesome! I'm ready to help with any other policy queries."
-            ]
-            
-            # If there's conversation history, be more contextual
-            if len(conversation_history) > 2:
-                contextual_responses = [
-                    "Got it! Let me know if you have any other questions.",
-                    "Perfect! I'm here if you need anything else.",
-                    "Sounds good! Feel free to ask if something else comes to mind.",
-                    "Understood! I'm ready to help with anything else you need.",
-                    "Great! Don't hesitate to reach out if you have more questions."
-                ]
-                import random
-                return random.choice(contextual_responses)
-            else:
-                # For initial acknowledgments, be more welcoming
-                import random
-                return random.choice(acknowledgment_responses)
-            
-        except Exception as e:
-            print(f"Error generating acknowledgment response: {e}")
-            return "Great! Let me know if you have any other policy questions I can help with."
 
     async def _get_help_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
         """Generate friendly help response"""
@@ -1728,7 +1669,11 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
 
     async def generate_training_data(self) -> List[Dict]:
         """Generate training examples from your policy database for model fine-tuning"""
-        await self._update_cache()
+        # Only update cache if empty or very old
+        if (self.policy_cache is None or 
+            not self.last_cache_update or 
+            datetime.utcnow().timestamp() - self.last_cache_update > 21600):
+            await self._update_cache()
         
         training_examples = []
         
@@ -1820,12 +1765,20 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
 
     async def search_policies(self, query: str) -> List[Dict]:
         """Search policies"""
-        await self._update_cache()
+        # Only update cache if empty or very old
+        if (self.policy_cache is None or 
+            not self.last_cache_update or 
+            datetime.utcnow().timestamp() - self.last_cache_update > 21600):
+            await self._update_cache()
         return await self._find_relevant_policies(query)
     
     async def get_available_data_summary(self) -> Dict[str, Any]:
         """Get summary of available data in the database for debugging/info"""
-        await self._update_cache()
+        # Only update cache if empty or very old
+        if (self.policy_cache is None or 
+            not self.last_cache_update or 
+            datetime.utcnow().timestamp() - self.last_cache_update > 21600):
+            await self._update_cache()
         
         # Group policies by country and area
         country_data = {}

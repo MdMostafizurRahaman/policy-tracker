@@ -56,6 +56,15 @@ async def lifespan(app: FastAPI):
             # Initialize super admin
             await initialize_super_admin()
             
+            # Initialize chatbot cache for better performance
+            try:
+                from services.chatbot_service_enhanced import enhanced_chatbot_service
+                logger.info("🤖 Initializing chatbot cache...")
+                await enhanced_chatbot_service._update_cache()
+                logger.info("✅ Chatbot cache initialized successfully")
+            except Exception as cache_error:
+                logger.warning(f"⚠️ Chatbot cache initialization failed: {cache_error}")
+            
             # Chatbot service is initialized automatically when imported by controllers
             logger.info("Chatbot service available via controllers")
             

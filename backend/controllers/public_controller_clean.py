@@ -4,6 +4,7 @@ Clean Public Controller with DynamoDB integration
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse, FileResponse
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 import logging
 from config.dynamodb import get_dynamodb
 
@@ -13,6 +14,47 @@ router = APIRouter(prefix="/api/public", tags=["public"])
 
 # Additional router for direct API endpoints
 api_router = APIRouter(prefix="/api", tags=["public-api"])
+
+# Simple cache to avoid repeated table scans
+_policy_cache = None
+_map_policy_cache = None
+_last_cache_update = None
+_cache_duration = 300  # 5 minutes
+
+async def get_cached_policies():
+    """Get cached policies or refresh if needed"""
+    global _policy_cache, _last_cache_update
+    
+    current_time = datetime.utcnow().timestamp()
+    
+    if (_policy_cache is None or 
+        _last_cache_update is None or 
+        current_time - _last_cache_update > _cache_duration):
+        
+        logger.info("🔄 Refreshing policy cache...")
+        dynamodb = await get_dynamodb()
+        _policy_cache = await dynamodb.scan_table('policies')
+        _last_cache_update = current_time
+        logger.info(f"✅ Policy cache refreshed: {len(_policy_cache)} policies")
+    
+    return _policy_cache
+
+async def get_cached_map_policies():
+    """Get cached map policies or refresh if needed"""
+    global _map_policy_cache, _last_cache_update
+    
+    current_time = datetime.utcnow().timestamp()
+    
+    if (_map_policy_cache is None or 
+        _last_cache_update is None or 
+        current_time - _last_cache_update > _cache_duration):
+        
+        logger.info("🔄 Refreshing map policy cache...")
+        dynamodb = await get_dynamodb()
+        _map_policy_cache = await dynamodb.scan_table('map_policies')
+        logger.info(f"✅ Map policy cache refreshed: {len(_map_policy_cache)} policies")
+    
+    return _map_policy_cache
 
 @router.get("/statistics")
 async def get_statistics():
@@ -24,8 +66,8 @@ async def get_statistics():
         users = await dynamodb.scan_table('users')
         user_count = len(users)
         
-        # Get policy count
-        policies = await dynamodb.scan_table('policies')
+        # Get policy count using cache
+        policies = await get_cached_policies()
         policy_count = len(policies)
         
         return {
@@ -66,10 +108,8 @@ async def get_master_policies(
 ):
     """Get master policies with optional filtering"""
     try:
-        dynamodb = await get_dynamodb()
-        
-        # Get policies from database
-        policies = await dynamodb.scan_table('policies')
+        # Get policies from cache instead of database
+        policies = await get_cached_policies()
         
         # Apply filters if provided
         if country:
@@ -115,11 +155,10 @@ async def get_master_policies_fast(
     """Get approved master policies visible on map (fast version) - same as no-dedup"""
     try:
         logger.info(f"🔍 Fast endpoint called with country={country}, limit={limit}")
-        dynamodb = await get_dynamodb()
         
-        # Get all map policies
-        map_policies = await dynamodb.scan_table('map_policies')
-        logger.info(f"📊 Scanned {len(map_policies)} total map policies")
+        # Get all map policies from cache
+        map_policies = await get_cached_map_policies()
+        logger.info(f"📊 Retrieved {len(map_policies)} total map policies from cache")
         
         # Sample first policy to see structure
         if map_policies:
@@ -213,10 +252,8 @@ async def get_master_policies_no_dedup(
     try:
         logger.info(f"🔍 Getting policies for popup - Country: {country}, Area: {area}, Limit: {limit}")
         
-        dynamodb = await get_dynamodb()
-        
-        # Get approved policies from map_policies table (which stores only approved policies)
-        map_policies = await dynamodb.scan_table('map_policies')
+        # Get approved policies from map_policies table (which stores only approved policies) using cache
+        map_policies = await get_cached_map_policies()
         
         # Filter approved policies
         filtered_policies = []
