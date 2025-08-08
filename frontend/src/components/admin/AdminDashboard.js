@@ -3,6 +3,8 @@ import '../../styles/admin-dashboard.css'
 import { apiService, publicService } from '../../services/api'
 import { policyAreas } from '../../utils/constants'
 import AdminLogin from './AdminLogin'
+import VisitCounter from '../common/VisitCounter'
+import { useVisitTracker } from '../../hooks/useVisitTracker'
 
 // Use the imported policy areas instead of hardcoded ones
 const POLICY_AREAS = policyAreas;
@@ -30,9 +32,14 @@ export default function AdminDashboard() {
   const [selectedSubmissionDetails, setSelectedSubmissionDetails] = useState(null)
   const [view, setView] = useState("dashboard")
   const [user, setUser] = useState(null)
+  const [showFilesModal, setShowFilesModal] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState([])
 
   // Get token for authenticated requests
   const token = localStorage.getItem('access_token');
+
+  // Visit tracking hook
+  const { visitStats, fetchDetailedStats } = useVisitTracker()
 
   // Check authentication on mount
   useEffect(() => {
@@ -62,15 +69,19 @@ export default function AdminDashboard() {
     if (token && view === 'dashboard') {
       fetchSubmissions()
       fetchStatistics()
+      fetchDetailedStats() // Fetch detailed visit statistics
     }
-  }, [currentPage, filterStatus])
+  }, [currentPage, filterStatus, fetchDetailedStats])
 
   // API Functions
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
+      console.log('Fetching submissions...');
       const data = await apiService.admin.getSubmissions(currentPage, 10, filterStatus);
-      setSubmissions(data.submissions || [])
+      console.log('Received data:', data);
+      console.log('Setting submissions to:', data.data);
+      setSubmissions(data.data || [])  // Fix: use data.data instead of data.submissions
       setTotalPages(data.total_pages || 1)
     } catch (error) {
       // Handle authentication errors
@@ -222,7 +233,133 @@ export default function AdminDashboard() {
     }
   }
 
-  // File Handling
+  // New Comprehensive Admin Actions
+  const approvePolicy = async (submissionId, areaId, policyIndex, adminNotes = "") => {
+    try {
+      setLoading(true);
+      const result = await apiService.admin.approvePolicy(submissionId, areaId, policyIndex, adminNotes);
+      
+      if (result.success) {
+        setSuccess("Policy approved successfully and made visible on map");
+        setShowPolicyModal(false); // Close modal after successful approval
+        setShowSubmissionModal(false); // Close submission modal too
+        fetchSubmissions();
+        fetchStatistics();
+      }
+    } catch (error) {
+      setError(`Error approving policy: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectPolicy = async (submissionId, areaId, policyIndex, adminNotes = "") => {
+    if (window.confirm('Are you sure you want to reject this policy?')) {
+      try {
+        setLoading(true);
+        const result = await apiService.admin.rejectPolicy(submissionId, areaId, policyIndex, adminNotes);
+        
+        if (result.success) {
+          setSuccess("Policy rejected and removed from map visibility");
+          setShowPolicyModal(false); // Close modal after successful rejection
+          setShowSubmissionModal(false); // Close submission modal too
+          fetchSubmissions();
+          fetchStatistics();
+        }
+      } catch (error) {
+        setError(`Error rejecting policy: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const commitPolicy = async (submissionId, areaId, policyIndex) => {
+    if (window.confirm('Are you sure you want to commit this approved policy to master database?')) {
+      try {
+        setLoading(true);
+        const result = await apiService.admin.commitPolicy(submissionId, areaId, policyIndex);
+        
+        if (result.success) {
+          setSuccess("Policy committed to master database successfully");
+          fetchSubmissions();
+          fetchStatistics();
+        }
+      } catch (error) {
+        setError(`Error committing policy: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const deletePolicyCompletely = async (policyId) => {
+    if (window.confirm('Are you sure you want to permanently delete this policy? This action cannot be undone.')) {
+      try {
+        setLoading(true);
+        const result = await apiService.admin.deletePolicyCompletely(policyId);
+        
+        if (result.success) {
+          setSuccess("Policy permanently deleted from database and map");
+          fetchSubmissions();
+          fetchStatistics();
+        }
+      } catch (error) {
+        setError(`Error deleting policy: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const uploadPolicyFile = async (policyId, file) => {
+    try {
+      setLoading(true);
+      
+      // First upload file to S3
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadResult = await apiService.uploadPolicyFile(file);
+      
+      if (uploadResult.success) {
+        // Then associate with policy
+        const fileData = {
+          file_id: uploadResult.file_id,
+          filename: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          s3_url: uploadResult.s3_url
+        };
+        
+        const result = await apiService.admin.uploadPolicyFile(policyId, fileData);
+        
+        if (result.success) {
+          setSuccess(`File "${file.name}" uploaded successfully for policy`);
+        }
+      }
+    } catch (error) {
+      setError(`Error uploading file: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const viewPolicyFiles = async (policyId) => {
+    try {
+      setLoading(true);
+      const result = await apiService.admin.getPolicyFiles(policyId);
+      
+      if (result.success) {
+        setSelectedFiles(result.files);
+        setShowFilesModal(true);
+      }
+    } catch (error) {
+      setError(`Error getting policy files: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleOpenFile = async (fileInfo) => {
     try {
       if (fileInfo.file_path) {
@@ -230,24 +367,47 @@ export default function AdminDashboard() {
         const blob = await apiService.get(`/files/${fileInfo.file_path}`, {
           responseType: 'blob'
         });
-        const url = URL.createObjectURL(blob)
-        window.open(url, '_blank')
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
       } else if (fileInfo.data) {
         // For base64 stored files  
-        const byteCharacters = atob(fileInfo.data)
-        const byteNumbers = new Array(byteCharacters.length)
+        const byteCharacters = atob(fileInfo.data);
+        const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: fileInfo.type })
-        const url = URL.createObjectURL(blob)
-        window.open(url, '_blank')
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: fileInfo.type });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        setError('File data not available');
       }
     } catch (error) {
-      setError(`Error opening file: ${error.message}`)
+      setError(`Error opening file: ${error.message}`);
     }
-  }
+  };
+
+  const deleteFileFromPolicy = async (fileId) => {
+    if (window.confirm('Are you sure you want to delete this file?')) {
+      try {
+        setLoading(true);
+        const result = await apiService.admin.deleteFile(fileId);
+        
+        if (result.success) {
+          setSuccess('File deleted successfully');
+          // Refresh the files list
+          if (selectedSubmission) {
+            await viewPolicyFiles(selectedSubmission.policy_id || selectedSubmission._id);
+          }
+        }
+      } catch (error) {
+        setError(`Error deleting file: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   // Modal Management
   const openPolicyModal = (submission, policy, policyArea, index) => {
@@ -279,8 +439,10 @@ export default function AdminDashboard() {
     const allPolicies = [];
 
     // New format: policyAreas is an array of { area_id, area_name, policies }
-    if (Array.isArray(submission.policyAreas)) {
-      submission.policyAreas.forEach(area => {
+    // Handle both policyAreas and policy_areas field names
+    const policyAreas = submission.policyAreas || submission.policy_areas;
+    if (Array.isArray(policyAreas)) {
+      policyAreas.forEach(area => {
         if (Array.isArray(area.policies) && area.policies.length > 0) {
           area.policies.forEach((policy, index) => {
             allPolicies.push({
@@ -387,7 +549,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
@@ -440,6 +602,74 @@ export default function AdminDashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-slate-600">Master Policies</p>
                 <p className="text-2xl font-bold text-slate-900">{statistics.policies?.master || 0}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Visit Statistics Card */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-xl shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-slate-600">Website Visits</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {visitStats.loading ? '...' : visitStats.total_visits.toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  {visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detailed Visit Analytics */}
+        <div className="mb-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Website Analytics</h3>
+              <div className="text-sm text-slate-500">
+                Real-time visitor tracking
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {visitStats.loading ? '...' : visitStats.total_visits.toLocaleString()}
+                </div>
+                <div className="text-sm text-slate-600">Total Visits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {visitStats.loading ? '...' : visitStats.unique_visitors.toLocaleString()}
+                </div>
+                <div className="text-sm text-slate-600">Unique Visitors</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {visitStats.loading ? '...' : visitStats.today_visits || 0}
+                </div>
+                <div className="text-sm text-slate-600">Today's Visits</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-slate-600 mb-2">User Types</div>
+                <div className="flex justify-center gap-4 text-xs">
+                  <span className="text-slate-700">
+                    👁️ {visitStats.user_type_breakdown?.viewer || 0}
+                  </span>
+                  <span className="text-blue-700">
+                    👤 {visitStats.user_type_breakdown?.registered || 0}
+                  </span>
+                  <span className="text-purple-700">
+                    ⚙️ {visitStats.user_type_breakdown?.admin || 0}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -502,6 +732,9 @@ export default function AdminDashboard() {
         <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-200">
             <h2 className="text-xl font-bold text-slate-900">Policy Submissions</h2>
+            <div className="text-sm text-gray-600 mt-2">
+              Debug: {submissions.length} submissions loaded, {filteredSubmissions.length} after filtering
+            </div>
           </div>
 
           {loading ? (
@@ -527,7 +760,7 @@ export default function AdminDashboard() {
                     const allPolicies = getAllPoliciesFromSubmission(submission);
                     
                     return (
-                      <tr key={submission._id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                      <tr key={submission.submission_id || submission._id} className="hover:bg-slate-50/50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-semibold text-slate-900">{submission.country}</div>
                         </td>
@@ -574,8 +807,8 @@ export default function AdminDashboard() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.submission_status)}`}>
-                            {submission.submission_status}
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.status || submission.submission_status)}`}>
+                            {submission.status || submission.submission_status}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
@@ -592,6 +825,13 @@ export default function AdminDashboard() {
                       </tr>
                     );
                   })}
+                  {filteredSubmissions.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                        No submissions found. {submissions.length > 0 ? 'Try adjusting your search/filter.' : 'No data loaded from API.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1111,6 +1351,25 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
+                {/* File Upload Section */}
+                <div className="mt-6 pt-4 border-t">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Upload Files for this Policy</h4>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      id="policyFileUpload"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          uploadPolicyFile(selectedSubmission.policy_id || selectedSubmission._id, file);
+                        }
+                      }}
+                      className="text-black text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="text-xs text-gray-500">PDF, DOC, DOCX, TXT, RTF (Max 50MB)</p>
+                  </div>
+                </div>
+
                 <div className="mt-6 pt-4 border-t">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
                   <textarea
@@ -1147,30 +1406,116 @@ export default function AdminDashboard() {
                         Edit Policy
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'needs_revision', adminNotes)}
+                        onClick={() => updatePolicyStatus(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'needs_revision', adminNotes)}
                         className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
                       >
                         Needs Revision
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'rejected', adminNotes)}
+                        onClick={() => rejectPolicy(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, adminNotes)}
                         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                       >
-                        Reject
+                        Reject & Remove from Map
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'approved', adminNotes)}
+                        onClick={() => approvePolicy(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, adminNotes)}
                         className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                       >
-                        Approve
+                        Approve & Show on Map
                       </button>
                       <button
-                        onClick={() => deletePolicy(selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex)}
+                        onClick={() => commitPolicy(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        disabled={selectedPolicy?.status !== 'approved'}
+                      >
+                        Commit to Master
+                      </button>
+                      <button
+                        onClick={() => deletePolicyCompletely(selectedSubmission.policy_id || selectedSubmission._id)}
                         className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-900"
                       >
-                        Delete Policy
+                        Delete Permanently
+                      </button>
+                      <button
+                        onClick={() => viewPolicyFiles(selectedSubmission.policy_id || selectedSubmission._id)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                      >
+                        View Files
                       </button>
                     </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Files Modal */}
+        {showFilesModal && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8">
+              <div className="p-8">
+                <div className="flex justify-between items-center pb-6 border-b border-slate-200">
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900">Policy Files</h3>
+                    <p className="text-slate-600 mt-1">All files associated with this policy</p>
+                  </div>
+                  <button
+                    onClick={() => setShowFilesModal(false)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="mt-6">
+                  {selectedFiles.length === 0 ? (
+                    <div className="text-center py-8">
+                      <svg className="w-16 h-16 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-gray-500">No files found for this policy</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900">{file.name}</h4>
+                              <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                <span>{file.type}</span>
+                                <span>{(file.size / 1024).toFixed(1)} KB</span>
+                                {file.policy_area && <span>Area: {file.policy_area}</span>}
+                                {file.policy_name && <span>Policy: {file.policy_name}</span>}
+                                {file.upload_date && <span>Uploaded: {new Date(file.upload_date).toLocaleDateString()}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleOpenFile(file)}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-all"
+                            >
+                              Open
+                            </button>
+                            <button
+                              onClick={() => deleteFileFromPolicy(file.file_id)}
+                              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-all"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

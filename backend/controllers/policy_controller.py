@@ -7,7 +7,8 @@ from typing import List, Optional
 import logging
 
 from middleware.auth import get_current_user, get_admin_user
-from services.policy_service import policy_service
+# Temporarily disabled MongoDB policy service
+# from services.policy_service import policy_service
 from models.policy import EnhancedSubmission, PolicyStatusUpdate, PolicyResponse
 from utils.helpers import convert_objectid
 from utils.file_handler import save_file_to_s3, get_file_from_s3, get_file_url, get_presigned_url, delete_file

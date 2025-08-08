@@ -1,71 +1,70 @@
 """
-Authentication Middleware
-Handles JWT token verification and user authentication
+Authentication Middleware for FastAPI with DynamoDB
 """
-import jwt
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Optional
+import jwt
 from config.settings import settings
-from config.database import get_users_collection
+from models.user_dynamodb import User
 import logging
-
-# We'll import this locally to avoid circular imports
-def convert_objectid(obj):
-    """Convert ObjectId to string recursively"""
-    from bson import ObjectId
-    if isinstance(obj, ObjectId):
-        return str(obj)
-    elif isinstance(obj, dict):
-        return {key: convert_objectid(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_objectid(item) for item in obj]
-    return obj
 
 logger = logging.getLogger(__name__)
 
-# Security
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)  # auto_error=False makes it optional
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current authenticated user"""
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Get current authenticated user from DynamoDB"""
     try:
-        payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if credentials is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+            
+        payload = jwt.decode(credentials.credentials, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id: str = payload.get("sub")
-        if user_id is None:
+        email: str = payload.get("email")
+        
+        if user_id is None or email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
         
-        users_collection = get_users_collection()
-        from bson import ObjectId
-        try:
-            user = await users_collection.find_one({"_id": ObjectId(user_id)})
-        except Exception:
-            # Fallback to email lookup if user_id format is invalid
-            email = payload.get("email")
-            if email:
-                user = await users_collection.find_one({"email": email})
-            else:
-                user = None
-                
+        # Find user in DynamoDB
+        user = await User.find_by_id(user_id)
+        if user is None:
+            # Fallback to email lookup
+            user = await User.find_by_email(email)
+            
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
         
-        return convert_objectid(user)
-    except jwt.PyJWTError as e:
-        logger.error(f"JWT decode error: {str(e)}")
+        # Convert user to dict for response
+        user_dict = user.to_dict()
+        user_dict.pop('password_hash', None)  # Remove password from response
+        
+        return user_dict
+        
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        logger.error(f"Authentication error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
-async def get_admin_user(current_user: dict = Depends(get_current_user)):
-    """Get current admin user"""
-    if not current_user.get("is_admin", False):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
-
-async def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))):
-    """Get current user if authenticated, None otherwise"""
-    if not credentials:
-        return None
+async def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """Get current authenticated admin user"""
+    user = await get_current_user(credentials)
     
+    if user.get("role") not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    return user
+
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """Get current user if authenticated, otherwise return None"""
     try:
+        if credentials is None:
+            return None
         return await get_current_user(credentials)
     except HTTPException:
         return None
+
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[dict]:
+    """Get current user if authenticated, otherwise return None - alias for compatibility"""
+    return await get_current_user_optional(credentials)

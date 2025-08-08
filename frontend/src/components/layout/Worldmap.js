@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { ComposableMap, Geographies, Geography } from "react-simple-maps"
 import dynamic from "next/dynamic"
-import { MessageCircle, X, Maximize2, Minimize2, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import CountryPolicyPopup from "./CountryPolicyPopup"
-import PolicyChatAssistant from "../chatbot/PolicyChatAssistant"
 import { useMapData } from '../../context/MapDataContext'
 import '../../styles/Worldmap.css'
 
@@ -79,6 +78,14 @@ const POLICY_AREA_MAP = {
   'Digital Leisure': 'Digital Leisure'
 };
 
+// Reverse mapping: from geojson/display names to database names
+const DATABASE_COUNTRY_MAP = {
+  'United States of America': 'United States',
+  'United States': 'United States',
+  'USA': 'United States',
+  'US': 'United States'
+};
+
 function normalizeCountryName(countryName) {
   if (!countryName) return null;
   
@@ -97,6 +104,26 @@ function normalizeCountryName(countryName) {
   
   // Return original if no mapping found
   return countryName;
+}
+
+function getDatabaseCountryName(displayCountryName) {
+  if (!displayCountryName) return null;
+  
+  // First try exact match
+  if (DATABASE_COUNTRY_MAP[displayCountryName]) {
+    return DATABASE_COUNTRY_MAP[displayCountryName];
+  }
+  
+  // Try case-insensitive match
+  const lowerName = displayCountryName.toLowerCase();
+  for (const [key, value] of Object.entries(DATABASE_COUNTRY_MAP)) {
+    if (key.toLowerCase() === lowerName) {
+      return value;
+    }
+  }
+  
+  // Return original if no mapping found
+  return displayCountryName;
 }
 
 function normalizePolicyArea(areaName) {
@@ -129,7 +156,7 @@ const GlobeView = dynamic(() => import("./GlobeView"), {
 
 const geoUrl = "/countries-110m.json"
 
-function Worldmap() {
+function Worldmap({ viewMode: propViewMode }) {
   // Get map data from context
   const { 
     countries, 
@@ -141,7 +168,7 @@ function Worldmap() {
     fetchMapData 
   } = useMapData()
 
-  const [viewMode, setViewMode] = useState("map")
+  const [viewMode, setViewMode] = useState(propViewMode || "map")
   const [countryStats, setCountryStats] = useState({})
   const [tooltipContent, setTooltipContent] = useState(null)
   const [highlightedCountry, setHighlightedCountry] = useState(null)
@@ -151,10 +178,6 @@ function Worldmap() {
   const [searchValue, setSearchValue] = useState("")
   const [searchSuggestions, setSearchSuggestions] = useState([])
   const [filteredCountry, setFilteredCountry] = useState(null)
-  // Chat-related states
-  const [showChat, setShowChat] = useState(false)
-  const [chatFullscreen, setChatFullscreen] = useState(false)
-  const [chatWidth, setChatWidth] = useState(50)
 
   const mapRef = useRef(null)
   let tooltipTimeout = useRef(null)
@@ -169,134 +192,151 @@ function Worldmap() {
     }
   }, [isLoaded, isLoading, fetchMapData])
 
-  // Memoized country statistics calculation to prevent expensive recomputation
-  const countryStatsData = useMemo(() => {
-    console.log('🔍 Building country stats. Policies loaded:', masterPolicies.length);
+  // Sync viewMode with prop
+  useEffect(() => {
+    if (propViewMode) {
+      setViewMode(propViewMode)
+    }
+  }, [propViewMode])
+
+  // Add keyboard and click handlers to hide tooltip
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && tooltipContent) {
+        setTooltipContent(null)
+        setHighlightedCountry(null)
+      }
+    }
+
+    const handleClickOutside = (e) => {
+      // Hide tooltip when clicking outside the map
+      if (tooltipContent && mapRef.current && !mapRef.current.contains(e.target)) {
+        setTooltipContent(null)
+        setHighlightedCountry(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('click', handleClickOutside)
     
-    if (!masterPolicies.length) {
-      console.log('⚠️ No policies loaded yet, returning empty stats');
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [tooltipContent])
+
+  // Memoized country statistics calculation using API color data
+  const countryStatsData = useMemo(() => {
+    console.log('🔍 Building country stats from API color data. Countries loaded:', countries.length);
+    
+    if (!countries.length) {
+      console.log('⚠️ No countries data loaded yet, returning empty stats');
       return {};
     }
     
     const stats = {};
-    const countryNameMismatches = new Set();
     
-    // Group policies by country and count unique policy areas
-    const areaRenameLog = new Set();
-    
-    masterPolicies.forEach((policy) => {
-      const rawCountry = policy.country;
-      const rawArea = policy.policyArea || policy.area_id;
+    // Process countries data from API which already includes colors
+    countries.forEach((countryData) => {
+      const rawCountry = countryData.country;
       
       if (!rawCountry) {
-        console.warn('Policy missing country:', policy);
+        console.warn('Country data missing country name:', countryData);
         return;
       }
       
-      if (!rawArea || rawArea.trim() === '') {
-        console.warn('Policy missing policy area:', policy.policyName, 'in', rawCountry);
-        return; // Skip policies without policy areas
+      // Normalize country name for geojson matching
+      const normalizedCountry = normalizeCountryName(rawCountry);
+      if (!normalizedCountry) return;
+      
+      // Convert API color names to hex colors for the map
+      let hexColor = "#d1d5db"; // Default gray
+      switch(countryData.color) {
+        case 'green':
+          hexColor = "#22c55e";
+          break;
+        case 'yellow':
+          hexColor = "#eab308";
+          break;
+        case 'red':
+          hexColor = "#ef4444";
+          break;
+        case 'gray':
+        default:
+          hexColor = "#d1d5db";
+          break;
       }
       
-      // Normalize country name for map display
-      const country = normalizeCountryName(rawCountry);
-      if (country !== rawCountry) {
-        countryNameMismatches.add(`${rawCountry} → ${country}`);
-      }
-      
-      // Normalize policy area name
-      const area = normalizePolicyArea(rawArea);
-      if (area !== rawArea) {
-        areaRenameLog.add(`${rawArea} → ${area}`);
-      }
-      
-      if (!stats[country]) {
-        stats[country] = { 
-          approvedAreas: new Set(),
-          totalPolicies: 0,
-          policies: [],
-          originalPolicies: [] // Keep original policies for popup
-        };
-      }
-      
-      // Add the normalized policy area (only admin-approved policies reach here due to backend filtering)
-      stats[country].approvedAreas.add(area);
-      stats[country].totalPolicies++;
-      
-      // Store policy with normalized area for consistency
-      const normalizedPolicy = {
-        ...policy,
-        policyArea: area,
-        country: country
+      stats[normalizedCountry] = {
+        count: countryData.area_points || 0,
+        totalPolicies: countryData.total_approved_policies || 0,
+        approvedAreas: new Set(countryData.areas_with_approved_policies || []),
+        color: hexColor,
+        level: countryData.level || 'no_approved_areas',
+        areas_detail: countryData.areas_detail || [],
+        policies: [], // Will be populated from areas_detail if needed
+        originalPolicies: []
       };
       
-      stats[country].policies.push(normalizedPolicy);
-      stats[country].originalPolicies.push(policy); // Keep original for reference
-    });
-    
-    // Log normalization results
-    if (areaRenameLog.size > 0) {
-      console.log('🔧 Policy area normalizations:', Array.from(areaRenameLog).join(', '));
-    }
-    
-    // Log country name normalizations
-    if (countryNameMismatches.size > 0) {
-      console.log('🗺️ Country name normalizations:', Array.from(countryNameMismatches).join(', '));
-    }
-    
-    // Calculate color and display values
-    Object.keys(stats).forEach(country => {
-      const approvedAreasCount = stats[country].approvedAreas.size;
-      
-      stats[country].score = approvedAreasCount;
-      stats[country].count = approvedAreasCount;
-      
-      // Color coding based on policy areas (as per requirement)
-      if (approvedAreasCount >= 8) {
-        stats[country].color = "#22c55e"; // Green - Excellent (8-10 areas)
-      } else if (approvedAreasCount >= 4) {
-        stats[country].color = "#eab308"; // Yellow - Moderate (4-7 areas)
-      } else if (approvedAreasCount >= 1) {
-        stats[country].color = "#ef4444"; // Red - Basic (1-3 areas)
-      } else {
-        stats[country].color = "#d1d5db"; // Gray - No policies (0 areas)
+      // Extract policies from areas_detail for popup compatibility
+      if (countryData.areas_detail) {
+        countryData.areas_detail.forEach(area => {
+          if (area.approved_policies) {
+            area.approved_policies.forEach(policy => {
+              stats[normalizedCountry].policies.push({
+                policyName: policy.policy_name,
+                policyDescription: policy.policy_description,
+                policyArea: area.area_name,
+                country: normalizedCountry,
+                approved_at: policy.approved_at
+              });
+            });
+          }
+        });
       }
     });
     
-    console.log(`📊 Country stats built for ${Object.keys(stats).length} countries:`);
+    console.log(`📊 Country stats built from API for ${Object.keys(stats).length} countries:`);
     Object.keys(stats).forEach(country => {
       const countryData = stats[country];
       const areas = Array.from(countryData.approvedAreas);
       const colorName = countryData.color === "#22c55e" ? "GREEN" : 
                        countryData.color === "#eab308" ? "YELLOW" : 
                        countryData.color === "#ef4444" ? "RED" : "GRAY";
-      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} unique areas [${areas.join(', ')}] - ${colorName}`);
+      console.log(`  ${country}: ${countryData.totalPolicies} policies, ${countryData.count} area points [${areas.join(', ')}] - ${colorName}`);
     });
     
-    // Log a few geojson country matches for debugging
-    console.log(`🗺️ Country mapping debug - sample stats keys:`, Object.keys(stats).slice(0, 5));
-    console.log(`🗺️ Total countries in stats: ${Object.keys(stats).length}`);
-    
     return stats;
-  }, [masterPolicies])
+  }, [countries])
 
   // Update country stats when memoized data changes
   useEffect(() => {
     setCountryStats(countryStatsData);
   }, [countryStatsData])
 
-  // Autocomplete suggestions
+  // Debug log for map statistics
   useEffect(() => {
-    if (!countries.length) return
+    console.log('📊 Current map stats in Worldmap component:', {
+      isLoading,
+      mapStats,
+      countries: countries.length
+    })
+  }, [mapStats, isLoading, countries])
+
+  // Autocomplete suggestions - use geoFeatures to show ALL countries (including those with 0 policies)
+  useEffect(() => {
+    if (!geoFeatures.length) return
     if (!searchValue) setSearchSuggestions([])
     else {
+      // Extract country names from geoFeatures (all countries) and filter
+      const allCountryNames = geoFeatures.map(feature => feature.properties.name).filter(Boolean)
       setSearchSuggestions(
-        countries.filter(c =>
-          c.toLowerCase().includes(searchValue.toLowerCase())
+        allCountryNames.filter(countryName =>
+          countryName.toLowerCase().includes(searchValue.toLowerCase())
         ).slice(0, 10)
       )
     }
-  }, [searchValue, countries])
+  }, [searchValue, geoFeatures])
 
   // Handle hover (with flicker fix) - memoized to prevent re-creation
   const handleMouseEnter = useCallback((geo, event) => {
@@ -311,6 +351,13 @@ function Worldmap() {
     setMousePosition({ x: event.clientX, y: event.clientY })
     setHighlightedCountry(countryName)
   }, [countryStats])
+
+  const handleMouseMove = useCallback((geo, event) => {
+    // Update mouse position for tooltip following
+    if (tooltipContent) {
+      setMousePosition({ x: event.clientX, y: event.clientY })
+    }
+  }, [tooltipContent])
 
   const handleMouseLeave = useCallback(() => {
     tooltipTimeout.current = setTimeout(() => {
@@ -371,127 +418,176 @@ function Worldmap() {
     setSelectedCountry(null)
   }, [])
 
-  const handleChatToggle = useCallback(() => {
-    if (chatFullscreen) setChatFullscreen(false)
-    setShowChat(!showChat)
-  }, [chatFullscreen, showChat])
-
-  const handleChatFullscreen = useCallback(() => {
-    setChatFullscreen(!chatFullscreen)
-    if (!showChat) setShowChat(true)
-  }, [chatFullscreen, showChat])
-
-  const handleChatClose = useCallback(() => {
-    setShowChat(false)
-    setChatFullscreen(false)
-  }, [])
-
   function getTooltipPosition(mouseX, mouseY) {
-    const tooltipWidth = 220
-    const tooltipHeight = 80
-    const offset = 16
-    if (!mapRef.current) return { top: mouseY + offset, left: mouseX + offset }
-    const rect = mapRef.current.getBoundingClientRect()
-    let left = mouseX - rect.left + offset
-    let top = mouseY - rect.top + offset
-    if (left + tooltipWidth > rect.width) left = rect.width - tooltipWidth - 8
-    if (top + tooltipHeight > rect.height) top = mouseY - rect.top - tooltipHeight - offset
-    if (left < 0) left = 8
-    return { top, left, position: "absolute", zIndex: 100 }
+    const tooltipWidth = 240
+    const tooltipHeight = 120
+    const offset = 15  // Offset from the cursor
+    const mapElement = mapRef.current
+    
+    if (!mapElement) {
+      return { 
+        position: "fixed", 
+        left: `${mouseX + offset}px`, 
+        top: `${mouseY + offset}px`, 
+        zIndex: 1001,
+        pointerEvents: 'none'
+      }
+    }
+    
+    const mapRect = mapElement.getBoundingClientRect()
+    const relativeX = mouseX - mapRect.left
+    const relativeY = mouseY - mapRect.top
+    
+    let left = relativeX + offset
+    let top = relativeY + offset
+    
+    // Determine if we're near the edges of the map
+    const nearRightEdge = relativeX > mapRect.width - tooltipWidth - offset * 2
+    const nearBottomEdge = relativeY > mapRect.height - tooltipHeight - offset * 2
+    const nearLeftEdge = relativeX < tooltipWidth / 2
+    const nearTopEdge = relativeY < tooltipHeight / 2
+    
+    // Smart positioning based on cursor location within the map
+    if (nearRightEdge && nearBottomEdge) {
+      // Bottom-right corner: position to top-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearRightEdge && nearTopEdge) {
+      // Top-right corner: position to bottom-left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY + offset
+    } else if (nearLeftEdge && nearBottomEdge) {
+      // Bottom-left corner: position to top-right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge && nearTopEdge) {
+      // Top-left corner: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
+    } else if (nearRightEdge) {
+      // Right edge: position to left of cursor
+      left = relativeX - tooltipWidth - offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearBottomEdge) {
+      // Bottom edge: position above cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY - tooltipHeight - offset
+    } else if (nearLeftEdge) {
+      // Left edge: position to right of cursor
+      left = relativeX + offset
+      top = relativeY - tooltipHeight / 2
+    } else if (nearTopEdge) {
+      // Top edge: position below cursor
+      left = relativeX - tooltipWidth / 2
+      top = relativeY + offset
+    } else {
+      // Default: position to bottom-right of cursor
+      left = relativeX + offset
+      top = relativeY + offset
+    }
+    
+    // Final boundary checks to ensure tooltip stays within map bounds
+    left = Math.max(5, Math.min(left, mapRect.width - tooltipWidth - 5))
+    top = Math.max(5, Math.min(top, mapRect.height - tooltipHeight - 5))
+    
+    return { 
+      position: "absolute", 
+      left: `${left}px`, 
+      top: `${top}px`, 
+      zIndex: 1001,
+      pointerEvents: 'none'
+    }
   }
 
   return (
-    <div className={`worldmap-container ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
+    <div className="worldmap-container">
       {/* Header Controls */}
-      <div className={`worldmap-header ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
-        <button onClick={handleViewToggle} className="view-toggle-btn">
-          Switch to {viewMode === "map" ? "Globe" : "Map"} View
-        </button>
-        <div className="header-title">
-          <h1>Policy World Map</h1>
-          <p>Explore All policies and governance frameworks worldwide</p>
-          
-          {/* Map Statistics */}
-          <div className="map-stats">
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.countriesWithPolicies}
-              </span>
-              <span className="stat-label">Countries with Policies</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.totalPolicies}
-              </span>
-              <span className="stat-label">Total Policies</span>
-            </div>
-            <div className="stat-item">
-              <span className="stat-number">
-                {isLoading ? '...' : mapStats.totalCountries || countries.length || '...'}
-              </span>
-              <span className="stat-label">Countries Available</span>
-            </div>
-            {isLoading && (
+      <div className="worldmap-header">
+        <div className="header-left">
+          {/* View toggle button now handled by parent IntegratedWorldMap */}
+        </div>
+        
+        <div className="header-center">
+          <div className="header-title">
+            <h1>RGB Map</h1>            
+            {/* Map Statistics */}
+            <div className="map-stats">
               <div className="stat-item">
-                <span className="stat-number">🔄</span>
-                <span className="stat-label">Loading...</span>
+                <span className="stat-number">
+                  {isLoading ? '...' : mapStats.countriesWithPolicies}
+                </span>
+                <span className="stat-label">Covered Countries</span>
               </div>
-            )}
+              <div className="stat-item">
+                <span className="stat-number">
+                  {isLoading ? '...' : mapStats.totalPolicies}
+                </span>
+                <span className="stat-label">Total Policies</span>
+              </div>
+              {isLoading && (
+                <div className="stat-item">
+                  <span className="stat-number">🔄</span>
+                  <span className="stat-label">Loading...</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="country-search">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search country..."
-              value={searchValue}
-              onChange={e => setSearchValue(e.target.value)}
-              className="country-search-input text-black"
-              autoComplete="off"
-            />
-            <Search className="absolute right-8 top-2 w-4 h-4 text-gray-400" />
-            {searchValue && (
-              <button
-                onClick={() => {
-                  setSearchValue('');
-                  setFilteredCountry(null);
-                  setHighlightedCountry(null);
-                  setSearchSuggestions([]);
-                  setTooltipContent(null);
-                }}
-                className="absolute right-2 top-2 w-4 h-4 text-gray-500 hover:text-gray-700"
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-            {searchSuggestions.length > 0 && (
-              <ul className="country-suggestions text-black">
-                {searchSuggestions.map((c, i) => (
-                  <li key={i} onClick={() => handleCountrySelect(c)}>
-                    <span className="country-name">{c}</span>
-                    <span className="country-count">
-                      {countryStats[c] ? `${countryStats[c].count} policies` : 'No policies'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+        
+        <div className="header-right">
+          <div className="country-search">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="🔍 Search country..."
+                value={searchValue}
+                onChange={e => setSearchValue(e.target.value)}
+                className="country-search-input text-black"
+                autoComplete="off"
+              />
+              <Search className="absolute right-8 top-2 w-4 h-4 text-gray-400" />
+              {searchValue && (
+                <button
+                  onClick={() => {
+                    setSearchValue('');
+                    setFilteredCountry(null);
+                    setHighlightedCountry(null);
+                    setSearchSuggestions([]);
+                    setTooltipContent(null);
+                  }}
+                  className="absolute right-2 top-2 w-4 h-4 text-gray-500 hover:text-gray-700"
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+              {searchSuggestions.length > 0 && (
+                <ul className="country-suggestions text-black">
+                  {searchSuggestions.map((countryName, i) => {
+                    const normalizedCountry = normalizeCountryName(countryName)
+                    const stat = countryStats[normalizedCountry]
+                    const hasPolicy = stat && (stat.count > 0 || stat.totalPolicies > 0)
+                    
+                    return (
+                      <li key={i} onClick={() => handleCountrySelect(countryName)} className={!hasPolicy ? 'no-policies' : ''}>
+                        <span className="country-name">{countryName}</span>
+                        <span className="country-count">
+                          {stat ? `${stat.count} areas, ${stat.totalPolicies} policies` : '0 areas, 0 policies'}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
-        <button
-          onClick={handleChatToggle}
-          className={`chat-toggle-btn ${showChat ? 'active' : ''} ${chatFullscreen ? 'fullscreen' : ''}`}
-        >
-          <MessageCircle className="w-4 h-4" />
-          {chatFullscreen ? 'Exit Chat' : showChat ? 'Hide Chat' : 'AI Assistant'}
-        </button>
       </div>
 
       {/* Main Content */}
-      <div className={`worldmap-content ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`}>
+      <div className="worldmap-content">
         {/* Map Section */}
-        <div className={`map-section ${showChat ? 'with-chat' : ''} ${chatFullscreen ? 'chat-fullscreen' : ''}`} ref={mapRef}>
+        <div className="map-section" ref={mapRef} style={{ position: 'relative' }}>
           {viewMode === "map" && (
             <div className="map-container">
               <ComposableMap projection="geoMercator" style={{ width: "100%", height: "100%" }}>
@@ -520,6 +616,7 @@ function Worldmap() {
                             pressed: { outline: "none" }
                           }}
                           onMouseEnter={e => handleMouseEnter(geo, e)}
+                          onMouseMove={e => handleMouseMove(geo, e)}
                           onMouseLeave={handleMouseLeave}
                           onClick={() => handleClick(geo)}
                         />
@@ -528,7 +625,7 @@ function Worldmap() {
                   }
                 </Geographies>
               </ComposableMap>
-              {/* Floating Tooltip Near Mouse */}
+              {/* Floating Tooltip Positioned Relative to Map */}
               {tooltipContent && (
                 <div
                   className="tooltip-floating"
@@ -574,48 +671,6 @@ function Worldmap() {
                 geoFeatures={geoFeatures}
                 onCountryClick={handleClick}
               />
-            </div>
-          )}
-        </div>
-        {/* Chat Panel */}
-        <div className={`chat-panel ${showChat ? 'open' : 'closed'} ${chatFullscreen ? 'fullscreen' : ''}`}>
-          {/* Resize Bar */}
-          {showChat && !chatFullscreen && (
-            <div className="chat-resize-bar"></div>
-          )}
-          {/* Chat Header */}
-          {showChat && (
-            <div className="chat-panel-header">
-              <h3>Policy Assistant</h3>
-              <div className="chat-header-controls">
-                <button
-                  onClick={handleChatFullscreen}
-                  className="chat-fullscreen-btn"
-                  title={chatFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                >
-                  {chatFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={handleChatClose}
-                  className="chat-close-btn"
-                  title="Close Chat"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Chat Content */}
-          {showChat && (
-            <div className="chat-panel-content">
-              <PolicyChatAssistant />
-            </div>
-          )}
-          {/* Status Indicator */}
-          {showChat && (
-            <div className="chat-status-indicator">
-              <div className="chat-status-dot"></div>
-              Chat Active
             </div>
           )}
         </div>

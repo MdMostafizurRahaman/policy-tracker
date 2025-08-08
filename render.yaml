@@ -2,13 +2,22 @@ services:
   - type: web
     name: policy-tracker-backend
     env: python
-    buildCommand: "pip install -r PolicyTracker/backend/requirements.txt"
-    startCommand: "cd PolicyTracker/backend && python main.py"
+    buildCommand: "cd PolicyTracker/backend && pip install --no-cache-dir -r requirements.txt"
+    startCommand: "cd PolicyTracker/backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    plan: free
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
-      - key: MONGODB_URI
-        sync: false
+      - key: DISABLE_POETRY
+        value: "1"
+      - key: PIP_NO_CACHE_DIR
+        value: "1"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: DEBUG
+        value: "false"
+      - key: AWS_REGION
+        value: "us-east-1"
+      - key: ALLOWED_ORIGINS
+        value: "https://policy-tracker-frontend.onrender.com,http://localhost:3000"
     
   - type: static
     name: policy-tracker-frontend
@@ -17,3 +26,4 @@ services:
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: https://policy-tracker-backend.onrender.com/api
+

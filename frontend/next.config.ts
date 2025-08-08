@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: 'export',
   trailingSlash: true,
   poweredByHeader: false,
-  reactStrictMode: true,
+  reactStrictMode: false,
   images: {
     unoptimized: true
   },

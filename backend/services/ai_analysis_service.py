@@ -98,7 +98,15 @@ class AIAnalysisService:
     def _create_analysis_prompt(self, text_content: str) -> str:
         """Create the analysis prompt for AI."""
         prompt = f"""
-You are an expert policy analyst AI. Analyze the uploaded policy document carefully and extract the following information to populate a structured digital policy form. Provide the output in JSON format based on the structure below.
+You are an expert policy analyst AI. Analyze the uploaded policy document carefully and extract the following information to populate a structured digital policy form. Provide the output in VALID JSON format based on the structure below.
+
+CRITICAL JSON FORMATTING RULES:
+1. Use ONLY valid JSON syntax
+2. All string values must be in double quotes, including "N/A" for missing values
+3. Use null (not "null") for truly empty values
+4. Use true/false (lowercase) for boolean values
+5. Numbers should not be quoted unless they are strings
+6. Do not use trailing commas
 
 Extract these fields:
 
@@ -106,27 +114,27 @@ Extract these fields:
 2. policyId: A unique ID in the format "Policy Name - Policy Number" (if available).
 3. policyDescription: A detailed summary or abstract of the policy, including its goals, scope, and key features.
 4. targetGroups: List of all relevant stakeholder groups (select from: "Government", "Industry", "Academia", "Small Businesses", "General Public", "Specific Sector", "Researchers", "Students", "Healthcare Providers", "Financial Institutions", "NGOs", "International Organizations").
-5. policyLink: URL if mentioned (optional).
+5. policyLink: URL if mentioned (use "N/A" if not available).
 6. implementation:
-   - yearlyBudget: Extract the allocated or estimated annual budget (as string).
-   - budgetCurrency: Mention the currency (e.g., USD, EUR, etc.).
+   - yearlyBudget: Extract the allocated or estimated annual budget (as string, use "N/A" if not mentioned).
+   - budgetCurrency: Mention the currency (e.g., "USD", "EUR", etc. Use "N/A" if not mentioned).
    - privateSecFunding: true/false – does the policy mention any private sector funding?
-   - deploymentYear: Year the policy was deployed or is planned for deployment.
+   - deploymentYear: Year the policy was deployed or is planned for deployment (as number, use null if not available).
 7. evaluation:
    - isEvaluated: true/false – has the policy been evaluated?
-   - evaluationType: internal, external, or mixed
+   - evaluationType: "internal", "external", or "mixed" (use "N/A" if not available)
    - riskAssessment: true/false – was a risk assessment conducted?
    - transparencyScore: Give a score from 0–10 based on how open the policy is.
    - explainabilityScore: Score from 0–10 based on how clearly the policy or related AI systems explain decisions.
    - accountabilityScore: Score from 0–10 based on how strongly responsibility is assigned.
 8. participation:
    - hasConsultation: true/false – was public or stakeholder consultation conducted?
-   - consultationStartDate: "YYYY-MM-DD" format if available
-   - consultationEndDate: "YYYY-MM-DD" format if available
+   - consultationStartDate: "YYYY-MM-DD" format if available (use "N/A" if not available)
+   - consultationEndDate: "YYYY-MM-DD" format if available (use "N/A" if not available)
    - commentsPublic: true/false – are consultation comments made public?
    - stakeholderScore: 0–10 rating of stakeholder participation based on detail and breadth
 9. alignment:
-   - aiPrinciples: List any AI principles explicitly aligned (e.g., Transparency, Privacy, Human Control, etc.)
+   - aiPrinciples: List any AI principles explicitly aligned (e.g., "Transparency", "Privacy", "Human Control", etc.)
    - humanRightsAlignment: true/false
    - environmentalConsiderations: true/false
    - internationalCooperation: true/false
@@ -171,6 +179,8 @@ Output example format:
     "internationalCooperation": true
   }}
 }}
+
+Remember: Use "N/A" (with quotes) for missing string values, null for missing numbers, and ensure all JSON is properly quoted and formatted.
 """
         return prompt
     
@@ -234,6 +244,9 @@ Output example format:
             else:
                 json_content = response[start_idx:end_idx]
             
+            # Fix common JSON issues before parsing
+            json_content = self._fix_json_issues(json_content)
+            
             # Attempt to parse JSON
             try:
                 extracted_data = json.loads(json_content)
@@ -253,6 +266,26 @@ Output example format:
             logger.error(f"Full response: {response}")
             # Return default structure on any error
             return self._get_default_extracted_data()
+    
+    def _fix_json_issues(self, json_content: str) -> str:
+        """Fix common JSON issues in AI responses."""
+        import re
+        
+        # Fix unquoted N/A values
+        json_content = re.sub(r':\s*N/A\s*([,}])', r': "N/A"\1', json_content)
+        
+        # Fix unquoted null values
+        json_content = re.sub(r':\s*null\s*([,}])', r': null\1', json_content)
+        
+        # Fix unquoted true/false values (ensure they're lowercase)
+        json_content = re.sub(r':\s*True\s*([,}])', r': true\1', json_content)
+        json_content = re.sub(r':\s*False\s*([,}])', r': false\1', json_content)
+        
+        # Remove any trailing commas before closing braces
+        json_content = re.sub(r',\s*}', '}', json_content)
+        json_content = re.sub(r',\s*]', ']', json_content)
+        
+        return json_content
     
     def _get_default_extracted_data(self) -> Dict[str, Any]:
         """Return default extracted data structure when AI parsing fails."""
@@ -295,39 +328,72 @@ Output example format:
     def _validate_extracted_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and set defaults for extracted data."""
         try:
-            # Set defaults for missing fields
+            # Ensure all string values are not None
+            def safe_string(value, default=""):
+                if value is None:
+                    return default
+                return str(value) if value else default
+            
+            def safe_list(value):
+                if value is None or not isinstance(value, list):
+                    return []
+                return value
+            
+            def safe_dict(value, default_dict=None):
+                if value is None or not isinstance(value, dict):
+                    return default_dict or {}
+                return value
+            
+            def safe_bool(value, default=False):
+                if value is None:
+                    return default
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    return value.lower() in ['true', '1', 'yes']
+                return bool(value)
+            
+            def safe_number(value, default=0):
+                if value is None:
+                    return default
+                try:
+                    return int(value) if isinstance(value, (int, str)) else default
+                except (ValueError, TypeError):
+                    return default
+            
+            # Set defaults for missing fields with null checking
             validated_data = {
-                "policyName": data.get("policyName", ""),
-                "policyId": data.get("policyId", ""),
-                "policyDescription": data.get("policyDescription", ""),
-                "targetGroups": data.get("targetGroups", []),
-                "policyLink": data.get("policyLink", ""),
+                "policyName": safe_string(data.get("policyName")),
+                "policyId": safe_string(data.get("policyId")),
+                "policyDescription": safe_string(data.get("policyDescription")),
+                "targetGroups": safe_list(data.get("targetGroups")),
+                "policyLink": safe_string(data.get("policyLink")),
                 "implementation": {
-                    "yearlyBudget": data.get("implementation", {}).get("yearlyBudget", ""),
-                    "budgetCurrency": data.get("implementation", {}).get("budgetCurrency", "USD"),
-                    "privateSecFunding": data.get("implementation", {}).get("privateSecFunding", False),
-                    "deploymentYear": data.get("implementation", {}).get("deploymentYear", datetime.now().year)
+                    "yearlyBudget": safe_string(data.get("implementation", {}).get("yearlyBudget")),
+                    "budgetCurrency": safe_string(data.get("implementation", {}).get("budgetCurrency"), "USD"),
+                    "privateSecFunding": safe_bool(data.get("implementation", {}).get("privateSecFunding")),
+                    "deploymentYear": safe_number(data.get("implementation", {}).get("deploymentYear"), datetime.now().year)
                 },
                 "evaluation": {
-                    "isEvaluated": data.get("evaluation", {}).get("isEvaluated", False),
-                    "evaluationType": data.get("evaluation", {}).get("evaluationType", "internal"),
-                    "riskAssessment": data.get("evaluation", {}).get("riskAssessment", False),
-                    "transparencyScore": data.get("evaluation", {}).get("transparencyScore", 0),
-                    "explainabilityScore": data.get("evaluation", {}).get("explainabilityScore", 0),
-                    "accountabilityScore": data.get("evaluation", {}).get("accountabilityScore", 0)
+                    "isEvaluated": safe_bool(data.get("evaluation", {}).get("isEvaluated")),
+                    "evaluationType": safe_string(data.get("evaluation", {}).get("evaluationType")),
+                    "riskAssessment": safe_bool(data.get("evaluation", {}).get("riskAssessment")),
+                    "transparencyScore": safe_number(data.get("evaluation", {}).get("transparencyScore")),
+                    "explainabilityScore": safe_number(data.get("evaluation", {}).get("explainabilityScore")),
+                    "accountabilityScore": safe_number(data.get("evaluation", {}).get("accountabilityScore"))
                 },
                 "participation": {
-                    "hasConsultation": data.get("participation", {}).get("hasConsultation", False),
-                    "consultationStartDate": data.get("participation", {}).get("consultationStartDate", ""),
-                    "consultationEndDate": data.get("participation", {}).get("consultationEndDate", ""),
-                    "commentsPublic": data.get("participation", {}).get("commentsPublic", False),
-                    "stakeholderScore": data.get("participation", {}).get("stakeholderScore", 0)
+                    "hasConsultation": safe_bool(data.get("participation", {}).get("hasConsultation")),
+                    "consultationStartDate": safe_string(data.get("participation", {}).get("consultationStartDate")),
+                    "consultationEndDate": safe_string(data.get("participation", {}).get("consultationEndDate")),
+                    "commentsPublic": safe_bool(data.get("participation", {}).get("commentsPublic")),
+                    "stakeholderScore": safe_number(data.get("participation", {}).get("stakeholderScore"))
                 },
                 "alignment": {
-                    "aiPrinciples": data.get("alignment", {}).get("aiPrinciples", []),
-                    "humanRightsAlignment": data.get("alignment", {}).get("humanRightsAlignment", False),
-                    "environmentalConsiderations": data.get("alignment", {}).get("environmentalConsiderations", False),
-                    "internationalCooperation": data.get("alignment", {}).get("internationalCooperation", False)
+                    "aiPrinciples": safe_list(data.get("alignment", {}).get("aiPrinciples")),
+                    "humanRightsAlignment": safe_bool(data.get("alignment", {}).get("humanRightsAlignment")),
+                    "environmentalConsiderations": safe_bool(data.get("alignment", {}).get("environmentalConsiderations")),
+                    "internationalCooperation": safe_bool(data.get("alignment", {}).get("internationalCooperation"))
                 }
             }
             

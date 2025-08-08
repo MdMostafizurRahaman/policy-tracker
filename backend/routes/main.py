@@ -4,29 +4,24 @@ Registers all API routes with the FastAPI application
 """
 from fastapi import APIRouter
 from controllers.auth_controller import router as auth_router
-from controllers.policy_controller import router as policy_router
 from controllers.admin_controller import router as admin_router
-from controllers.public_controller import router as public_router
-from controllers.debug_controller import router as debug_router
+from controllers.public_controller_clean import router as public_router, api_router as public_api_router
 from controllers.chat_controller import router as chat_router
-from controllers.ai_analysis_controller import router as ai_analysis_router
+from controllers.policy_controller_dynamodb import policy_router
+from controllers.ai_analysis_controller_dynamodb import ai_analysis_router
+from controllers.system_controller import system_router
+from controllers.visit_controller import visit_router
 
 def setup_routes(app):
     """Setup all application routes"""
     
-    # Create main API router
-    api_router = APIRouter()
-    
-    # Include all controller routers
-    api_router.include_router(auth_router)
-    api_router.include_router(policy_router)
-    api_router.include_router(admin_router)
-    api_router.include_router(public_router)
-    api_router.include_router(debug_router)
-    api_router.include_router(chat_router)
-    api_router.include_router(ai_analysis_router)
-    
-    # Include the main router in the app
-    app.include_router(api_router)
-    
-    return app
+    # Include all DynamoDB-compatible controllers (prefixes already defined in controllers)
+    app.include_router(auth_router, tags=["Authentication"])
+    app.include_router(admin_router, tags=["Admin"]) 
+    app.include_router(public_router, tags=["Public"])
+    app.include_router(public_api_router, tags=["Public API"])  # Add the direct API router
+    app.include_router(chat_router, tags=["Chat"])
+    app.include_router(policy_router, prefix="/api/policy", tags=["Policy"])  # This one needs prefix
+    app.include_router(ai_analysis_router, prefix="/api/ai-analysis", tags=["AI Analysis"])  # This one needs prefix
+    app.include_router(system_router, tags=["System"])  # Debug and health endpoints
+    app.include_router(visit_router, tags=["Visits"])  # Visit tracking endpoints

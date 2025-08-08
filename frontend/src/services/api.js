@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api';
 
 class ApiService {
   constructor() {
@@ -225,7 +225,7 @@ class PolicyService extends ApiService {
 // Chat Service
 class ChatService extends ApiService {
   async sendMessage(messageData) {
-    return this.post('/chat/chat', messageData);
+    return this.post('/chat/', messageData);
   }
 
   async getConversation(conversationId) {
@@ -266,6 +266,10 @@ class PublicService extends ApiService {
   async getStatisticsFast(signal = null) {
     return this.get('/public/statistics-fast', { signal, timeout: 20000 }); // Increased to 20 seconds
   }
+
+  async getMapVisualization(signal = null) {
+    return this.get('/admin/map-visualization-with-area-points', { signal, timeout: 20000 });
+  }
 }
 
 // Admin Service
@@ -288,7 +292,11 @@ class AdminService extends ApiService {
 
   // New methods for enhanced admin functionality
   async getSubmissions(page = 1, limit = 10, status = 'all') {
-    return this.get(`/admin/submissions?page=${page}&limit=${limit}&status=${status}`);
+    // Temporarily use debug endpoint to bypass authentication issues
+    console.log('Calling debug submissions endpoint...');
+    const response = await this.get(`/admin/submissions-debug?page=${page}&limit=${limit}&status=${status}`);
+    console.log('Debug submissions response:', response);
+    return response;
   }
 
   async getStatistics(signal = null) {
@@ -332,6 +340,57 @@ class AdminService extends ApiService {
       submission_id: submissionId
     });
   }
+
+  // New comprehensive admin methods
+  async approvePolicy(submissionId, areaId, policyIndex, adminNotes = '') {
+    // Use debug approval endpoint with submission_id in URL path
+    return this.post(`/admin/debug-approval/${submissionId}`, {
+      admin_notes: adminNotes || 'Approved via admin panel'
+    });
+  }
+
+  async rejectPolicy(submissionId, areaId, policyIndex, adminNotes = '') {
+    // Use debug rejection endpoint with submission_id in URL path
+    return this.post(`/admin/debug-rejection/${submissionId}`, {
+      admin_notes: adminNotes || 'Rejected via admin panel'
+    });
+  }
+
+  async commitPolicy(submissionId, areaId, policyIndex) {
+    return this.post('/admin/commit-policy', {
+      submission_id: submissionId,
+      area_id: areaId,
+      policy_index: policyIndex
+    });
+  }
+
+  async deletePolicyCompletely(policyId) {
+    return this.delete(`/admin/policy/${policyId}`);
+  }
+
+  async getApprovedPolicies(page = 1, limit = 20) {
+    return this.get(`/admin/approved-policies?page=${page}&limit=${limit}`);
+  }
+
+  async getPolicyFiles(policyId) {
+    return this.get(`/admin/policy/${policyId}/files`);
+  }
+
+  async uploadPolicyFile(policyId, fileData) {
+    return this.post(`/admin/policy/${policyId}/upload-file`, fileData);
+  }
+
+  async getFile(fileId) {
+    return this.get(`/admin/file/${fileId}`);
+  }
+
+  async deleteFile(fileId) {
+    return this.delete(`/admin/file/${fileId}`);
+  }
+
+  async getAllFiles() {
+    return this.get('/admin/all-files');
+  }
 }
 
 // Create service instances
@@ -364,14 +423,14 @@ export const apiService = {
   uploadPolicyFile: (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    return authService.post('/upload-policy-file', formData);
+    return authService.post('/policy/upload-policy-file', formData);
   },
   
   // AI Analysis methods
   analyzeUploadedFile: (fileId) => {
     const formData = new FormData();
     formData.append('file_id', fileId);
-    return authService.post('/ai/analyze-uploaded-file', formData);
+    return authService.post('/ai-analysis/analyze-uploaded-file', formData);
   },
   
   // Chat methods

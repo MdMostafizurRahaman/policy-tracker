@@ -16,27 +16,28 @@ const PolicyChatAssistant = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [suggestedQuestions, setSuggestedQuestions] = useState([
-    "United States",           // Country search - always works
-    "AI Safety",              // Policy area - always works  
-    "countries",              // List command - always works
-    "Digital Education",      // Policy area - always works
-    "Bangladesh",             // Country search - always works
-    "areas"                   // List command - always works
+    "United States",        
+    "AI Safety",              
+    "countries",            
+    "Digital Education",    
+    "Bangladesh",           
+    "areas"                 
   ]);
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
-  // Mock API base URL - replace with your actual API URL
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-5.onrender.com/api';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
 
   useEffect(() => {
@@ -87,7 +88,6 @@ const PolicyChatAssistant = () => {
         conversation_id: currentConversationId
       };
 
-      // Add policy context if provided (when user clicks on a search result)
       if (policyContext) {
         requestBody.context = `Based on the following policy information: ${JSON.stringify(policyContext)}`;
       }
@@ -112,7 +112,6 @@ const PolicyChatAssistant = () => {
         setMessages(prev => [...prev, assistantMessage]);
         setCurrentConversationId(data.conversation_id);
         
-        // Refresh conversations list
         loadConversations();
       } else {
         throw new Error('Failed to send message');
@@ -352,7 +351,7 @@ const PolicyChatAssistant = () => {
                 <Database className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="text-lg font-bold">AI Policy</div>
+                <div className="text-lg font-bold">Policy Bot</div>
                 <div className="text-sm font-normal text-blue-100">Database Assistant</div>
               </div>
             </h2>
@@ -556,13 +555,13 @@ const PolicyChatAssistant = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    AI Policy Database Expert
+                    Policy Bot Database Expert
                     <Sparkles className="w-5 h-5 text-blue-500" />
                   </h1>
                   <p className="text-sm text-gray-600">
                     {selectedPolicy 
                       ? `Discussing ${selectedPolicy.country} - ${selectedPolicy.name}`
-                      : "Search and explore AI policies from verified database sources"
+                      : "Search and explore All policies from verified database sources"
                     }
                   </p>
                 </div>
@@ -587,9 +586,9 @@ const PolicyChatAssistant = () => {
               <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
                 <Database className="w-12 h-12 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to AI Policy Database Assistant</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">Welcome to Global Policy Database Assistant</h3>
               <p className="text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-                I'm your dedicated AI policy expert with access to a comprehensive database of verified AI governance frameworks, 
+                I'm your dedicated policy expert with access to a comprehensive database of verified governance frameworks, 
                 regulations, and policy initiatives from around the world. I can only provide information that exists in our database.
               </p>
               
