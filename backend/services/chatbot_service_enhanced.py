@@ -26,13 +26,13 @@ class EnhancedChatbotService:
     def __init__(self):
         self._db = None
         
-        # GPT API configuration (using OpenAI)
+        # GPT API configuration (using OpenAI) - Primary and only AI model
         self.openai_api_key = os.getenv('OPENAI_API_KEY')  # Your GPT API key
         self.openai_api_url = "https://api.openai.com/v1/chat/completions"
         
-        # Backup GROQ configuration
-        self.groq_api_key = os.getenv('GROQ_API_KEY')
-        self.groq_api_url = os.getenv('GROQ_API_URL', "https://api.groq.com/openai/v1/chat/completions")
+        # GROQ configuration - COMMENTED OUT (Using ChatGPT only)
+        # self.groq_api_key = os.getenv('GROQ_API_KEY')
+        # self.groq_api_url = os.getenv('GROQ_API_URL', "https://api.groq.com/openai/v1/chat/completions")
         
         # Policy data cache for faster responses
         self.policy_cache = None
@@ -1527,28 +1527,30 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
         return base_prompt
 
     async def _call_ai_api(self, prompt: str, context_policies: List[Dict] = None) -> str:
-        """Call AI API (OpenAI GPT or GROQ fallback)"""
+        """Call AI API (ChatGPT Only - GROQ functionality commented out)"""
         try:
-            # Try OpenAI first with enhanced context
+            # Use ChatGPT as the primary and only AI model
             if self.openai_api_key:
                 response = await self._call_openai_api(prompt, context_policies)
                 if response:
                     return response
+                else:
+                    return "I apologize, but I'm having trouble connecting to ChatGPT right now. Please check your API key and try again."
+            else:
+                return "ChatGPT API key is not configured. Please set your OPENAI_API_KEY environment variable."
             
-            # Fallback to GROQ
-            if self.groq_api_key:
-                response = await self._call_groq_api(prompt)
-                if response:
-                    return response
-            
-            return "I apologize, but I'm having trouble generating a response right now. Please try again."
+            # GROQ Fallback - COMMENTED OUT (Using ChatGPT only)
+            # if self.groq_api_key:
+            #     response = await self._call_groq_api(prompt)
+            #     if response:
+            #         return response
             
         except Exception as e:
-            print(f"Error calling AI API: {e}")
-            return "I apologize, but I'm experiencing technical difficulties. Please try again in a moment."
+            print(f"Error calling ChatGPT API: {e}")
+            return "I apologize, but I'm experiencing technical difficulties with ChatGPT. Please try again in a moment."
 
     async def _call_openai_api(self, prompt: str, context_policies: List[Dict] = None) -> Optional[str]:
-        """Call OpenAI GPT API with enhanced context from your policy database"""
+        """Call ChatGPT (OpenAI GPT-4) API with enhanced context from your policy database"""
         try:
             headers = {
                 "Authorization": f"Bearer {self.openai_api_key}",
@@ -1559,7 +1561,7 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
             system_content = await self._create_enhanced_system_prompt(context_policies)
             
             payload = {
-                "model": "gpt-4",
+                "model": "gpt-4",  # Using ChatGPT-4 as the primary and only AI model
                 "messages": [
                     {
                         "role": "system",
@@ -1584,43 +1586,44 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
                 return data['choices'][0]['message']['content'].strip()
                 
         except Exception as e:
-            print(f"OpenAI API error: {e}")
+            print(f"ChatGPT API error: {e}")
             return None
 
-    async def _call_groq_api(self, prompt: str) -> Optional[str]:
-        """Call GROQ API as fallback"""
-        try:
-            headers = {
-                "Authorization": f"Bearer {self.groq_api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "llama3-8b-8192",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a professional Policy Expert Assistant covering 10 key policy domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Provide helpful, accurate, and conversational responses about policies across these domains."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "max_tokens": 500,
-                "temperature": 0.7
-            }
-            
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(self.groq_api_url, headers=headers, json=payload)
-                response.raise_for_status()
-                
-                data = response.json()
-                return data['choices'][0]['message']['content'].strip()
-                
-        except Exception as e:
-            print(f"GROQ API error: {e}")
-            return None
+    # GROQ API Method - COMMENTED OUT (Using ChatGPT only)
+    # async def _call_groq_api(self, prompt: str) -> Optional[str]:
+    #     """Call GROQ API as fallback - DISABLED"""
+    #     try:
+    #         headers = {
+    #             "Authorization": f"Bearer {self.groq_api_key}",
+    #             "Content-Type": "application/json"
+    #         }
+    #         
+    #         payload = {
+    #             "model": "llama3-8b-8192",
+    #             "messages": [
+    #                 {
+    #                     "role": "system",
+    #                     "content": "You are a professional Policy Expert Assistant covering 10 key policy domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Provide helpful, accurate, and conversational responses about policies across these domains."
+    #                 },
+    #                 {
+    #                     "role": "user",
+    #                     "content": prompt
+    #                 }
+    #             ],
+    #             "max_tokens": 500,
+    #             "temperature": 0.7
+    #         }
+    #         
+    #         async with httpx.AsyncClient(timeout=30.0) as client:
+    #             response = await client.post(self.groq_api_url, headers=headers, json=payload)
+    #             response.raise_for_status()
+    #             
+    #             data = response.json()
+    #             return data['choices'][0]['message']['content'].strip()
+    #             
+    #     except Exception as e:
+    #         print(f"GROQ API error: {e}")
+    #         return None
 
     def _format_fallback_policy_response(self, policies: List[Dict]) -> str:
         """Fallback policy response if AI fails"""
