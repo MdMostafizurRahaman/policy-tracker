@@ -93,7 +93,6 @@ def create_app() -> FastAPI:
     
     # Setup routes
     setup_routes(app)
-    
     return app
 
 # Create the app instance
