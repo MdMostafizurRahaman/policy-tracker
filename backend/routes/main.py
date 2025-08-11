@@ -11,6 +11,7 @@ from controllers.policy_controller_dynamodb import policy_router
 from controllers.ai_analysis_controller_dynamodb import ai_analysis_router
 from controllers.system_controller import system_router
 from controllers.visit_controller import visit_router
+from controllers.rag_chat_controller import create_rag_router
 
 def setup_routes(app):
     """Setup all application routes"""
@@ -25,3 +26,7 @@ def setup_routes(app):
     app.include_router(ai_analysis_router, prefix="/api/ai-analysis", tags=["AI Analysis"])  # This one needs prefix
     app.include_router(system_router, tags=["System"])  # Debug and health endpoints
     app.include_router(visit_router, tags=["Visits"])  # Visit tracking endpoints
+    
+    # RAG (Retrieval-Augmented Generation) routes
+    rag_router = create_rag_router()
+    app.include_router(rag_router, tags=["RAG Chat"])
