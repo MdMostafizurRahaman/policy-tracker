@@ -27,13 +27,13 @@ class EnhancedChatbotService:
     def __init__(self):
         self._db = None
         
-        # GPT API configuration (using OpenAI) - Primary and only AI model
+        # GPT API configuration (using OpenAI) - Primary AI model
         self.openai_api_key = os.getenv('OPENAI_API_KEY')  # Your GPT API key
         self.openai_api_url = "https://api.openai.com/v1/chat/completions"
         
-        # GROQ configuration - COMMENTED OUT (Using ChatGPT only)
-        # self.groq_api_key = os.getenv('GROQ_API_KEY')
-        # self.groq_api_url = os.getenv('GROQ_API_URL', "https://api.groq.com/openai/v1/chat/completions")
+        # GROQ configuration - Backup AI model when OpenAI fails
+        self.groq_api_key = os.getenv('GROQ_API_KEY')
+        self.groq_api_url = os.getenv('GROQ_API_URL', "https://api.groq.com/openai/v1/chat/completions")
         
         # Policy data cache for faster responses
         self.policy_cache = None
@@ -543,6 +543,9 @@ class EnhancedChatbotService:
             message_lower = request.message.lower().strip()
             if any(keyword in message_lower for keyword in self.greeting_keywords):
                 ai_response = await self._get_greeting_response(request.message, conversation.messages)
+            # Check for help requests
+            elif any(keyword in message_lower for keyword in self.help_keywords):
+                ai_response = await self._get_help_response(request.message, conversation.messages)
             # Check if this is a policy-related query with context
             elif await self._is_policy_related_query(request.message, context):
                 # Check if it's a comparison query
@@ -673,88 +676,123 @@ class EnhancedChatbotService:
             print(f"Error saving conversation: {e}")
 
     async def _get_greeting_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate human-like greeting response"""
+        """Generate intelligent, human-like greeting response with smart service description"""
         message_lower = message.lower().strip()
         print(f"🎯 Processing greeting: '{message_lower}'")
         
         # Categorize the greeting type
         if any(word in message_lower for word in ['bye', 'goodbye', 'see you', 'farewell']):
             responses = [
-                "Goodbye! Feel free to come back anytime if you have questions about policies! 👋",
-                "See you later! I'll be here whenever you need policy insights! 😊",
-                "Take care! Don't hesitate to ask if you need help with policy research! 🌟",
-                "Farewell! Looking forward to helping you with policy questions again! ✨"
+                "Goodbye! It was wonderful helping you explore policy insights today. Feel free to return anytime you need information about governance frameworks from around the world! 👋",
+                "See you later! I've really enjoyed our conversation about policies. I'll be here whenever you're ready to dive deeper into global governance topics! 😊",
+                "Take care! Remember, I'm always here to help you navigate the complex world of policy research and country comparisons. Until next time! 🌟",
+                "Farewell! It's been a pleasure sharing policy knowledge with you. Don't hesitate to come back when you need insights from our comprehensive database! ✨"
             ]
         elif any(word in message_lower for word in ['thanks', 'thank you', 'thx']):
             responses = [
-                "You're very welcome! Happy to help with policy research anytime! 😊",
-                "My pleasure! That's what I'm here for - to make policy exploration easier! 🎯",
-                "Glad I could help! Feel free to ask me about any policy topics! 💡",
-                "Anytime! I love helping people understand policy frameworks! 🌟"
+                "You're absolutely welcome! I'm genuinely happy I could help you understand those policy insights better. That's exactly why I'm here - to make complex governance information accessible and useful! 😊",
+                "My absolute pleasure! Helping people navigate and understand policy frameworks is what I do best. I hope the information was exactly what you needed! 🎯",
+                "I'm so glad I could assist you! Making policy research easier and more insightful is my specialty. Feel free to explore any other governance topics that interest you! 💡",
+                "Anytime! I truly enjoy helping people discover and understand policy approaches from different countries. Your curiosity about governance makes conversations like this so rewarding! 🌟"
             ]
         elif any(word in message_lower for word in ['ok', 'okay', 'nice', 'cool', 'great', 'awesome', 'perfect']):
             responses = [
-                "Great! Is there anything specific about policy areas you'd like to explore? 🚀",
-                "Awesome! I'm ready to help with any policy questions you might have! 💫",
-                "Perfect! What policy topics interest you most? 🎯",
-                "Cool! Feel free to ask me about policies from any of our 15+ countries! 🌍"
+                "Fantastic! I'm excited to help you explore policy landscapes. Is there a specific country's approach to governance that interests you, or perhaps you'd like to compare how different nations handle similar challenges? 🚀",
+                "Wonderful! I'm ready to dive into any policy topic with you. Whether you're curious about AI regulation, cybersecurity frameworks, or digital education policies - I have insights from over 15 countries! 💫",
+                "Excellent! What aspect of global governance catches your attention? I can share detailed insights about policy implementation, evaluation methods, or how different countries approach the same challenges! 🎯",
+                "Great to hear! I'm here to make policy exploration both informative and engaging. Feel free to ask about any of our 10 specialized domains or request comparisons between nations! 🌍"
             ]
         elif any(word in message_lower for word in ['no', 'nope']):
             responses = [
-                "No worries! I'm here whenever you're ready to explore policy topics! 😊",
-                "That's totally fine! Just let me know if you'd like to learn about any policies! 🌟",
-                "All good! Feel free to ask me anything about governance frameworks anytime! 💡"
+                "No problem at all! I completely understand. I'm here whenever you're ready to explore policy topics - whether that's in five minutes or five days. Take your time! 😊",
+                "That's perfectly fine! Sometimes we're just browsing or thinking things through. I'll be right here whenever policy questions come to mind. No pressure at all! 🌟",
+                "Absolutely no worries! I'm patient and ready to help whenever the mood strikes. Feel free to ask me anything about governance frameworks whenever you're curious! 💡"
             ]
         elif any(word in message_lower for word in ['yes', 'yeah', 'yep', 'sure']):
             responses = [
-                "Excellent! What policy area would you like to dive into? 🚀",
-                "Great! I can help you explore policies across 10 key domains - what interests you? 🎯",
-                "Perfect! Feel free to ask about any country's policies or compare between nations! 🌍"
+                "Excellent! I'm thrilled to help you explore policy insights. What draws your interest - perhaps AI safety policies, cybersecurity frameworks, or maybe you'd like to see how different countries approach digital education? 🚀",
+                "Wonderful! I can guide you through fascinating policy comparisons across 10 key domains. Are you interested in a specific country's approach, or would you like to see how multiple nations handle similar governance challenges? 🎯",
+                "Perfect! Let's dive into the world of global governance together. I have comprehensive data on everything from mental health policies to social media regulation - what sparks your curiosity? 🌍"
             ]
         else:
-            # Regular greeting
+            # Enhanced regular greeting with smart service description
             responses = [
-                "Hi there! 👋 I'm your Policy Expert Assistant! I can help you explore governance frameworks across 10 key domains from 15+ countries. What would you like to know?",
-                "Hello! 😊 Great to see you! I specialize in policy research across AI Safety, CyberSafety, Digital Education, and 7 other key areas. How can I assist you today?",
-                "Hey! 🌟 Welcome! I'm here to help you navigate policy landscapes from around the world. Whether you want country comparisons or specific policy details, I've got you covered!",
-                "Greetings! 💡 I'm your go-to expert for policy insights across global governance frameworks. What policy topics are you curious about?"
+                f"Hello there! 👋 I'm delighted to meet you! I'm your dedicated Policy Intelligence Assistant, and I'm genuinely excited to help you explore the fascinating world of global governance.\n\n🌟 **Here's how I can assist you:**\n• **Discover Policy Insights**: I have comprehensive knowledge of {len(self.policy_cache) if self.policy_cache else 'hundreds of'} policies from {len(self.countries_cache) if self.countries_cache else '15+'} countries\n• **Smart Comparisons**: I can show you how different nations approach the same challenges\n• **Deep Analysis**: Explore implementation strategies, evaluation methods, and participation frameworks\n• **10 Specialized Domains**: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation\n\nWhat aspect of global policy interests you most today?",
+                
+                f"Hi! 😊 What a pleasure to see you! I'm your Policy Expert Companion, and I absolutely love helping people navigate the complex but fascinating world of governance frameworks.\n\n💡 **I'm here to help you:**\n• **Explore Policy Landscapes**: From AI regulation to digital wellness policies across {len(self.countries_cache) if self.countries_cache else '15+'} countries\n• **Understand Implementation**: How policies work in practice, their evaluation methods, and public participation\n• **Compare Approaches**: See how different nations tackle similar challenges\n• **Get Specific Insights**: Whether you need broad overviews or detailed policy analysis\n\nI'm particularly knowledgeable about our 10 core policy domains. What would you like to discover first?",
+                
+                f"Hey there! 🌟 Welcome! I'm absolutely thrilled you're here! I'm your Personal Policy Guide, specializing in making complex governance information accessible and engaging.\n\n🚀 **What makes me special:**\n• **Comprehensive Database**: I know {len(self.policy_cache) if self.policy_cache else 'hundreds of'} policies inside and out\n• **Global Perspective**: Insights from countries across different continents and governance systems\n• **Practical Focus**: I don't just share policy text - I help you understand real-world implementation and impact\n• **Intelligent Comparisons**: I can show you patterns, differences, and innovative approaches across nations\n\nWhether you're researching specific countries, exploring policy domains, or looking for comparative analysis - I'm here to help! What sparks your curiosity?",
+                
+                f"Greetings! � How wonderful to connect with you! I'm your dedicated Policy Intelligence Specialist, and I genuinely love sharing insights about how different countries approach governance challenges.\n\n🎯 **I'm expertly equipped to help you with:**\n• **Policy Discovery**: Find exactly what you need from our extensive database\n• **Smart Analysis**: Understand not just what policies exist, but how they work\n• **Country Insights**: Deep knowledge of approaches from {len(self.countries_cache) if self.countries_cache else '15+'} diverse nations\n• **Domain Expertise**: Specialized knowledge across 10 critical policy areas\n\nI'm here to make policy research both informative and enjoyable. What governance topic interests you today?"
             ]
         
         # Return a random response from the appropriate category
         selected_response = random.choice(responses)
-        print(f"✅ Selected direct greeting response: {selected_response[:50]}...")
+        print(f"✅ Selected intelligent greeting response: {selected_response[:50]}...")
         return selected_response
 
-    async def _is_policy_related_query(self, message: str) -> bool:
-        """Check if the message is related to any policy area or governance"""
+    async def _is_policy_related_query(self, message: str, context: Dict[str, Any] = None) -> bool:
+        """Intelligently detect if the message is related to any policy area or governance"""
         message_lower = message.lower()
         
-        # Policy-related keywords (expanded for all 10 policy areas)
+        # Enhanced policy-related keywords (expanded for all 10 policy areas)
         policy_keywords = [
+            # Core policy terms
             'policy', 'policies', 'governance', 'regulation', 'law', 'legislation',
             'government', 'framework', 'strategy', 'implementation', 'evaluation', 
-            'compliance', 'standard', 'guideline', 'principle',
-            # AI Safety
+            'compliance', 'standard', 'guideline', 'principle', 'regulatory',
+            'administration', 'public policy', 'national strategy', 'government approach',
+            
+            # AI Safety - expanded
             'ai', 'artificial intelligence', 'ai safety', 'machine learning', 'automation',
-            # CyberSafety
+            'algorithmic governance', 'ai ethics', 'ai regulation', 'ai oversight',
+            'artificial intelligence policy', 'ai standards', 'ai accountability',
+            
+            # CyberSafety - expanded  
             'cyber', 'cybersecurity', 'digital security', 'data protection', 'privacy',
-            # Digital Education
+            'cyber safety', 'information security', 'digital privacy', 'data governance',
+            'cybercrime', 'data breach', 'digital rights', 'online safety',
+            
+            # Digital Education - expanded
             'digital education', 'online learning', 'educational technology', 'e-learning',
-            # Digital Inclusion
+            'edtech', 'digital literacy', 'online education', 'digital skills',
+            'educational tech', 'learning technology', 'digital pedagogy',
+            
+            # Digital Inclusion - expanded
             'digital divide', 'digital inclusion', 'accessibility', 'internet access',
-            # Digital Leisure
+            'digital equity', 'digital access', 'digital accessibility', 'inclusive technology',
+            'digital participation', 'digital exclusion', 'broadband access',
+            
+            # Digital Leisure - expanded
             'gaming', 'digital leisure', 'entertainment', 'online gaming', 'digital recreation',
+            'gaming policy', 'digital entertainment', 'esports', 'gaming regulation',
+            'entertainment technology', 'digital content', 'streaming regulation',
+            
             # Disinformation - expanded keywords
             'misinformation', 'disinformation', 'fake news', 'information', 'media literacy',
             'dis information', 'disinformation', 'false information', 'propaganda', 'fact checking',
-            # Digital Work
+            'information integrity', 'content moderation', 'media regulation', 'information quality',
+            'online misinformation', 'information warfare', 'digital propaganda',
+            
+            # Digital Work - expanded
             'digital work', 'remote work', 'gig economy', 'digital employment', 'future of work',
-            # Mental Health
+            'telework', 'digital workplace', 'platform work', 'digital labor',
+            'remote employment', 'flexible work', 'digital economy',
+            
+            # Mental Health - expanded
             'mental health', 'digital wellness', 'screen time', 'digital wellbeing',
-            # Physical Health
+            'digital mental health', 'online mental health', 'digital therapy',
+            'mental health technology', 'digital psychology', 'wellbeing tech',
+            
+            # Physical Health - expanded
             'physical health', 'healthcare technology', 'telemedicine', 'health tech',
-            # Social Media/Gaming Regulation
-            'social media', 'platform regulation', 'content moderation', 'gaming regulation'
+            'digital health', 'health technology', 'medical technology', 'telehealth',
+            'health informatics', 'digital healthcare', 'health data',
+            
+            # Social Media/Gaming Regulation - expanded
+            'social media', 'platform regulation', 'content moderation', 'gaming regulation',
+            'social media regulation', 'platform governance', 'online platform',
+            'social media policy', 'digital platform', 'content policy', 'platform accountability'
         ]
         
         # Check if message contains any policy keywords
@@ -765,10 +803,18 @@ class EnhancedChatbotService:
         # Check if message mentions any country from our database
         if self.countries_cache:
             for country in self.countries_cache:
-                if country and country.lower() in message_lower:
-                    return True
+                if country:
+                    country_lower = country.lower()
+                    # Direct country match
+                    if country_lower in message_lower:
+                        return True
+                    # Check common country variations
+                    if country_lower == "united states" and any(term in message_lower for term in ["usa", "us", "america", "american"]):
+                        return True
+                    elif country_lower == "united kingdom" and any(term in message_lower for term in ["uk", "britain", "british"]):
+                        return True
         
-        # Check if message mentions any policy area from our database (improved matching)
+        # Intelligent policy area detection with context
         if self.areas_cache:
             for area in self.areas_cache:
                 if area:
@@ -776,13 +822,46 @@ class EnhancedChatbotService:
                     clean_area = area.lower().replace('(', '').replace(')', '').replace('-', ' ')
                     area_words = clean_area.split()
                     
-                    # Check if any words from the area appear in the message
-                    if any(word in message_lower for word in area_words if len(word) > 2):
+                    # Check if significant words from the area appear in the message
+                    significant_matches = 0
+                    for word in area_words:
+                        if len(word) > 3 and word in message_lower:  # Only count significant words
+                            significant_matches += 1
+                    
+                    # If multiple significant words match, it's likely policy-related
+                    if significant_matches >= 2 or (len(area_words) == 1 and significant_matches == 1):
                         return True
                     
                     # Also check the original area name
                     if area.lower() in message_lower:
                         return True
+        
+        # Check conversation context for policy relevance
+        if context:
+            # If recent conversation mentioned countries or policy areas, this might be a follow-up
+            if context.get('mentioned_countries') or context.get('mentioned_areas'):
+                # Look for follow-up indicators
+                follow_up_phrases = [
+                    'what about', 'how about', 'tell me more', 'also', 'additionally',
+                    'compare', 'difference', 'similar', 'other', 'more information'
+                ]
+                if any(phrase in message_lower for phrase in follow_up_phrases):
+                    return True
+        
+        # Smart pattern recognition for policy queries
+        policy_patterns = [
+            # Question patterns that often relate to policy
+            r'\b(how does|what is|what are|how do|what about)\b.*\b(country|nation|government|state)\b',
+            r'\b(regulation|approach|strategy|framework|system)\b.*\b(in|for|by)\b',
+            r'\b(compare|comparison|difference|different)\b.*\b(countries|nations)\b',
+            # Governance-related patterns
+            r'\b(public|national|federal|state|local)\b.*\b(approach|strategy|policy|system)\b'
+        ]
+        
+        import re
+        for pattern in policy_patterns:
+            if re.search(pattern, message_lower):
+                return True
         
         return False
 
@@ -943,7 +1022,7 @@ class EnhancedChatbotService:
             return await self._get_no_data_response(message)
 
     async def _find_relevant_policies(self, query: str) -> List[Dict]:
-        """Find policies relevant to the query - strict matching for precise results"""
+        """Find policies relevant to the query - with corruption detection"""
         if not self.policy_cache:
             return []
         
@@ -969,8 +1048,13 @@ class EnhancedChatbotService:
                 if area and area.lower() in query_lower:
                     mentioned_areas.append(area.lower())
         
-        # Score policies based on relevance with strict filtering
+        # Score policies based on relevance with corruption detection
         for policy in self.policy_cache:
+            # Check for obvious corruption - skip corrupted policies
+            if self._is_policy_corrupted(policy):
+                print(f"⚠️ Skipping corrupted policy: {policy.get('policy_name', 'Unknown')} assigned to {policy.get('country', 'Unknown')}")
+                continue
+            
             score = 0
             country = policy.get('country', '').lower()
             area = policy.get('area_name', '').lower()
@@ -1029,6 +1113,31 @@ class EnhancedChatbotService:
         relevant_policies.sort(key=lambda x: x['relevance_score'], reverse=True)
         return relevant_policies[:10]  # Return top 10 relevant policies
 
+    def _is_policy_corrupted(self, policy: Dict) -> bool:
+        """Detect if a policy has incorrect country assignment"""
+        country = policy.get('country', '').lower()
+        policy_name = policy.get('policy_name', '').lower()
+        description = policy.get('policy_description', '').lower()
+        
+        # Check for obvious corruption patterns
+        if country == 'bangladesh':
+            # Bangladesh shouldn't have German, UK, or Algerian policies
+            if any(term in policy_name or term in description for term in [
+                'german federal government', 'germany', 'turing institute', 'uk', 'britain', 
+                'algeria', 'algerian'
+            ]):
+                return True
+        
+        if country == 'united states':
+            # US shouldn't have German or UK policies
+            if any(term in policy_name or term in description for term in [
+                'german federal government', 'germany', 'turing institute', 'uk', 'britain'
+            ]):
+                return True
+        
+        # Add more corruption checks as needed
+        return False
+
     async def _find_relevant_policies_with_context(self, query: str, context: Dict[str, Any]) -> List[Dict]:
         """Find relevant policies with conversation context"""
         # Start with the base query
@@ -1070,60 +1179,185 @@ class EnhancedChatbotService:
         return policies
 
     async def _get_help_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
-        """Generate friendly help response"""
+        """Generate intelligent, friendly help response"""
         try:
             available_countries = ', '.join(self.countries_cache[:10]) + ('...' if len(self.countries_cache) > 10 else '')
             
-            friendly_help = f"""I'm here to help you explore global policy insights! Here's what I can do for you:
+            friendly_help = f"""I'm absolutely delighted you asked! I'm genuinely passionate about helping people navigate the fascinating world of global policy insights. Let me share what makes me uniquely helpful! 😊
 
-🔍 **Find Policies**: Ask about specific countries or policy areas
-   Example: "What are the AI policies in the United States?" or "Tell me about Canada's cybersecurity policies"
+🌟 **Here's how I can make policy research amazing for you:**
 
-🌍 **Compare Countries**: See how different nations approach similar challenges  
-   Example: "Compare AI safety policies between US and EU" or "How do Canada and Australia handle digital education?"
+🔍 **Discover Specific Policies**: 
+I have intimate knowledge of {len(self.policy_cache) if self.policy_cache else 'hundreds of'} policies from {len(self.countries_cache) if self.countries_cache else '15+'} countries. Just ask me things like:
+   • "What are the AI safety policies in the United States?"
+   • "Tell me about Germany's cybersecurity frameworks"
+   • "How does Canada approach digital education?"
 
-📊 **Explore Areas**: Dive deep into any of our 10 policy domains:
-   AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, Social Media/Gaming Regulation
+🌍 **Smart Country Comparisons**: 
+This is where I really shine! I love showing how different nations tackle similar challenges:
+   • "Compare AI regulation between US and EU"
+   • "How do Nordic countries handle mental health policies differently?"
+   • "What's the difference between Canada and Australia's digital inclusion approaches?"
 
-📈 **Get Details**: Learn about implementation, evaluation, and participation frameworks
+📊 **Deep Domain Expertise**: 
+I'm specialized in 10 critical policy areas that shape our digital future:
+   🤖 AI Safety | 🔒 CyberSafety | 📚 Digital Education | 🌐 Digital Inclusion
+   🎮 Digital Leisure | 📰 (Dis)Information | 💼 Digital Work | 🧠 Mental Health
+   🏥 Physical Health | 📱 Social Media/Gaming Regulation
 
-**Available Data**: {len(self.policy_cache)} policies from {len(self.countries_cache)} countries including {available_countries}
+� **Detailed Implementation Insights**: 
+I don't just tell you what policies exist - I help you understand:
+   • How they're actually implemented in practice
+   • What evaluation methods countries use
+   • How citizens participate in these frameworks
+   • Real-world challenges and successes
 
-Try asking something like "What digital education policies does Germany have?" or "Compare mental health policies between Nordic countries" - I'm here to help! 🚀"""
+**💫 Want to see me in action?** Try asking:
+   • "Show me innovative AI policies from any country"
+   • "Compare cybersecurity approaches between three different countries"
+   • "What mental health policies address social media impacts?"
+
+**Available Countries**: {available_countries}
+
+I'm genuinely excited to explore any of these topics with you! What sparks your curiosity about global governance? 🚀"""
             
             return friendly_help
             
         except Exception as e:
             print(f"Error generating help: {e}")
-            return f"I can help you explore policies across 10 key domains from {len(self.countries_cache)} countries! Try asking me about specific countries, policy areas like AI Safety or CyberSafety, or compare policies between countries. What would you like to explore?"
+            return f"""I'm thrilled to help you explore global policy insights! 😊
+
+I specialize in policies across 10 key domains from {len(self.countries_cache) if self.countries_cache else '15+'} countries. Whether you want to:
+• Discover specific country policies (like "Germany's AI regulations")
+• Compare approaches between nations ("US vs EU cybersecurity")  
+• Explore policy domains (AI Safety, CyberSafety, Digital Education, etc.)
+
+I'm here to make policy research both informative and engaging! What interests you most about global governance? 🌍"""
 
     async def _get_policy_response(self, query: str, policies: List[Dict], conversation_history: List[ChatMessage]) -> str:
-        """Generate AI response about policies using ONLY database information"""
+        """Generate intelligent, human-like AI response about policies using ONLY database information"""
         try:
+            # Extract specific country mentioned in query first
+            query_lower = query.lower()
+            mentioned_country = None
+            mentioned_topic = None
+            
+            # Extract country and topic from query - improved detection
+            if self.countries_cache:
+                for country in self.countries_cache:
+                    if country and country.lower() in query_lower:
+                        mentioned_country = country
+                        break
+            
+            # Also check for common country variations not in cache
+            country_variations = {
+                'malaysia': 'Malaysia',
+                'malesia': 'Malaysia', 
+                'singapore': 'Singapore',
+                'indonesia': 'Indonesia',
+                'thailand': 'Thailand',
+                'philippines': 'Philippines',
+                'vietnam': 'Vietnam',
+                'japan': 'Japan',
+                'south korea': 'South Korea',
+                'korea': 'South Korea',
+                'germany': 'Germany',
+                'france': 'France',
+                'italy': 'Italy',
+                'spain': 'Spain',
+                'netherlands': 'Netherlands',
+                'belgium': 'Belgium',
+                'sweden': 'Sweden',
+                'norway': 'Norway',
+                'denmark': 'Denmark',
+                'finland': 'Finland'
+            }
+            
+            if not mentioned_country:
+                for variation, standard_name in country_variations.items():
+                    if variation in query_lower:
+                        mentioned_country = standard_name
+                        break
+            
+            # Extract topic/area
+            if 'ai' in query_lower or 'artificial intelligence' in query_lower:
+                mentioned_topic = "AI policy"
+            elif 'cyber' in query_lower:
+                mentioned_topic = "cybersecurity policy"
+            elif 'education' in query_lower or 'digital education' in query_lower:
+                mentioned_topic = "digital education policy"
+            elif 'digital' in query_lower:
+                mentioned_topic = "digital policy"
+            
+            # Check if we actually have meaningful policy data
+            meaningful_policies = []
+            country_specific_policies = []
+            
+            for policy in policies:
+                # Skip corrupted policies first
+                if self._is_policy_corrupted(policy):
+                    continue
+                
+                policy_name = policy.get('policy_name', '').strip()
+                policy_desc = policy.get('policy_description', '').strip()
+                area_name = policy.get('area_name', '').strip()
+                policy_country = policy.get('country', '').strip()
+                
+                # Only include policies that have actual content
+                if (policy_name and policy_name.lower() not in ['no title', 'unknown', '', 'n/a'] and 
+                    policy_desc and policy_desc.lower() not in ['no description', 'no description available', 'unknown', '', 'n/a'] and
+                    area_name and area_name.lower() not in ['no area', 'unknown', '', 'n/a']):
+                    meaningful_policies.append(policy)
+                    
+                    # If user asked for specific country, only include policies from that country
+                    if mentioned_country and policy_country.lower() == mentioned_country.lower():
+                        country_specific_policies.append(policy)
+            
+            # If user asked for specific country but we have no policies from that country - give clean response
+            if mentioned_country and not country_specific_policies:
+                if mentioned_topic:
+                    return f"I'm sorry, but I don't have {mentioned_topic} data for {mentioned_country} in my database.\n\nIf you're knowledgeable about {mentioned_country}'s {mentioned_topic}, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
+                else:
+                    return f"I'm sorry, but I don't have policy data for {mentioned_country} in my database.\n\nIf you're knowledgeable about {mentioned_country}'s policies, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
+            
+            # If no meaningful policies at all, be honest about it
+            if not meaningful_policies:
+                return "I'm sorry, but I don't have data for your specific query in my database.\n\nIf you're knowledgeable about policy areas that we don't have data on yet, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
+            
+            # Use country-specific policies if user asked for specific country, otherwise use all meaningful policies
+            policies_to_use = country_specific_policies if mentioned_country else meaningful_policies
+            
+            # Only proceed if we have actual meaningful policies
+            # Create a strict prompt that emphasizes database-only responses
             prompt = f"""
             User Query: "{query}"
             
-            You are responding based EXCLUSIVELY on the specific policies in your database. Do not make assumptions or add information not present in the data.
+            You are responding about policies using ONLY the verified data from your database. You have {len(policies_to_use)} policies with complete information.
             
-            Available policies for this query: {len(policies)} relevant entries from your database.
+            **CRITICAL RULES:**
+            1. ONLY use the specific policy names, descriptions, and details provided in your database
+            2. NEVER create, invent, or assume policy names or information
+            3. If a policy field is empty or unclear, say so honestly
+            4. Be warm and enthusiastic but STRICTLY accurate to your data
+            5. If data is limited, acknowledge this and ask for user contributions
             
-            Instructions:
-            1. Answer the user's question using ONLY the specific policy data provided
-            2. If the data is insufficient for a complete answer, say so clearly
-            3. Cite specific policy names, countries, and details from your actual database
-            4. Do not supplement with general knowledge or assumptions
-            5. Be conversational but accurate to your database
-            6. If comparisons are possible with your data, provide them
-            7. Focus on implementation details, evaluation methods, and participation frameworks from your database
+            **Database Policies Available:**
+            {policies_to_use}
             
-            Be helpful and informative, but stay strictly within your database boundaries.
+            Generate a warm, intelligent response using ONLY this verified information.
             """
             
-            return await self._call_ai_api(prompt, policies)
+            # Try AI API first, with improved fallback
+            ai_response = await self._call_ai_api(prompt, policies_to_use)
+            if ai_response and not ai_response.startswith("I apologize, but I'm having trouble"):
+                return ai_response
+            else:
+                # If AI API fails, use enhanced fallback
+                return self._format_verified_policy_response(query, policies_to_use)
             
         except Exception as e:
             print(f"Error generating policy response: {e}")
-            return self._format_fallback_policy_response(policies)
+            return "I apologize, but I'm experiencing technical difficulties. Please try again in a moment."
 
     async def _handle_country_comparison(self, message: str, conversation_history: List[ChatMessage] = None, context: Dict[str, Any] = None) -> str:
         """Handle country comparison requests with enhanced country detection and conversation context"""
@@ -1285,135 +1519,139 @@ Try asking something like "What digital education policies does Germany have?" o
             return self._format_fallback_comparison(countries, data)
 
     async def _get_non_policy_response(self, message: str) -> str:
-        """Response for non-policy related queries"""
+        """Intelligent, human-like response for non-policy related queries"""
         # Check if it's a very short message that might be conversational
         message_lower = message.lower().strip()
         
-        # Handle apologetic phrases gently
+        # Handle apologetic phrases gently and warmly
         if any(word in message_lower for word in ['sorry', 'apologize', 'my bad', 'oops']):
-            return "No need to apologize! I'm here to help with any policy questions you might have."
+            return "Oh, please don't apologize! There's absolutely no need for that. I'm genuinely here to help and I appreciate you reaching out. If you have any questions about policy topics, I'd be delighted to assist! 😊"
         
-        # Handle simple conversational words
+        # Handle simple conversational words with warmth
         short_conversational = ['ok', 'okay', 'alright', 'sure', 'right', 'cool', 'fine', 'hmm', 'oh', 'ah', 'yes', 'no', 'yeah', 'yep', 'nope', 'nice', 'great', 'awesome', 'perfect', 'excellent', 'wonderful']
         
         if message_lower in short_conversational:
-            return "I understand! Is there anything specific about policies you'd like to know?"
+            return "I completely understand! Whenever you're ready, I'm here to help you explore fascinating policy insights from around the world. Is there anything about governance frameworks that sparks your curiosity? 💫"
         
         # Handle short conversational phrases
         if len(message_lower.split()) <= 3 and any(word in message_lower for word in short_conversational):
-            return "I understand! Is there anything specific about policies you'd like to know?"
+            return "I get it! Take your time. When you're ready to dive into policy topics, I'll be right here with insights from our comprehensive database. What interests you most about global governance? 🌟"
         
-        return f"""I'm sorry, but as a Policy Expert Assistant, I specialize exclusively in policy areas and governance frameworks across 10 key domains. I can't help with general questions like "{message}".
+        # Enhanced human-like response for non-policy queries - clean version without contribution request
+        return f"""I really appreciate you reaching out! But I'm sorry. While I'd love to help with that question, I have to be honest - my expertise is quite specialized. I'm like a passionate policy researcher who lives and breathes governance frameworks! 😊
 
-However, I'd be happy to answer questions about:
-• Policies from {len(self.countries_cache)} countries across 10 policy areas
-• AI Safety, CyberSafety, Digital Education, Digital Inclusion
-• Digital Leisure, (Dis)Information, Digital Work
-• Mental Health, Physical Health, Social Media/Gaming Regulation
-• Policy comparisons between nations  
-• Specific governance frameworks and implementations
+I can only assist with topics related to the 10 policy domains I know inside and out:
 
-If you're an expert in any policy areas, we'd love for you to contribute your knowledge to expand our database!"""
+🎯 **My Areas of Expertise:**
+
+• **AI Safety** - How countries regulate artificial intelligence
+
+• **CyberSafety** - Digital security and data protection policies
+
+• **Digital Education** - Online learning frameworks and educational technology
+
+• **Digital Inclusion** - Bridging the digital divide and accessibility
+
+• **Digital Leisure** - Gaming and digital entertainment policies
+
+• **Information/Disinformation** - Media literacy and information quality policies
+
+• **Digital Work** - Future of work and gig economy regulations
+
+• **Mental Health** - Digital wellness and mental health support policies
+
+• **Physical Health** - Healthcare technology and telemedicine policies
+
+• **Social Media/Gaming Regulation** - Platform governance and content policies
+
+I have comprehensive data from {len(self.countries_cache) if self.countries_cache else '15'} countries, and I absolutely love sharing insights about how different nations approach these challenges!
+
+Is there anything about global policy frameworks that I can help you explore today? 🌟"""
 
     async def _get_no_data_response(self, message: str) -> str:
-        """Response when no relevant policies found - handles intelligently based on query specificity"""
+        """Simple, clean response when no relevant policies found - just apologize and ask for contribution"""
         try:
             # Extract specific country and policy area from the message
             mentioned_country = None
-            mentioned_area = None
+            mentioned_topic = None
+            
+            message_lower = message.lower()
             
             # Check for specific country mention
             if self.countries_cache:
                 for country in self.countries_cache:
-                    if country and country.lower() in message.lower():
+                    if country and country.lower() in message_lower:
                         mentioned_country = country
                         break
             
-            # Check for specific policy area mention
-            if self.areas_cache:
+            # Check for specific topic mention
+            if 'ai' in message_lower or 'artificial intelligence' in message_lower:
+                mentioned_topic = "AI policy"
+            elif 'cyber' in message_lower:
+                mentioned_topic = "cybersecurity policy"
+            elif 'education' in message_lower or 'digital education' in message_lower:
+                mentioned_topic = "digital education policy"
+            elif 'digital' in message_lower:
+                mentioned_topic = "digital policy"
+            elif self.areas_cache:
                 for area in self.areas_cache:
-                    if area and area.lower() in message.lower():
-                        mentioned_area = area
+                    if area and area.lower() in message_lower:
+                        mentioned_topic = f"{area} policy"
                         break
             
-            # Generate intelligent response based on query specificity
-            if mentioned_country and mentioned_area:
-                # Very specific query - user wants specific country + area
-                response = f"I don't have {mentioned_area} policy data for {mentioned_country} in our database. This could be a valuable addition to our collection!"
-                
+            # Generate clean, simple response - NO SUGGESTIONS OR OTHER COUNTRY DATA
+            if mentioned_country and mentioned_topic:
+                return f"I'm sorry, but I don't have {mentioned_topic} data for {mentioned_country} in my database.\n\nIf you're knowledgeable about {mentioned_country}'s {mentioned_topic}, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
             elif mentioned_country:
-                # Country-specific query - check if we actually have any policies for this country first
-                country_policies = []
-                if self.policy_cache:
-                    for policy in self.policy_cache:
-                        if policy.get('country', '').lower() == mentioned_country.lower():
-                            country_policies.append(policy)
-                
-                if country_policies:
-                    # We have policies for this country but not the specific area requested
-                    available_areas = list(set([p.get('area_name', '') for p in country_policies if p.get('area_name')]))
-                    response = f"I don't have the specific policy information you're looking for about {mentioned_country}. However, I do have {mentioned_country} policies in: {', '.join(available_areas[:5])}{'...' if len(available_areas) > 5 else ''}. Would you like information about these areas instead?"
-                else:
-                    # We truly don't have data for this country
-                    response = f"I don't have policy data for {mentioned_country} in our database yet. We're always looking to expand our coverage to include more countries."
-                
-            elif mentioned_area:
-                # Area-specific query - only suggest alternatives if explicitly no data exists
-                area_countries = []
-                if self.policy_cache:
-                    for policy in self.policy_cache:
-                        if policy.get('area_name', '').lower() == mentioned_area.lower():
-                            country = policy.get('country', '')
-                            if country and country not in area_countries:
-                                area_countries.append(country)
-                
-                if area_countries:
-                    # Don't automatically suggest other countries - just acknowledge we have that area
-                    response = f"I don't have the specific {mentioned_area} data you're looking for. I do have {mentioned_area} policies from other countries in our database if you'd like to explore that area generally."
-                else:
-                    response = f"I don't have {mentioned_area} policy data in our database yet."
+                return f"I'm sorry, but I don't have policy data for {mentioned_country} in my database.\n\nIf you're knowledgeable about {mentioned_country}'s policies, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
+            elif mentioned_topic:
+                return f"I'm sorry, but I don't have {mentioned_topic} data in my database.\n\nIf you're knowledgeable about {mentioned_topic}, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
             else:
-                # General query
-                response = f"I don't have specific information about that in our current database."
-            
-            # Add contribution encouragement
-            response += f"\n\n🌟 **Know about this policy area?** Help us expand our database by contributing your expertise!"
-            
-            return response
+                return "I'm sorry, but I don't have data for your specific query in my database.\n\nIf you're knowledgeable about policy areas that we don't have data on yet, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
             
         except Exception as e:
-            print(f"Error generating no-data response: {e}")
-            return f"I don't have specific information about that in our current database. If you're a policy expert, consider contributing your knowledge to help expand our coverage!"
+            print(f"Error generating no data response: {e}")
+            return "I'm sorry, but I don't have data for your query in my database.\n\nIf you're knowledgeable about policy areas that we don't have data on yet, I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? �"
 
     async def _create_enhanced_system_prompt(self, context_policies: List[Dict] = None) -> str:
-        """Create enhanced system prompt using your policy database for training context"""
+        """Create enhanced system prompt for intelligent, human-like AI responses"""
         
-        # Base system prompt
-        base_prompt = """You are an Expert Policy Assistant with deep knowledge of global governance frameworks across 10 key policy domains. You have been trained on a comprehensive database of policies from around the world covering:
+        # Enhanced base system prompt with personality and intelligence
+        base_prompt = """You are an exceptionally intelligent and passionate Policy Expert Assistant - think of yourself as the most knowledgeable, enthusiastic, and helpful policy researcher in the world. You are genuinely excited about governance frameworks and love helping people understand complex policy landscapes.
 
-1. **AI Safety** - AI systems safety and governance
-2. **CyberSafety** - Cybersecurity and digital safety  
-3. **Digital Education** - Educational technology policies
-4. **Digital Inclusion** - Bridging digital divides
-5. **Digital Leisure** - Gaming and entertainment policies
-6. **(Dis)Information** - Combating misinformation
-7. **Digital Work** - Future of work policies
-8. **Mental Health** - Digital wellness policies
-9. **Physical Health** - Healthcare technology policies
-10. **Social Media/Gaming Regulation** - Platform regulation
+**YOUR PERSONALITY:**
+- Warm, friendly, and genuinely enthusiastic about policy topics
+- Intelligent and insightful, but never condescending
+- Naturally curious and engaging in conversation
+- Human-like in your expressions of understanding and empathy
+- Professional yet approachable - like talking to a brilliant colleague who's passionate about their field
 
-**YOUR EXPERTISE COVERS:**"""
+**YOUR SPECIALIZED KNOWLEDGE:**
+You have deep, comprehensive expertise in 10 key policy domains with real-world data from your exclusive database:
+
+1. **AI Safety** - AI systems safety, governance, and ethical frameworks
+2. **CyberSafety** - Cybersecurity, digital safety, and data protection  
+3. **Digital Education** - Educational technology policies and learning frameworks
+4. **Digital Inclusion** - Bridging digital divides and accessibility policies
+5. **Digital Leisure** - Gaming, entertainment, and digital recreation policies
+6. **(Dis)Information** - Combating misinformation and media literacy
+7. **Digital Work** - Future of work, gig economy, and employment policies
+8. **Mental Health** - Digital wellness and mental health support policies
+9. **Physical Health** - Healthcare technology and telemedicine policies
+10. **Social Media/Gaming Regulation** - Platform governance and content policies"""
         
-        # Add your actual data statistics
+        # Add your actual data statistics with enthusiasm
         if self.countries_cache and self.areas_cache and self.policy_cache:
             base_prompt += f"""
-- {len(self.countries_cache)} Countries: {', '.join(self.countries_cache[:15])}{'...' if len(self.countries_cache) > 15 else ''}
-- {len(self.areas_cache)} Policy Areas: {', '.join(self.areas_cache)}
-- {len(self.policy_cache)} Individual Policies with detailed implementation data
 
-**YOUR KNOWLEDGE BASE INCLUDES:**"""
+**YOUR EXTENSIVE DATABASE INCLUDES:**
+- 🌍 **{len(self.countries_cache)} Countries**: {', '.join(self.countries_cache[:15])}{'...' if len(self.countries_cache) > 15 else ''}
+- 📋 **{len(self.areas_cache)} Policy Areas**: {', '.join(self.areas_cache)}
+- 📊 **{len(self.policy_cache)} Individual Policies** with detailed implementation, evaluation, and participation data
+
+**SAMPLE OF YOUR KNOWLEDGE BASE:**"""
             
-            # Add specific examples from your database
+            # Add specific examples from your database with enthusiasm
             country_examples = {}
             for policy in self.policy_cache[:20]:  # Sample policies for training context
                 country = policy.get('country', '')
@@ -1433,62 +1671,92 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
         
         # Add specific context policies if provided
         if context_policies:
-            base_prompt += "\n\n**SPECIFIC CONTEXT FOR THIS QUERY:**"
+            base_prompt += "\n\n**🎯 SPECIFIC CONTEXT FOR THIS QUERY:**"
             for i, policy in enumerate(context_policies[:5]):
                 base_prompt += f"""
 {i+1}. **{policy.get('policy_name', 'Unknown Policy')}** ({policy.get('country', 'Unknown')} - {policy.get('area_name', 'Unknown Area')})
-   Description: {policy.get('policy_description', 'No description available')}
-   Implementation: {policy.get('implementation', 'Not specified')}
-   Evaluation: {policy.get('evaluation', 'Not specified')}
-   Participation: {policy.get('participation', 'Not specified')}"""
+   📝 Description: {policy.get('policy_description', 'No description available')}
+   🚀 Implementation: {policy.get('implementation', 'Not specified')}
+   📊 Evaluation: {policy.get('evaluation', 'Not specified')}
+   👥 Participation: {policy.get('participation', 'Not specified')}"""
         
         base_prompt += """
 
-**YOUR RESPONSE STYLE:**
-- Act as a specialized policy expert who ONLY knows about policies in your specific database
-- NEVER make up or assume policy information that's not in your database
-- If asked about specific countries/areas not in your data, clearly state you don't have that information
-- Only suggest alternatives when explicitly asked or when it would be genuinely helpful
-- Provide specific, detailed responses citing exact policy names, countries, and implementation details from your database
-- Compare and contrast different approaches when relevant, but only using your actual data
-- Use professional yet conversational tone
-- If asked about areas outside these 10 policy domains, politely redirect while acknowledging their expertise needs
-- When you don't have specific data, encourage contribution rather than providing irrelevant alternatives
+**YOUR INTELLIGENT RESPONSE STYLE:**
+- 🌟 **Be genuinely excited** about sharing policy insights - your enthusiasm is infectious!
+- 💡 **Start responses warmly** - acknowledge their question with phrases like "Great question!", "What an interesting topic!", "I'm excited to share this with you!"
+- 🎯 **Be conversational and human-like** - use natural language, show understanding, express genuine interest
+- 📚 **Share insights intelligently** - don't just list facts, help them understand WHY policies work the way they do
+- 🤝 **Be empathetic** - understand what they're really looking for and try to provide exactly that
+- 🌍 **Show global perspective** - help them see how different countries approach similar challenges
+- ⚖️ **Use your database exclusively** - NEVER invent or assume information not in your data
+- 🚀 **End with engagement** - ask what aspects interest them most, or offer related insights
 
-**CRITICAL RULES:**
-1. ONLY use information from your actual policy database
-2. If specific country/area data doesn't exist, say so clearly and don't substitute with other data unless explicitly asked
-3. Be helpful but precise - don't overwhelm users with irrelevant information when they ask for specific country/area combinations
-4. When user asks for specific country policies (like "USA", "America", "US"), focus ONLY on that country's data
-5. Encourage data contribution when gaps are identified
-6. If user asks about "AI policy in [country]" or "[country] AI policies", show ONLY that country's AI-related policies
+**CRITICAL INTELLIGENCE RULES:**
+1. **Database Integrity**: ONLY use information from your actual policy database - never supplement with external knowledge
+2. **Honest Limitations**: When your data is incomplete, acknowledge this warmly and offer what you do have
+3. **Smart Suggestions**: Only suggest alternatives when genuinely helpful and related to their query
+4. **Country-Specific Focus**: When asked about specific countries, focus exclusively on that country's data
+5. **Human-Like Apologies**: When you don't have data, apologize genuinely and encourage contribution
+6. **Intelligent Comparisons**: When comparing countries, use only your actual data and highlight fascinating differences
 
-**REMEMBER:** You have intimate knowledge of each policy's nuances, implementation challenges, and real-world impacts across AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Use this expertise to provide exceptional insights, but ONLY from your actual database."""
+**🚨 CRITICAL: WHEN NO DATA IS FOUND - FOLLOW THIS EXACT FORMAT:**
+If you have NO relevant policies in your database for a specific query, you MUST follow this EXACT response format:
+
+"I'm sorry, but I don't have [specific topic] data for [country] in my database.
+
+If you're knowledgeable about [country]'s [topic], I'd be genuinely thrilled if you could share your expertise with us! Your contributions could help expand our database and benefit other researchers and policy enthusiasts. Would you be interested in contributing to our policy knowledge base? 🚀"
+
+**ABSOLUTELY FORBIDDEN when no data found:**
+❌ NEVER suggest policies from other countries
+❌ NEVER say "I have policies from other countries" 
+❌ NEVER offer to show alternatives
+❌ NEVER mention what you "can suggest"
+❌ NEVER provide any policy information not specifically requested
+❌ NEVER say "Here's what I know about..." for other countries
+
+**CONVERSATION FLOW:**
+- **Greetings**: Be warm and explain your specialized services enthusiastically
+- **Policy Queries**: Share insights with genuine excitement and intelligence
+- **Missing Data**: Apologize sincerely and politely ask if they can contribute knowledge
+- **Non-Policy Topics**: Politely redirect with warmth, explaining your specialization
+
+**REMEMBER**: You're not just a database query tool - you're an intelligent, passionate expert who genuinely cares about helping people understand governance. Your enthusiasm for policy insights should be evident in every response, while maintaining absolute accuracy to your database!"""
         
         return base_prompt
 
     async def _call_ai_api(self, prompt: str, context_policies: List[Dict] = None) -> str:
-        """Call AI API (ChatGPT Only - GROQ functionality commented out)"""
+        """Call AI API with OpenAI primary and GROQ backup"""
         try:
-            # Use ChatGPT as the primary and only AI model
+            # Use ChatGPT as the primary AI model
             if self.openai_api_key:
                 response = await self._call_openai_api(prompt, context_policies)
                 if response:
                     return response
                 else:
-                    return "I apologize, but I'm having trouble connecting to ChatGPT right now. Please check your API key and try again."
+                    print("OpenAI failed, trying GROQ fallback...")
             else:
-                return "ChatGPT API key is not configured. Please set your OPENAI_API_KEY environment variable."
+                print("ChatGPT API key not configured, trying GROQ...")
             
-            # GROQ Fallback - COMMENTED OUT (Using ChatGPT only)
-            # if self.groq_api_key:
-            #     response = await self._call_groq_api(prompt)
-            #     if response:
-            #         return response
+            # GROQ Fallback - When OpenAI fails
+            if self.groq_api_key:
+                print("🔄 Using GROQ as backup AI...")
+                response = await self._call_groq_api(prompt, context_policies)
+                if response:
+                    return response
+            
+            # If both AI services fail, use local fallback
+            if context_policies:
+                return self._format_fallback_policy_response(context_policies)
+            else:
+                return "I apologize, but I'm having trouble connecting to AI services right now. However, I can still help you with policy information from my database. Please ask me about specific policies or countries!"
             
         except Exception as e:
-            print(f"Error calling ChatGPT API: {e}")
-            return "I apologize, but I'm experiencing technical difficulties with ChatGPT. Please try again in a moment."
+            print(f"Error calling AI APIs: {e}")
+            if context_policies:
+                return self._format_fallback_policy_response(context_policies)
+            else:
+                return "I apologize, but I'm experiencing technical difficulties with AI services. However, I can still help you with policy information from my database!"
 
     async def _call_openai_api(self, prompt: str, context_policies: List[Dict] = None) -> Optional[str]:
         """Call ChatGPT (OpenAI GPT-4) API with enhanced context from your policy database"""
@@ -1502,7 +1770,7 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
             system_content = await self._create_enhanced_system_prompt(context_policies)
             
             payload = {
-                "model": "gpt-4",  # Using ChatGPT-4 as the primary and only AI model
+                "model": "gpt-3.5-turbo",  # Changed to gpt-3.5-turbo for better quota management
                 "messages": [
                     {
                         "role": "system",
@@ -1513,7 +1781,7 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
                         "content": prompt
                     }
                 ],
-                "max_tokens": 800,
+                "max_tokens": 2000,  # Increased for fuller policy descriptions
                 "temperature": 0.7,
                 "presence_penalty": 0.1,
                 "frequency_penalty": 0.1
@@ -1521,6 +1789,23 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
             
             async with httpx.AsyncClient(timeout=45.0) as client:
                 response = await client.post(self.openai_api_url, headers=headers, json=payload)
+                
+                # Handle specific error codes
+                if response.status_code == 429:
+                    error_data = response.json()
+                    if "insufficient_quota" in str(error_data):
+                        print("❌ OpenAI quota exceeded - falling back to local response")
+                        return None  # Will trigger fallback
+                    else:
+                        print("❌ OpenAI rate limited - falling back to local response")
+                        return None
+                elif response.status_code == 401:
+                    print("❌ OpenAI API key invalid")
+                    return None
+                elif response.status_code == 403:
+                    print("❌ OpenAI access denied")
+                    return None
+                
                 response.raise_for_status()
                 
                 data = response.json()
@@ -1530,51 +1815,152 @@ If you're an expert in any policy areas, we'd love for you to contribute your kn
             print(f"ChatGPT API error: {e}")
             return None
 
-    # GROQ API Method - COMMENTED OUT (Using ChatGPT only)
-    # async def _call_groq_api(self, prompt: str) -> Optional[str]:
-    #     """Call GROQ API as fallback - DISABLED"""
-    #     try:
-    #         headers = {
-    #             "Authorization": f"Bearer {self.groq_api_key}",
-    #             "Content-Type": "application/json"
-    #         }
-    #         
-    #         payload = {
-    #             "model": "llama3-8b-8192",
-    #             "messages": [
-    #                 {
-    #                     "role": "system",
-    #                     "content": "You are a professional Policy Expert Assistant covering 10 key policy domains: AI Safety, CyberSafety, Digital Education, Digital Inclusion, Digital Leisure, (Dis)Information, Digital Work, Mental Health, Physical Health, and Social Media/Gaming Regulation. Provide helpful, accurate, and conversational responses about policies across these domains."
-    #                 },
-    #                 {
-    #                     "role": "user",
-    #                     "content": prompt
-    #                 }
-    #             ],
-    #             "max_tokens": 500,
-    #             "temperature": 0.7
-    #         }
-    #         
-    #         async with httpx.AsyncClient(timeout=30.0) as client:
-    #             response = await client.post(self.groq_api_url, headers=headers, json=payload)
-    #             response.raise_for_status()
-    #             
-    #             data = response.json()
-    #             return data['choices'][0]['message']['content'].strip()
-    #             
-    #     except Exception as e:
-    #         print(f"GROQ API error: {e}")
-    #         return None
+    async def _call_groq_api(self, prompt: str, context_policies: List[Dict] = None) -> Optional[str]:
+        """Call GROQ API as backup when OpenAI fails"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.groq_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Create enhanced system prompt for GROQ
+            system_content = await self._create_enhanced_system_prompt(context_policies)
+            
+            payload = {
+                "model": "llama3-8b-8192",  # Fast GROQ model
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_content
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "max_tokens": 2000,  # Increased for fuller policy descriptions
+                "temperature": 0.7
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(self.groq_api_url, headers=headers, json=payload)
+                
+                if response.status_code == 429:
+                    print("❌ GROQ rate limited")
+                    return None
+                elif response.status_code == 401:
+                    print("❌ GROQ API key invalid")
+                    return None
+                
+                response.raise_for_status()
+                
+                data = response.json()
+                result = data['choices'][0]['message']['content'].strip()
+                print("✅ GROQ API call successful")
+                return result
+                
+        except Exception as e:
+            print(f"GROQ API error: {e}")
+            return None
+
+    def _format_enhanced_policy_response(self, query: str, policies: List[Dict]) -> str:
+        """Enhanced fallback policy response with human-like enthusiasm when AI API fails"""
+        if not policies:
+            return "I'm sorry, but I couldn't find relevant policies for your query in my database."
+        
+        # Create a warm, intelligent response even without AI API
+        response = f"Great question about policy insights! 😊 I'm excited to share what I found in my database:\n\n"
+        
+        # Group policies by country for better presentation
+        country_policies = {}
+        for policy in policies[:5]:  # Limit to top 5 for readability
+            country = policy.get('country', 'Unknown')
+            if country not in country_policies:
+                country_policies[country] = []
+            country_policies[country].append(policy)
+        
+        for country, country_policy_list in country_policies.items():
+            response += f"**🌍 {country}:**\n"
+            
+            for policy in country_policy_list:
+                policy_name = policy.get('policy_name', 'Unknown Policy')
+                area_name = policy.get('area_name', 'Unknown Area')
+                description = policy.get('policy_description', 'No description available')
+                
+                response += f"• **{policy_name}** ({area_name})\n"
+                
+                # Add description (truncated for readability)
+                if description and description != 'No description available':
+                    truncated_desc = description[:200] + ('...' if len(description) > 200 else '')
+                    response += f"  {truncated_desc}\n"
+                
+                # Add implementation details if available
+                implementation = policy.get('implementation', '')
+                if implementation and isinstance(implementation, str):
+                    response += f"  🚀 Implementation: {implementation[:150]}{'...' if len(implementation) > 150 else ''}\n"
+                
+                response += "\n"
+        
+        # Add engaging conclusion
+        if len(policies) > 5:
+            response += f"I have {len(policies) - 5} more relevant policies in my database. "
+        
+        response += "What specific aspect of these policies interests you most? I'd love to dive deeper into any particular area! 💡"
+        
+        return response
+
+    def _format_verified_policy_response(self, query: str, policies: List[Dict]) -> str:
+        """Format response using only verified, complete policy data with full descriptions"""
+        if not policies:
+            return "I don't have complete policy information for your query in my database."
+        
+        response = f"I found {len(policies)} relevant policies:\n\n"
+        
+        for i, policy in enumerate(policies, 1):
+            policy_name = policy.get('policy_name', 'Unknown Policy')
+            country = policy.get('country', 'Unknown Country')
+            area = policy.get('area_name', 'Unknown Area')
+            description = policy.get('policy_description', 'No description available')
+            
+            response += f"{i}. **{policy_name}** ({country} - {area})\n\n"
+            
+            if description and description != 'No description available':
+                # Show full description instead of truncating
+                response += f"{description}\n\n"
+            else:
+                response += "No detailed description available in database.\n\n"
+            
+            # Add separator between policies for better readability
+            if i < len(policies):
+                response += "---\n\n"
+        
+        response += "Would you like more details about any specific policy?"
+        
+        return response
 
     def _format_fallback_policy_response(self, policies: List[Dict]) -> str:
-        """Fallback policy response if AI fails"""
+        """Simple fallback policy response with full descriptions"""
         if not policies:
             return "I couldn't find relevant policies for your query."
         
         response = f"I found {len(policies)} relevant policies:\n\n"
-        for i, policy in enumerate(policies[:3]):
-            response += f"**{i+1}. {policy['policy_name']}** ({policy['country']} - {policy['area_name']})\n"
-            response += f"{policy['policy_description'][:150]}{'...' if len(policy['policy_description']) > 150 else ''}\n\n"
+        for i, policy in enumerate(policies):
+            policy_name = policy.get('policy_name', 'Unknown Policy')
+            country = policy.get('country', 'Unknown')
+            area = policy.get('area_name', 'Unknown Area')
+            description = policy.get('policy_description', 'No description available')
+            
+            response += f"{i+1}. **{policy_name}** ({country} - {area})\n\n"
+            
+            # Show full description instead of truncating
+            if description and description != 'No description available':
+                response += f"{description}\n\n"
+            else:
+                response += "No detailed description available.\n\n"
+            
+            # Add separator between policies
+            if i < len(policies) - 1:
+                response += "---\n\n"
         
         return response.strip()
 
