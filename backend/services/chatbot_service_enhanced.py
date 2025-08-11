@@ -540,43 +540,27 @@ class EnhancedChatbotService:
             context = self._extract_conversation_context(conversation.messages, processed_message)
             
             # Check for greetings and casual responses first
-            message_lower = request.message.lower().strip()
+            message_lower = processed_message.lower().strip()  # Use processed_message consistently
             if any(keyword in message_lower for keyword in self.greeting_keywords):
-                ai_response = await self._get_greeting_response(request.message, conversation.messages)
+                ai_response = await self._get_greeting_response(processed_message, conversation.messages)
             # Check for help requests
             elif any(keyword in message_lower for keyword in self.help_keywords):
-                ai_response = await self._get_help_response(request.message, conversation.messages)
+                ai_response = await self._get_help_response(processed_message, conversation.messages)
             # Check if this is a policy-related query with context
-            elif await self._is_policy_related_query(request.message, context):
+            elif await self._is_policy_related_query(processed_message, context):
                 # Check if it's a comparison query
-                if self._is_comparison_query(request.message):
-                    ai_response = await self._handle_country_comparison(request.message, conversation.messages, context)
+                if self._is_comparison_query(processed_message):
+                    ai_response = await self._handle_country_comparison(processed_message, conversation.messages, context)
                 else:
                     # Find relevant policies with context
-                    policies = await self._find_relevant_policies_with_context(request.message, context)
+                    policies = await self._find_relevant_policies_with_context(processed_message, context)
                     if policies:
-                        ai_response = await self._get_policy_response(request.message, policies, conversation.messages)
+                        ai_response = await self._get_policy_response(processed_message, policies, conversation.messages)
                     else:
-                        ai_response = await self._get_no_data_response(request.message)
+                        ai_response = await self._get_no_data_response(processed_message)
             else:
-                # Check if this is a policy-related query with context
-                is_policy_query = await self._is_policy_related_query(processed_message, context)
-                
-                # Generate AI response based on whether it's policy-related
-                if is_policy_query:
-                    # Check if it's a comparison query
-                    if self._is_comparison_query(processed_message):
-                        ai_response = await self._handle_country_comparison(processed_message, conversation.messages, context)
-                    else:
-                        # Find relevant policies with context
-                        policies = await self._find_relevant_policies_with_context(processed_message, context)
-                        if policies:
-                            ai_response = await self._get_policy_response(processed_message, policies, conversation.messages)
-                        else:
-                            ai_response = await self._get_no_data_response(processed_message)
-                else:
-                    # Non-policy response
-                    ai_response = await self._get_non_policy_response(processed_message)
+                # Non-policy response
+                ai_response = await self._get_non_policy_response(processed_message)
             
             # Create AI message
             ai_message = ChatMessage(
@@ -734,6 +718,21 @@ class EnhancedChatbotService:
     async def _is_policy_related_query(self, message: str, context: Dict[str, Any] = None) -> bool:
         """Intelligently detect if the message is related to any policy area or governance"""
         message_lower = message.lower()
+        
+        # Explicitly exclude non-policy queries
+        non_policy_patterns = [
+            'color', 'rainbow', 'weather', 'time', 'date', 'math', 'calculation',
+            'joke', 'story', 'recipe', 'music', 'movie', 'book', 'sport', 'game',
+            'animal', 'plant', 'space', 'planet', 'star', 'geography', 'history',
+            'science', 'physics', 'chemistry', 'biology', 'art', 'literature',
+            'president', 'prime minister', 'minister', 'leader', 'king', 'queen',
+            'moon', 'sun', 'earth', 'ocean', 'river', 'mountain', 'city'
+        ]
+        
+        # If the message is clearly not about policy, return False immediately
+        for pattern in non_policy_patterns:
+            if pattern in message_lower and not any(policy_word in message_lower for policy_word in ['policy', 'government', 'regulation', 'law']):
+                return False
         
         # Enhanced policy-related keywords (expanded for all 10 policy areas)
         policy_keywords = [
@@ -924,62 +923,6 @@ class EnhancedChatbotService:
         ]
         
         return any(pattern in message_lower for pattern in comparison_patterns)
-
-    async def _is_policy_related_query(self, message: str, context: Dict[str, Any] = None) -> bool:
-        """Enhanced policy-related query detection with conversation context"""
-        message_lower = message.lower()
-        
-        # If context suggests we're already discussing policies, be more lenient
-        if context and (context.get('mentioned_countries') or context.get('mentioned_areas') or 
-                       any('policy' in query for query in context.get('recent_queries', []))):
-            # Allow follow-up questions that might not explicitly mention policy keywords
-            comparison_words = ['difference', 'compare', 'vs', 'versus', 'between', 'different', 'contrast', 'how does']
-            if any(word in message_lower for word in comparison_words):
-                return True
-        
-        # Original policy detection logic
-        policy_keywords = [
-            'policy', 'policies', 'governance', 'regulation', 'law', 'legislation',
-            'government', 'framework', 'strategy', 'implementation', 'evaluation', 
-            'compliance', 'standard', 'guideline', 'principle',
-            # AI Safety
-            'ai', 'artificial intelligence', 'ai safety', 'machine learning', 'automation',
-            # CyberSafety
-            'cyber', 'cybersecurity', 'digital security', 'data protection', 'privacy',
-            # Digital Education
-            'digital education', 'online learning', 'educational technology', 'e-learning',
-            # Digital Inclusion
-            'digital divide', 'digital inclusion', 'accessibility', 'internet access',
-            # Digital Leisure
-            'gaming', 'digital leisure', 'entertainment', 'online gaming', 'digital recreation',
-            # Disinformation
-            'misinformation', 'disinformation', 'fake news', 'information', 'media literacy',
-            # Digital Work
-            'digital work', 'remote work', 'gig economy', 'digital employment', 'future of work',
-            # Mental Health
-            'mental health', 'digital wellness', 'screen time', 'digital wellbeing',
-            # Physical Health
-            'physical health', 'healthcare technology', 'telemedicine', 'health tech',
-            # Social Media/Gaming Regulation
-            'social media', 'platform regulation', 'content moderation', 'gaming regulation'
-        ]
-        
-        # Check if message contains any policy keywords
-        for keyword in policy_keywords:
-            if keyword in message_lower:
-                return True
-        
-        # Check if message mentions any country from our database
-        if self.countries_cache:
-            for country in self.countries_cache:
-                if country and country.lower() in message_lower:
-                    return True
-        
-        # Check if message mentions any policy area from our database
-        if self.areas_cache:
-            for area in self.areas_cache:
-                if area and area.lower() in message_lower:
-                    return True
 
     async def _generate_ai_response(self, message: str, conversation_history: List[ChatMessage]) -> str:
         """Generate AI response based on message and context with conversation memory"""
