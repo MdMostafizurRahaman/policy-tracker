@@ -595,11 +595,138 @@ body {
   }
 }
 
+@keyframes page-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(1.02);
+  }
+}
+
 .animate-page-enter {
   animation: page-enter 1.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Pulse Animation for Interactive Elements */
+.animate-page-exit {
+  animation: page-exit 0.4s cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+/* Enhanced Smooth Transitions */
+.smooth-entrance {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.smooth-entrance.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered Animations */
+.stagger-1 { transition-delay: 100ms; }
+.stagger-2 { transition-delay: 200ms; }
+.stagger-3 { transition-delay: 300ms; }
+.stagger-4 { transition-delay: 400ms; }
+.stagger-5 { transition-delay: 500ms; }
+
+/* Enhanced Button Hover Effects */
+.cosmic-button-primary:hover {
+  transform: translateY(-5px) scale(1.05);
+  filter: brightness(1.1);
+}
+
+.cosmic-button-secondary:hover {
+  transform: translateY(-3px) scale(1.03);
+  filter: brightness(1.1);
+}
+
+/* Improved Card Animations */
+.cosmic-stat-card {
+  opacity: 0;
+  transform: translateY(40px) scale(0.95);
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cosmic-stat-card.animate {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.cosmic-feature-card {
+  opacity: 0;
+  transform: translateY(50px) rotateX(10deg);
+  transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cosmic-feature-card.animate {
+  opacity: 1;
+  transform: translateY(0) rotateX(0deg);
+}
+
+.cosmic-portal-card {
+  opacity: 0;
+  transform: translateY(40px) scale(0.9);
+  transition: all 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cosmic-portal-card.animate {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Enhanced Floating Elements */
+@keyframes enhanced-float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg) scale(1); 
+    filter: blur(40px);
+  }
+  25% { 
+    transform: translateY(-30px) rotate(5deg) scale(1.1); 
+    filter: blur(35px);
+  }
+  50% { 
+    transform: translateY(-60px) rotate(0deg) scale(1.2); 
+    filter: blur(45px);
+  }
+  75% { 
+    transform: translateY(-30px) rotate(-5deg) scale(1.1); 
+    filter: blur(35px);
+  }
+}
+
+.orb {
+  animation: enhanced-float 25s ease-in-out infinite;
+}
+
+/* Smoother Parallax */
+.parallax-slow {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Enhanced Text Glow */
+@keyframes enhanced-text-glow {
+  0%, 100% { 
+    text-shadow: 
+      0 0 20px rgba(255, 255, 255, 0.3),
+      0 0 40px rgba(79, 172, 254, 0.2),
+      0 0 60px rgba(79, 172, 254, 0.1);
+  }
+  50% { 
+    text-shadow: 
+      0 0 30px rgba(255, 255, 255, 0.6),
+      0 0 60px rgba(79, 172, 254, 0.4),
+      0 0 90px rgba(79, 172, 254, 0.2);
+  }
+}
+
+.hero-text-cosmic {
+  animation: enhanced-text-glow 4s ease-in-out infinite;
+}
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.3); }
   50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.6); }
@@ -607,6 +734,65 @@ body {
 
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Micro-interactions */
+.button-magnetic {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.button-magnetic:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 10px 25px rgba(0, 0, 0, 0.15),
+    0 0 50px rgba(79, 172, 254, 0.3);
+}
+
+.card-tilt {
+  transform-style: preserve-3d;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.card-tilt:hover {
+  transform: rotateY(5deg) rotateX(5deg) translateZ(20px);
+}
+
+/* Enhanced Loading States */
+.loading-shimmer-enhanced {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-enhanced 2s infinite;
+}
+
+@keyframes shimmer-enhanced {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Smooth Scrolling Enhancement */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Reduced Motion Preference */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .orb,
+  .particle,
+  .floating-orbs,
+  .floating-particles {
+    animation: none !important;
+  }
 }
 
 /* Enhanced Focus States */

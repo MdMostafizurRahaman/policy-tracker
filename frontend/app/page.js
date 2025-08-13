@@ -24,6 +24,8 @@ export default function Page() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const [scrollY, setScrollY] = useState(0)
   const [isClient, setIsClient] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [pageTransition, setPageTransition] = useState(false)
 
   // Visit tracking hook
   const { trackVisit, trackNewRegistration, visitStats } = useVisitTracker()
@@ -40,6 +42,8 @@ export default function Page() {
     } else {
       setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
+    // Set loaded state after a brief delay for smooth entrance
+    setTimeout(() => setIsLoaded(true), 300)
   }, [])
 
   // Mouse tracking for interactive backgrounds
@@ -70,7 +74,11 @@ export default function Page() {
   
   useEffect(() => {
     setAnimate(true)
-    const timeoutId = setTimeout(() => setAnimate(false), 1200)
+    setPageTransition(true)
+    const timeoutId = setTimeout(() => {
+      setAnimate(false)
+      setPageTransition(false)
+    }, 1200)
     return () => clearTimeout(timeoutId)
   }, [view])
 
@@ -100,15 +108,23 @@ export default function Page() {
   }, [user, trackVisit])
 
   const navigateBack = useCallback(() => {
-    setView("home")
-    setMobileMenuOpen(false)
+    setPageTransition(true)
+    setTimeout(() => {
+      setView("home")
+      setMobileMenuOpen(false)
+      setPageTransition(false)
+    }, 300)
   }, [])
   
   const handleLogout = useCallback(() => {
-    setUser(null)
-    localStorage.removeItem('userData')
-    localStorage.removeItem('access_token')
-    setView('home')
+    setPageTransition(true)
+    setTimeout(() => {
+      setUser(null)
+      localStorage.removeItem('userData')
+      localStorage.removeItem('access_token')
+      setView('home')
+      setPageTransition(false)
+    }, 300)
   }, [])
 
   const navigationItems = [
@@ -288,10 +304,10 @@ export default function Page() {
       
       default:
         return (
-          <div className={`min-h-screen ${animate ? 'animate-page-enter' : ''} relative overflow-hidden`}>
+          <div className={`min-h-screen ${animate ? 'animate-page-enter' : ''} ${pageTransition ? 'animate-page-exit' : ''} relative overflow-hidden transition-all duration-700 ease-out ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
             {/* Enhanced Dynamic Background with Floating Particles */}
             <div className="fixed inset-0 bg-cosmic-gradient"></div>
-            {isClient && (
+            {isClient && isLoaded && (
               <div className="floating-particles">
                 {[...Array(50)].map((_, i) => (
                   <div 
@@ -309,7 +325,7 @@ export default function Page() {
             )}
             
             {/* Enhanced Floating Orbs with Mouse Interaction */}
-            {isClient && (
+            {isClient && isLoaded && (
               <div className="floating-orbs">
                 <div className="orb orb-cosmic-1" style={{
                   transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px) rotate(${scrollY * 0.1}deg)`
@@ -330,24 +346,30 @@ export default function Page() {
             <section className="relative py-8 px-4 overflow-hidden" style={{
               transform: `translateY(${scrollY * 0.1}px)`
             }}>
-              <div className="relative max-w-7xl mx-auto text-center">
-                <h1 className="text-6xl md:text-8xl font-black mb-6 leading-tight">
+              <div className={`relative max-w-7xl mx-auto text-center transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+                <h1 className={`text-6xl md:text-8xl font-black mb-6 leading-tight transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '200ms' }}>
                   <span className="hero-text-cosmic bg-gradient-to-r from-white via-cyan-300 to-purple-300 bg-clip-text text-transparent">
                     Global Policy Tracker
                   </span>
                 </h1>
                 
-                <p className="text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed mb-8 font-light">
+                <p className={`text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed mb-8 font-light transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '400ms' }}>
                   <b>Discover, analyze, and understand global policy frameworks through our </b>
                   <span className="font-semibold bg-gradient-to-r from-yellow-300 to-yellow-600 bg-clip-text text-transparent"> AI-powered platform </span>
                   <b>with real-time visualization technology.</b>
                 </p>
 
                 {/* Enhanced CTA Buttons */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                <div className={`flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '600ms' }}>
                   <button
-                    onClick={() => setView("worldmap")}
-                    className="cosmic-button-primary group relative"
+                    onClick={() => {
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView("worldmap")
+                        setPageTransition(false)
+                      }, 300)
+                    }}
+                    className="cosmic-button-primary group relative button-magnetic"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
@@ -360,8 +382,14 @@ export default function Page() {
                   </button>
                   
                   <button
-                    onClick={() => setView("chatbot")}
-                    className="cosmic-button-secondary group relative"
+                    onClick={() => {
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView("chatbot")
+                        setPageTransition(false)
+                      }, 300)
+                    }}
+                    className="cosmic-button-secondary group relative button-magnetic"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
                     <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
@@ -372,7 +400,7 @@ export default function Page() {
                 </div>
 
                 {/* Enhanced Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 max-w-6xl mx-auto">
+                <div className={`grid grid-cols-1 md:grid-cols-5 gap-6 max-w-6xl mx-auto transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '800ms' }}>
                   {[
                     { 
                       number: visitStats.loading ? "..." : `${visitStats.today_visits || 0}`, 
@@ -392,7 +420,7 @@ export default function Page() {
                     { number: "50K+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", gradient: "from-cyan-500 to-blue-600" },
                     { number: "24/7", label: "Real-time Updates", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-orange-500 to-red-600" }
                   ].map((stat, index) => (
-                    <div key={index} className="cosmic-stat-card group" style={{ animationDelay: `${index * 0.2}s` }}>
+                    <div key={index} className="cosmic-stat-card group" style={{ animationDelay: `${1000 + index * 200}ms` }}>
                       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20"></div>
                       <div className="relative z-10 p-6">
                         <div className={`w-14 h-14 bg-gradient-to-br ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-2xl group-hover:scale-110 transition-all duration-500`}>
@@ -423,7 +451,7 @@ export default function Page() {
             <section className="py-32 px-4 relative">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-transparent"></div>
               <div className="relative max-w-7xl mx-auto">
-                <div className="text-center mb-20">
+                <div className={`text-center mb-20 transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '1200ms' }}>
                   <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-cyan-300 via-purple-300 to-orange-300 bg-clip-text text-transparent mb-8">
                     Revolutionary Features
                   </h2>
@@ -456,7 +484,11 @@ export default function Page() {
                       bgGradient: "from-emerald-50 via-green-50 to-lime-100"
                     }
                   ].map((feature, index) => (
-                    <div key={index} className="cosmic-feature-card group" style={{ animationDelay: `${index * 0.3}s` }}>
+                    <div 
+                      key={index} 
+                      className={`cosmic-feature-card group transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`} 
+                      style={{ transitionDelay: `${1400 + index * 200}ms` }}
+                    >
                       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/10 group-hover:border-white/30 transition-all duration-700"></div>
                       <div className="relative z-10 p-10">
                         <div className={`w-20 h-20 bg-gradient-to-br ${feature.gradient} rounded-3xl flex items-center justify-center mb-8 shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all duration-700`}>
@@ -477,7 +509,7 @@ export default function Page() {
             <section className="py-32 px-4 relative">
               <div className="absolute inset-0 bg-gradient-radial from-purple-900/40 via-transparent to-cyan-900/40"></div>
               <div className="relative max-w-7xl mx-auto">
-                <div className="text-center mb-20">
+                <div className={`text-center mb-20 transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '2000ms' }}>
                   <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-orange-300 via-yellow-300 to-cyan-300 bg-clip-text text-transparent mb-8">
                     Choose Your Journey
                   </h2>
@@ -490,9 +522,15 @@ export default function Page() {
                   {navigationItems.map((item, index) => (
                     <div
                       key={item.key}
-                      onClick={() => setView(item.key)}
-                      className="cosmic-portal-card group cursor-pointer"
-                      style={{ animationDelay: `${index * 0.2}s` }}
+                      onClick={() => {
+                        setPageTransition(true)
+                        setTimeout(() => {
+                          setView(item.key)
+                          setPageTransition(false)
+                        }, 300)
+                      }}
+                      className={`cosmic-portal-card group cursor-pointer transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}
+                      style={{ transitionDelay: `${2200 + index * 150}ms` }}
                     >
                       <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient || 'from-white/10 to-white/5'} backdrop-blur-xl rounded-3xl border border-white/20 group-hover:border-white/40 transition-all duration-700`}></div>
                       <div className="relative z-10 p-6">
@@ -563,8 +601,12 @@ export default function Page() {
                   <button
                     key={item.key}
                     onClick={() => {
-                      setView(item.key)
-                      setSidebarOpen(false)
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView(item.key)
+                        setSidebarOpen(false)
+                        setPageTransition(false)
+                      }, 200)
                     }}
                     className={`sidebar-nav-item group ${
                       view === item.key
@@ -628,8 +670,12 @@ export default function Page() {
                   <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4 px-2">Account</h3>
                   <button
                     onClick={() => {
-                      setView("login")
-                      setSidebarOpen(false)
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView("login")
+                        setSidebarOpen(false)
+                        setPageTransition(false)
+                      }, 200)
                     }}
                     className="auth-button bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
                   >
@@ -640,8 +686,12 @@ export default function Page() {
                   </button>
                   <button
                     onClick={() => {
-                      setView("signup")
-                      setSidebarOpen(false)
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView("signup")
+                        setSidebarOpen(false)
+                        setPageTransition(false)
+                      }, 200)
                     }}
                     className="auth-button bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
                   >
@@ -704,7 +754,13 @@ export default function Page() {
             <div className="flex-1 flex justify-center">
               <div 
                 className="flex items-center gap-4 cursor-pointer group"
-                onClick={() => setView("home")}
+                onClick={() => {
+                  setPageTransition(true)
+                  setTimeout(() => {
+                    setView("home")
+                    setPageTransition(false)
+                  }, 300)
+                }}
               >
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
