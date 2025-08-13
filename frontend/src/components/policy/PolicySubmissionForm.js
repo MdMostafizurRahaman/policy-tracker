@@ -371,7 +371,11 @@ const PolicySubmissionForm = () => {
       // Create new policy with extracted data and file info
       const newPolicy = {
         ...createEmptyPolicy(),
-        ...(extractedData || {}), // Use extracted data if available
+        // Map AI analysis fields to form fields
+        policyName: extractedData?.title || "",
+        policyDescription: extractedData?.summary || "",
+        // Keep other AI data for reference
+        aiAnalysisData: extractedData || {},
         policyFile: {
           name: file.name,
           file_id: response.file_data.file_id,
@@ -403,6 +407,11 @@ const PolicySubmissionForm = () => {
       
       setShowAutoFillModal(false);
       setAutoFillFile(null);
+      
+      // Update country if extracted from AI analysis
+      if (extractedData?.country && extractedData.country !== 'Unknown') {
+        setFormData(prev => ({ ...prev, country: extractedData.country }));
+      }
       
       if (extractedData && Object.keys(extractedData).length > 0) {
         setSuccess("Policy successfully auto-filled from document! You can now review and modify the extracted information.");
@@ -463,7 +472,11 @@ const PolicySubmissionForm = () => {
       // Create new policy with extracted data
       const newPolicy = {
         ...createEmptyPolicy(),
-        ...extractedData.data,
+        // Map AI analysis fields to form fields
+        policyName: extractedData?.data?.title || "",
+        policyDescription: extractedData?.data?.summary || "",
+        // Keep other AI data for reference
+        aiAnalysisData: extractedData?.data || {},
         policyFile: fileData // Use the existing file data
       };
 
@@ -485,6 +498,12 @@ const PolicySubmissionForm = () => {
       
       setShowAutoFillModal(false);
       setAutoFillFile(null);
+      
+      // Update country if extracted from AI analysis
+      if (extractedData?.data?.country && extractedData.data.country !== 'Unknown') {
+        setFormData(prev => ({ ...prev, country: extractedData.data.country }));
+      }
+      
       setSuccess("Policy successfully auto-filled from uploaded document! You can now review and modify the extracted information.");
 
     } catch (error) {

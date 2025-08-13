@@ -2,10 +2,15 @@
 DynamoDB-based AI Analysis service for policy analysis and scoring.
 """
 import logging
+import io
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 import uuid
+import PyPDF2
+from docx import Document
+import openai
+import os
 from config.dynamodb import get_dynamodb
 from config.data_constants import POLICY_AREAS
 from utils.helpers import calculate_policy_score, calculate_completeness_score
@@ -14,7 +19,296 @@ logger = logging.getLogger(__name__)
 
 class AIAnalysisService:
     def __init__(self):
+        # Service initialization
         pass
+    
+    def extract_text_from_file(self, file_content: bytes, filename: str) -> str:
+        """Extract text content from uploaded file"""
+        try:
+            text_content = ""
+            file_extension = filename.lower().split('.')[-1]
+            
+            logger.info(f"Extracting text from {filename} (type: {file_extension})")
+            
+            if file_extension == 'pdf':
+                # Extract text from PDF
+                try:
+                    pdf_file = io.BytesIO(file_content)
+                    pdf_reader = PyPDF2.PdfReader(pdf_file)
+                    
+                    logger.info(f"PDF has {len(pdf_reader.pages)} pages")
+                    
+                    for page_num, page in enumerate(pdf_reader.pages):
+                        page_text = page.extract_text()
+                        if page_text.strip():
+                            text_content += page_text + "\n"
+                            logger.info(f"Extracted {len(page_text)} characters from page {page_num + 1}")
+                        else:
+                            logger.warning(f"Page {page_num + 1} appears to be empty or image-based")
+                    
+                    if not text_content.strip():
+                        logger.warning("PDF text extraction yielded no content - may be image-based PDF")
+                        
+                except Exception as pdf_error:
+                    logger.error(f"PDF extraction error: {pdf_error}")
+                    return ""
+                    
+            elif file_extension in ['doc', 'docx']:
+                # Extract text from Word document
+                try:
+                    doc_file = io.BytesIO(file_content)
+                    document = Document(doc_file)
+                    
+                    logger.info(f"Word document has {len(document.paragraphs)} paragraphs")
+                    
+                    for paragraph in document.paragraphs:
+                        if paragraph.text.strip():
+                            text_content += paragraph.text + "\n"
+                    
+                    # Also extract text from tables if any
+                    for table in document.tables:
+                        for row in table.rows:
+                            for cell in row.cells:
+                                if cell.text.strip():
+                                    text_content += cell.text + " "
+                        text_content += "\n"
+                        
+                except Exception as doc_error:
+                    logger.error(f"Word document extraction error: {doc_error}")
+                    return ""
+                    
+            elif file_extension == 'txt':
+                # Extract text from plain text file
+                try:
+                    # Try different encodings
+                    encodings = ['utf-8', 'utf-16', 'latin-1', 'cp1252']
+                    
+                    for encoding in encodings:
+                        try:
+                            text_content = file_content.decode(encoding)
+                            logger.info(f"Successfully decoded text file using {encoding}")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    
+                    if not text_content:
+                        logger.error("Could not decode text file with any encoding")
+                        return ""
+                        
+                except Exception as txt_error:
+                    logger.error(f"Text file extraction error: {txt_error}")
+                    return ""
+                    
+            else:
+                logger.warning(f"Unsupported file type: {file_extension}")
+                return ""
+            
+            # Clean and validate extracted text
+            text_content = text_content.strip()
+            
+            if text_content:
+                logger.info(f"Successfully extracted {len(text_content)} characters from {filename}")
+                # Log first 200 characters for debugging
+                logger.info(f"Text preview: {text_content[:200]}...")
+            else:
+                logger.warning(f"No text content extracted from {filename}")
+                
+            return text_content
+            
+        except Exception as e:
+            logger.error(f"Text extraction failed for {filename}: {str(e)}")
+            return ""
+    
+    def analyze_policy_document(self, text_content: str) -> Dict[str, Any]:
+        """Analyze policy document content using GROQ API"""
+        try:
+            if not text_content.strip():
+                logger.warning("No text content provided for analysis")
+                return {"error": "No text content to analyze"}
+            
+            logger.info(f"Starting AI analysis of document with {len(text_content)} characters")
+            
+            # Use GROQ API instead of OpenAI
+            groq_api_key = os.getenv('GROQ_API_KEY')
+            groq_api_url = os.getenv('GROQ_API_URL')
+            
+            if not groq_api_key or not groq_api_url:
+                logger.error("GROQ API credentials not configured")
+                return {
+                    "error": "GROQ API not configured",
+                    "title": "Configuration Error",
+                    "country": "Unknown",
+                    "policy_area": "General",
+                    "objectives": [],
+                    "key_points": [],
+                    "timeline": "Not specified",
+                    "summary": "AI analysis not available - API not configured"
+                }
+            
+            # Truncate text if too long and add sample text at the beginning for better analysis
+            analysis_text = text_content[:3000] if len(text_content) > 3000 else text_content
+            
+            # Enhanced prompt for better extraction
+            prompt = f"""
+You are an expert policy analyst. Analyze the following policy document and extract specific information. 
+Be precise and only extract information that is clearly present in the text.
+
+DOCUMENT TEXT:
+{analysis_text}
+
+Please analyze and extract the following information in JSON format:
+
+1. TITLE: The main title or name of the document/policy
+2. COUNTRY: The country, jurisdiction, or region this policy applies to
+3. POLICY_AREA: The main policy domain (e.g., "AI and Technology", "Healthcare", "Education", "Environment", etc.)
+4. OBJECTIVES: List of main goals or objectives mentioned
+5. KEY_POINTS: List of important policy points or provisions
+6. TIMELINE: Any implementation dates or timelines mentioned
+7. SUMMARY: A concise summary in 150 words or less
+
+Return ONLY a valid JSON object with this exact structure:
+{{
+    "title": "exact title from document or descriptive title based on content",
+    "country": "country name or Unknown if not found",
+    "policy_area": "specific policy area",
+    "objectives": ["objective 1", "objective 2"],
+    "key_points": ["key point 1", "key point 2"],
+    "timeline": "timeline information or Not specified",
+    "summary": "comprehensive summary"
+}}
+
+Important: Return ONLY the JSON object, no additional text or explanations.
+"""
+            
+            # Call GROQ API
+            import requests
+            headers = {
+                'Authorization': f'Bearer {groq_api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            payload = {
+                "model": "llama3-8b-8192",  # GROQ's model
+                "messages": [
+                    {"role": "system", "content": "You are a policy analysis expert. Extract key information from policy documents and return only valid JSON responses with no additional text."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1500,  # Increased for better responses
+                "temperature": 0.1,  # Lower temperature for more consistent extraction
+                "top_p": 0.9
+            }
+            
+            logger.info("Calling GROQ API for policy analysis")
+            response = requests.post(groq_api_url, headers=headers, json=payload, timeout=30)
+            
+            if response.status_code != 200:
+                logger.error(f"GROQ API error: {response.status_code} - {response.text}")
+                raise Exception(f"GROQ API error: {response.status_code}")
+            
+            # Parse the response
+            response_data = response.json()
+            ai_response = response_data['choices'][0]['message']['content'].strip()
+            
+            logger.info(f"Received AI response: {ai_response[:200]}...")
+            
+            # Clean the response to extract JSON
+            import json
+            import re
+            
+            # Try to find JSON in the response
+            json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+            else:
+                json_str = ai_response
+            
+            try:
+                analysis_data = json.loads(json_str)
+                logger.info("Successfully parsed AI analysis JSON")
+                
+                # Validate and ensure all required fields exist
+                required_fields = ["title", "country", "policy_area", "objectives", "key_points", "timeline", "summary"]
+                for field in required_fields:
+                    if field not in analysis_data:
+                        analysis_data[field] = "Not specified" if field in ["timeline", "summary"] else ("Unknown" if field in ["country", "policy_area", "title"] else [])
+                
+                # Extract meaningful data from the content if AI didn't find specific info
+                if analysis_data.get("title") in ["Not specified", "Unknown", ""]:
+                    # Try to extract title from first line or create one
+                    lines = text_content.strip().split('\n')
+                    first_line = lines[0].strip() if lines else ""
+                    if first_line and len(first_line) < 100:
+                        analysis_data["title"] = first_line
+                    else:
+                        analysis_data["title"] = "Policy Document"
+                
+                # If no country found, try to detect from common patterns
+                if analysis_data.get("country") in ["Unknown", ""]:
+                    country_patterns = [
+                        r'(?i)\b(United States|USA|US|America)\b',
+                        r'(?i)\b(United Kingdom|UK|Britain)\b',
+                        r'(?i)\b(Canada|Canadian)\b',
+                        r'(?i)\b(Australia|Australian)\b',
+                        r'(?i)\b(Germany|German)\b',
+                        r'(?i)\b(France|French)\b',
+                        r'(?i)\b(Japan|Japanese)\b',
+                        r'(?i)\b(China|Chinese)\b',
+                        r'(?i)\b(India|Indian)\b',
+                        r'(?i)\b(Bangladesh|BD)\b'
+                    ]
+                    
+                    for pattern in country_patterns:
+                        match = re.search(pattern, text_content)
+                        if match:
+                            country_map = {
+                                'United States': 'United States', 'USA': 'United States', 'US': 'United States', 'America': 'United States',
+                                'United Kingdom': 'United Kingdom', 'UK': 'United Kingdom', 'Britain': 'United Kingdom',
+                                'Canada': 'Canada', 'Canadian': 'Canada',
+                                'Australia': 'Australia', 'Australian': 'Australia',
+                                'Germany': 'Germany', 'German': 'Germany',
+                                'France': 'France', 'French': 'France',
+                                'Japan': 'Japan', 'Japanese': 'Japan',
+                                'China': 'China', 'Chinese': 'China',
+                                'India': 'India', 'Indian': 'India',
+                                'Bangladesh': 'Bangladesh', 'BD': 'Bangladesh'
+                            }
+                            analysis_data["country"] = country_map.get(match.group(), match.group())
+                            break
+                
+                return analysis_data
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parsing failed: {e}")
+                logger.error(f"AI response was: {ai_response}")
+                
+                # Create structured response from raw text
+                lines = text_content.strip().split('\n')
+                title = lines[0].strip() if lines else "Policy Document"
+                
+                analysis_data = {
+                    "title": title[:100],
+                    "country": "Unknown", 
+                    "policy_area": "General Policy",
+                    "objectives": [],
+                    "key_points": [],
+                    "timeline": "Not specified",
+                    "summary": f"Analysis of policy document. {ai_response[:150]}..."
+                }
+                
+                return analysis_data
+            
+        except Exception as e:
+            logger.error(f"Policy document analysis failed: {str(e)}")
+            return {
+                "error": f"Analysis failed: {str(e)}",
+                "title": "Analysis Failed",
+                "country": "Unknown",
+                "policy_area": "General",
+                "objectives": [],
+                "key_points": [],
+                "timeline": "Not specified", 
+                "summary": "AI analysis could not be completed due to technical error"
+            }
     
     async def _get_db(self):
         """Get DynamoDB client"""
