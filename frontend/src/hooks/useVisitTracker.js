@@ -188,10 +188,10 @@ export const useVisitTracker = () => {
     }
   }, []);
 
-  // Initial load of visit summary
+  // Initial load of visit summary - using detailed stats to get today_visits
   useEffect(() => {
-    fetchVisitSummary();
-  }, [fetchVisitSummary]);
+    fetchDetailedStats();
+  }, [fetchDetailedStats]);
 
   // Track new user registration
   const trackNewRegistration = useCallback(async (userData) => {
@@ -204,7 +204,7 @@ export const useVisitTracker = () => {
     trackNewRegistration,
     fetchVisitSummary,
     fetchDetailedStats,
-    refreshStats: fetchVisitSummary
+    refreshStats: fetchDetailedStats  // Use detailed stats for refresh to get today_visits
   };
 };
 
