@@ -367,200 +367,202 @@ const PolicyChatAssistant = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
-      {/* Enhanced Sidebar */}
-      <div className={`${showSidebar ? 'w-80' : 'w-0'} transition-all duration-300 bg-white/80 backdrop-blur-lg border-r border-gray-200/50 flex flex-col shadow-xl`}>
-        <div className="p-6 border-b border-gray-100/50 bg-gradient-to-r from-blue-600 to-indigo-600">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <Database className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <div className="text-lg font-bold">Policy Bot</div>
-                <div className="text-sm font-normal text-blue-100">Database Assistant</div>
-              </div>
-            </h2>
+      {/* Sidebar - only render if showSidebar is true */}
+      {showSidebar && (
+        <div className="w-80 transition-all duration-300 bg-white/80 backdrop-blur-lg border-r border-gray-200/50 flex flex-col shadow-xl">
+          <div className="p-6 border-b border-gray-100/50 bg-gradient-to-r from-blue-600 to-indigo-600">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                  <Database className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-lg font-bold">Policy Bot</div>
+                  <div className="text-sm font-normal text-blue-100">Database Assistant</div>
+                </div>
+              </h2>
+              <button
+                onClick={toggleSidebar}
+                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Hide Sidebar"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
             <button
-              onClick={toggleSidebar}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              title="Hide Sidebar"
+              onClick={startNewConversation}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all backdrop-blur-sm border border-white/20"
             >
-              <X className="w-5 h-5 text-white" />
+              <Plus className="w-5 h-5" />
+              <span className="font-medium">New Conversation</span>
             </button>
           </div>
-          <button
-            onClick={startNewConversation}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-all backdrop-blur-sm border border-white/20"
-          >
-            <Plus className="w-5 h-5" />
-            <span className="font-medium">New Conversation</span>
-          </button>
-        </div>
 
-        {/* Enhanced Policy Search */}
-        <div className="p-4 border-b border-gray-100/50 bg-gradient-to-r from-gray-50 to-blue-50">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search countries, policies, areas..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onFocus={handleSearchFocus}
-              onBlur={handleSearchBlur}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white/80 backdrop-blur-sm placeholder-gray-500 shadow-sm"
-            />
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            {isSearching && (
-              <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
-            )}
-          </div>
-          
-          {showSearch && (
-            <div className="mt-3 max-h-64 overflow-y-auto bg-white/90 backdrop-blur-lg border border-gray-200/50 rounded-xl shadow-lg absolute z-20 left-4 right-4">
-              {searchResults.length > 0 ? (
-                <div className="py-2">
-                  <div className="px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-                    Found {searchResults.length} policies in database
-                  </div>
-                  {searchResults.map((policy, index) => (
-                    <div
-                      key={policy.id || index}
-                      onClick={() => selectPolicy(policy)}
-                      className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer border-b border-gray-50 last:border-b-0 transition-all duration-200"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
-                          <span className="text-lg">{policy.area_icon || '📄'}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-semibold text-sm text-gray-800 truncate">{policy.country}</span>
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{policy.year}</span>
+          {/* Enhanced Policy Search */}
+          <div className="p-4 border-b border-gray-100/50 bg-gradient-to-r from-gray-50 to-blue-50">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search countries, policies, areas..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={handleSearchFocus}
+                onBlur={handleSearchBlur}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white/80 backdrop-blur-sm placeholder-gray-500 shadow-sm"
+              />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              {isSearching && (
+                <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
+              )}
+            </div>
+            
+            {showSearch && (
+              <div className="mt-3 max-h-64 overflow-y-auto bg-white/90 backdrop-blur-lg border border-gray-200/50 rounded-xl shadow-lg absolute z-20 left-4 right-4">
+                {searchResults.length > 0 ? (
+                  <div className="py-2">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-600 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+                      Found {searchResults.length} policies in database
+                    </div>
+                    {searchResults.map((policy, index) => (
+                      <div
+                        key={policy.id || index}
+                        onClick={() => selectPolicy(policy)}
+                        className="p-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer border-b border-gray-50 last:border-b-0 transition-all duration-200"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm">
+                            <span className="text-lg">{policy.area_icon || '📄'}</span>
                           </div>
-                          <div className="text-sm text-gray-700 font-medium truncate mb-1">{policy.name}</div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Tag className="w-3 h-3 text-blue-500" />
-                            <span className="text-xs text-blue-600 font-medium">{policy.area}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-sm text-gray-800 truncate">{policy.country}</span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">{policy.year}</span>
+                            </div>
+                            <div className="text-sm text-gray-700 font-medium truncate mb-1">{policy.name}</div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Tag className="w-3 h-3 text-blue-500" />
+                              <span className="text-xs text-blue-600 font-medium">{policy.area}</span>
+                            </div>
+                            <div className="text-xs text-gray-600 line-clamp-2">{policy.description}</div>
                           </div>
-                          <div className="text-xs text-gray-600 line-clamp-2">{policy.description}</div>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                ) : searchQuery.trim() && !isSearching ? (
+                  <div className="p-6 text-center text-sm text-gray-500">
+                    <Database className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                    No policies found for "{searchQuery}" in our database
+                  </div>
+                ) : searchQuery.trim() && isSearching ? (
+                  <div className="p-6 text-center text-sm text-gray-500">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
+                    Searching database...
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Enhanced Selected Policy Info */}
+          {selectedPolicy && (
+            <div className="p-4 border-b border-gray-100/50 bg-gradient-to-r from-green-50 to-emerald-50">
+              <div className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-2">
+                <Zap className="w-3 h-3" />
+                CURRENTLY DISCUSSING
+              </div>
+              <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-green-200/50 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg">{selectedPolicy.area_icon || '📄'}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-800">{selectedPolicy.country}</div>
+                    <div className="text-xs text-gray-600 truncate mb-1">{selectedPolicy.name}</div>
+                    <div className="text-xs text-emerald-600 font-medium bg-emerald-100 px-2 py-1 rounded-full inline-block">
+                      {selectedPolicy.area}
                     </div>
-                  ))}
+                  </div>
                 </div>
-              ) : searchQuery.trim() && !isSearching ? (
-                <div className="p-6 text-center text-sm text-gray-500">
-                  <Database className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  No policies found for "{searchQuery}" in our database
-                </div>
-              ) : searchQuery.trim() && isSearching ? (
-                <div className="p-6 text-center text-sm text-gray-500">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
-                  Searching database...
-                </div>
-              ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Enhanced History Toggle */}
+          <div className="p-4 border-b border-gray-100/50">
+            <button
+              onClick={toggleHistory}
+              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-gray-50 rounded-xl transition-all duration-200 group"
+            >
+              <div className="flex items-center gap-3">
+                {showHistory ? <Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />}
+                <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700">Conversation History</span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform group-hover:text-blue-600 ${showHistory ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {/* Enhanced Conversations */}
+          {showHistory && (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-4">
+                <h3 className="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4" />
+                  Recent Conversations
+                </h3>
+                {conversations.length === 0 ? (
+                  <div className="text-sm text-gray-500 text-center py-8 px-4">
+                    <Bot className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <div className="font-medium mb-1">No conversations yet</div>
+                    <div className="text-xs">Start a new chat to begin exploring AI policies!</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {conversations.map((conv) => (
+                      <div
+                        key={conv.conversation_id}
+                        onClick={() => loadConversation(conv.conversation_id)}
+                        className={`p-4 rounded-xl cursor-pointer transition-all group relative ${
+                          currentConversationId === conv.conversation_id
+                            ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-blue-200 shadow-sm'
+                            : 'hover:bg-gray-50 border-transparent hover:shadow-sm'
+                        } border backdrop-blur-sm`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0 pr-2">
+                            <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(conv.updated_at).toLocaleDateString()}
+                            </div>
+                            <div className="text-sm text-gray-800 truncate font-medium mb-2">
+                              {conv.last_message || 'New conversation'}
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center gap-1">
+                              <MessageCircle className="w-3 h-3" />
+                              {conv.message_count} messages
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => deleteConversation(conv.conversation_id, e)}
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-lg transition-all absolute top-2 right-2"
+                            title="Delete conversation"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
+      )}
 
-        {/* Enhanced Selected Policy Info */}
-        {selectedPolicy && (
-          <div className="p-4 border-b border-gray-100/50 bg-gradient-to-r from-green-50 to-emerald-50">
-            <div className="text-xs font-semibold text-green-700 mb-2 flex items-center gap-2">
-              <Zap className="w-3 h-3" />
-              CURRENTLY DISCUSSING
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-green-200/50 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">{selectedPolicy.area_icon || '📄'}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm text-gray-800">{selectedPolicy.country}</div>
-                  <div className="text-xs text-gray-600 truncate mb-1">{selectedPolicy.name}</div>
-                  <div className="text-xs text-emerald-600 font-medium bg-emerald-100 px-2 py-1 rounded-full inline-block">
-                    {selectedPolicy.area}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Enhanced History Toggle */}
-        <div className="p-4 border-b border-gray-100/50">
-          <button
-            onClick={toggleHistory}
-            className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-gray-50 rounded-xl transition-all duration-200 group"
-          >
-            <div className="flex items-center gap-3">
-              {showHistory ? <Eye className="w-4 h-4 text-gray-600 group-hover:text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-600 group-hover:text-blue-600" />}
-              <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700">Conversation History</span>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform group-hover:text-blue-600 ${showHistory ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        {/* Enhanced Conversations */}
-        {showHistory && (
-          <div className="flex-1 overflow-y-auto min-h-0">
-            <div className="p-4">
-              <h3 className="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
-                Recent Conversations
-              </h3>
-              {conversations.length === 0 ? (
-                <div className="text-sm text-gray-500 text-center py-8 px-4">
-                  <Bot className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <div className="font-medium mb-1">No conversations yet</div>
-                  <div className="text-xs">Start a new chat to begin exploring AI policies!</div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {conversations.map((conv) => (
-                    <div
-                      key={conv.conversation_id}
-                      onClick={() => loadConversation(conv.conversation_id)}
-                      className={`p-4 rounded-xl cursor-pointer transition-all group relative ${
-                        currentConversationId === conv.conversation_id
-                          ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-blue-200 shadow-sm'
-                          : 'hover:bg-gray-50 border-transparent hover:shadow-sm'
-                      } border backdrop-blur-sm`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0 pr-2">
-                          <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(conv.updated_at).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm text-gray-800 truncate font-medium mb-2">
-                            {conv.last_message || 'New conversation'}
-                          </div>
-                          <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <MessageCircle className="w-3 h-3" />
-                            {conv.message_count} messages
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => deleteConversation(conv.conversation_id, e)}
-                          className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-100 rounded-lg transition-all absolute top-2 right-2"
-                          title="Delete conversation"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Enhanced Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Chat Area - expand to full width if sidebar is hidden */}
+      <div className={`${showSidebar ? 'flex-1 flex flex-col min-w-0' : 'w-full flex flex-col min-w-0'}`}>
         {/* Enhanced Header */}
         <div className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 p-6 shadow-sm flex-shrink-0">
           <div className="flex items-center justify-between">
