@@ -35,7 +35,7 @@ const fetchPolicyData = async () => {
   try {
     // Use NEXT_PUBLIC_API_URL from .env
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
-    const apiUrl = `${baseUrl}/all`
+    const apiUrl = `${baseUrl}/policy/all`
     const res = await fetch(apiUrl)
     if (!res.ok) throw new Error('Failed to fetch policy data')
     const result = await res.json()
@@ -938,19 +938,19 @@ function PolicyRanking({ setView }) {
                 <div className="p-4 bg-blue-50 rounded-xl">
                   <h4 className="font-semibold text-blue-800 mb-2">🏆 Leading Country</h4>
                   <p className="text-blue-700">
-                    <strong>{countryData[0]?.country}</strong> leads with an average score of <strong>{countryData[0]?.avgTotalScore.toFixed(1)}/30</strong>
+                    <strong>{Array.isArray(countryData) && countryData[0] ? countryData[0].country : ''}</strong> leads with an average score of <strong>{Array.isArray(countryData) && countryData[0] ? countryData[0].avgTotalScore.toFixed(1) : ''}/30</strong>
                   </p>
                 </div>
                 <div className="p-4 bg-green-50 rounded-xl">
                   <h4 className="font-semibold text-green-800 mb-2">👁️ Best Transparency</h4>
                   <p className="text-green-700">
-                    <strong>{countryData.sort((a, b) => b.avgTransparency - a.avgTransparency)[0]?.country}</strong> scores highest in transparency: <strong>{countryData.sort((a, b) => b.avgTransparency - a.avgTransparency)[0]?.avgTransparency.toFixed(1)}/10</strong>
+                    <strong>{Array.isArray(countryData) && countryData.length > 0 ? [...countryData].sort((a, b) => b.avgTransparency - a.avgTransparency)[0].country : ''}</strong> scores highest in transparency: <strong>{Array.isArray(countryData) && countryData.length > 0 ? [...countryData].sort((a, b) => b.avgTransparency - a.avgTransparency)[0].avgTransparency.toFixed(1) : ''}/10</strong>
                   </p>
                 </div>
                 <div className="p-4 bg-purple-50 rounded-xl">
                   <h4 className="font-semibold text-purple-800 mb-2">📊 Total Policies</h4>
                   <p className="text-purple-700">
-                    <strong>{samplePolicyData.length}</strong> policies evaluated across <strong>{countryData.length}</strong> countries/regions
+                    <strong>{Array.isArray(policyData) ? policyData.length : 0}</strong> policies evaluated across <strong>{Array.isArray(countryData) ? countryData.length : 0}</strong> countries/regions
                   </p>
                 </div>
               </div>
@@ -964,7 +964,7 @@ function PolicyRanking({ setView }) {
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {['transparency', 'explainability', 'accountability'].map((metric) => {
-                const scores = samplePolicyData.map(p => p[metric]?.score ?? 0)
+                const scores = policyData.map(p => p[metric]?.score ?? 0)
                 const average = scores.reduce((a, b) => a + b, 0) / scores.length
                 const max = Math.max(...scores)
                 const min = Math.min(...scores)
