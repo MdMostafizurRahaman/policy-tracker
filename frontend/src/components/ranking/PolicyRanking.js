@@ -262,7 +262,7 @@ function PolicyRanking({ setView }) {
           {/* Grid circles */}
           {[0.2, 0.4, 0.6, 0.8, 1].map((scale, i) => (
             <circle
-              key={i}
+              key={`circle-${scale}`}
               cx={centerX}
               cy={centerY}
               r={radius * scale}
@@ -274,7 +274,7 @@ function PolicyRanking({ setView }) {
           {/* Grid lines */}
           {maxPoints.map((point, index) => (
             <line
-              key={index}
+              key={`line-${index}`}
               x1={centerX}
               y1={centerY}
               x2={point.x}
@@ -293,7 +293,7 @@ function PolicyRanking({ setView }) {
           {/* Data points */}
           {points.map((point, index) => (
             <circle
-              key={index}
+              key={`point-${index}-${point.x}-${point.y}`}
               cx={point.x}
               cy={point.y}
               r="4"
@@ -308,7 +308,7 @@ function PolicyRanking({ setView }) {
             const y = centerY + Math.sin(angle) * labelDistance
             return (
               <text
-                key={index}
+                key={`label-${metric.name}`}
                 x={x}
                 y={y}
                 textAnchor="middle"
@@ -370,7 +370,7 @@ function PolicyRanking({ setView }) {
                 <summary>Show unmatched policies</summary>
                 <ul className="list-disc ml-4">
                   {unmatchedPolicies.map((p, i) => (
-                    <li key={i}>{p.name || p.policyName} ({p.country}, {p.category})</li>
+                    <li key={`unmatched-${p.id ?? p.name ?? i}-${p.country ?? 'unknown'}-${p.category ?? 'unknown'}`}>{p.name || p.policyName} ({p.country}, {p.category})</li>
                   ))}
                 </ul>
               </details>
@@ -417,7 +417,7 @@ function PolicyRanking({ setView }) {
             { key: 'methodology', label: 'Methodology', icon: '📋' }
           ].map(view => (
             <button
-              key={view.key}
+              key={`view-${view.key}`}
               onClick={() => setSelectedView(view.key)}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 ${
                 selectedView === view.key
@@ -484,7 +484,7 @@ function PolicyRanking({ setView }) {
             <div className="grid gap-6">
               {sortedPolicies.map((policy, index) => (
                 <div
-                  key={policy.id}
+                  key={`policy-${policy.id ?? policy.name ?? index}`}
                   className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 cursor-pointer"
                   onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
                 >
@@ -528,13 +528,13 @@ function PolicyRanking({ setView }) {
                           <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
                           <div className="space-y-4">
                             {Object.entries(evaluationCriteria).map(([category, questions]) => (
-                              <div key={`${category}-${policy.id ?? policy.name}`} className="space-y-2">
+                              <div key={`breakdown-${category}-${policy.id ?? policy.name}`} className="space-y-2">
                                 <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
                                 {questions.map((question, qIndex) => {
                                   const detailsArr = policy[category]?.details ?? [];
                                   const scoreVal = detailsArr[qIndex] ?? 0;
                                   return (
-                                    <div key={`${category}-${policy.id ?? policy.name}-${qIndex}`} className="flex items-center gap-2 text-sm">
+                                    <div key={`question-${category}-${policy.id ?? policy.name}-${qIndex}`} className="flex items-center gap-2 text-sm">
                                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
                                         scoreVal === 2 ? 'bg-green-500' :
                                         scoreVal === 1 ? 'bg-yellow-500' : 'bg-red-500'
@@ -1267,7 +1267,7 @@ function PolicyRanking({ setView }) {
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {Object.entries(evaluationCriteria).map(([category, questions]) => (
-                <div key={category} className="space-y-4">
+                <div key={`methodology-${category}`} className="space-y-4">
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                       category === 'transparency' ? 'bg-blue-100 text-blue-600' :
@@ -1288,7 +1288,7 @@ function PolicyRanking({ setView }) {
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-800">Evaluation Questions:</h4>
                     {questions.map((question, index) => (
-                      <div key={index} className="flex gap-3">
+                      <div key={`methodology-question-${category}-${index}`} className="flex gap-3">
                         <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0 mt-0.5">
                           {index + 1}
                         </div>

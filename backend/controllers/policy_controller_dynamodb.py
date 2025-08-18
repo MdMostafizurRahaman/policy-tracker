@@ -231,6 +231,30 @@ async def get_all_policies():
     try:
         logger.info("Getting all policies for frontend summary/charts")
         policies = await policy_service.get_all_policies()
+        from utils.helpers import calculate_policy_score, calculate_completeness_score
+
+        # Patch: Calculate scores for each policy and country
+        for submission in policies:
+            # Country-level score: average of all policy scores
+            all_policy_scores = []
+            for area in submission.get("policy_areas", []):
+                for policy in area.get("policies", []):
+                    raw_score = calculate_policy_score(policy)
+                    normalized_score = round((raw_score / 100) * 30, 2)
+                    policy["score"] = normalized_score
+                    policy["completeness_score"] = calculate_completeness_score(policy)
+                    # For frontend compatibility, also set totalScore
+                    policy["totalScore"] = normalized_score
+                    all_policy_scores.append(normalized_score)
+            # Set country score as average of all policy scores
+            if all_policy_scores:
+                avg_score = sum(all_policy_scores) / len(all_policy_scores)
+            else:
+                avg_score = 0
+            submission["score"] = avg_score
+            submission["totalScore"] = avg_score
+            submission["completeness_score"] = calculate_completeness_score({"score": avg_score})
+
         return {
             "success": True,
             "data": policies,
