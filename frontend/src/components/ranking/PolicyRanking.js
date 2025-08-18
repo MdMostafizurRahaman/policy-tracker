@@ -30,14 +30,17 @@ ChartJS.register(
   ArcElement
 )
 
-// Sample data for demonstration - this would come from your backend
-// Fetch policy data from backend API
+// Fetch policy data from backend API (all policies, not just approved)
 const fetchPolicyData = async () => {
   try {
-    const res = await fetch('/api/policies')
+    // Use NEXT_PUBLIC_API_URL from .env
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+    const apiUrl = `${baseUrl}/all`
+    const res = await fetch(apiUrl)
     if (!res.ok) throw new Error('Failed to fetch policy data')
-    const data = await res.json()
-    return data
+    const result = await res.json()
+    // The OpenAPI spec shows the response is { success, data, count }
+    return result.data || []
   } catch (err) {
     console.error(err)
     return []
@@ -72,10 +75,10 @@ const getCountryAggregatedData = (policyData) => {
   Object.keys(countryData).forEach(country => {
     const data = countryData[country]
     const policies = data.policies
-    data.avgTransparency = policies.reduce((sum, p) => sum + p.transparency.score, 0) / policies.length
-    data.avgExplainability = policies.reduce((sum, p) => sum + p.explainability.score, 0) / policies.length
-    data.avgAccountability = policies.reduce((sum, p) => sum + p.accountability.score, 0) / policies.length
-    data.avgTotalScore = policies.reduce((sum, p) => sum + p.totalScore, 0) / policies.length
+    data.avgTransparency = policies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / policies.length
+    data.avgExplainability = policies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / policies.length
+    data.avgAccountability = policies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / policies.length
+    data.avgTotalScore = policies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / policies.length
   })
   return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 }
@@ -114,6 +117,36 @@ function PolicyRanking({ setView }) {
   const [filterCategory, setFilterCategory] = useState('all')
   const [viewMode, setViewMode] = useState('policies') // 'policies' or 'countries'
 
+
+  // State for full country and policy area lists
+  const [fullCountries, setFullCountries] = useState([])
+  const [fullPolicyAreas, setFullPolicyAreas] = useState([]) // array of objects
+
+  // Fetch full country and policy area lists from backend using NEXT_PUBLIC_API_URL
+  useEffect(() => {
+    const fetchLists = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+        const [countriesRes, areasRes] = await Promise.all([
+          fetch(`${baseUrl}/countries`),
+          fetch(`${baseUrl}/policy-areas`)
+        ])
+        const countriesData = countriesRes.ok ? await countriesRes.json() : { countries: [] }
+        const areasData = areasRes.ok ? await areasRes.json() : { policy_areas: [] }
+        setFullCountries(countriesData.countries || [])
+        setFullPolicyAreas(areasData.policy_areas || []) // keep as objects
+      } catch (err) {
+        setFullCountries([])
+        setFullPolicyAreas([])
+      }
+    }
+    fetchLists()
+  }, [])
+
+  // Use full lists for dropdowns and charts
+  const categories = ['all', ...fullPolicyAreas.map(a => a.name)]
+  const categoryObjects = [{ id: 'all', name: 'All Categories' }, ...fullPolicyAreas]
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
@@ -124,37 +157,86 @@ function PolicyRanking({ setView }) {
     loadData()
   }, [])
 
-  const countryData = getCountryAggregatedData(policyData)
+  // Normalize country and category matching using codes/IDs
+  const countryData = fullCountries
+    .map(countryObj => {
+      // countryObj can be string or object, handle both
+      const countryName = typeof countryObj === 'string' ? countryObj : countryObj.name
+      const countryCode = typeof countryObj === 'string' ? '' : (countryObj.code || countryObj.countryCode || '')
+      // Match by country name or code
+      const countryPolicies = policyData.filter(p => {
+        return (
+          (p.country && p.country.trim().toLowerCase() === countryName.trim().toLowerCase()) ||
+          (countryCode && p.countryCode && p.countryCode.trim().toLowerCase() === countryCode.trim().toLowerCase())
+        )
+      })
+      const totalPolicies = countryPolicies.length
+      if (totalPolicies === 0) return null
+  const avgTransparency = countryPolicies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / totalPolicies
+  const avgExplainability = countryPolicies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / totalPolicies
+  const avgAccountability = countryPolicies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / totalPolicies
+  const avgTotalScore = countryPolicies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / totalPolicies
+      // Count policies per policy area (match by name or id)
+      const areaCounts = {}
+      fullPolicyAreas.forEach(area => {
+        areaCounts[area.name] = countryPolicies.filter(p => {
+          return (
+            (p.category && p.category.trim().toLowerCase() === area.name.trim().toLowerCase()) ||
+            (area.id && p.categoryId && p.categoryId === area.id)
+          )
+        }).length
+      })
+      return {
+        country: countryName,
+        countryCode,
+        policies: countryPolicies,
+        totalPolicies,
+        avgTransparency,
+        avgExplainability,
+        avgAccountability,
+        avgTotalScore,
+        categories: areaCounts
+      }
+    })
+    .filter(c => c !== null)
+    .sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 
+  // Normalize category filtering
   const sortedPolicies = [...policyData]
-    .filter(policy => filterCategory === 'all' || policy.category === filterCategory)
+    .filter(policy => {
+      if (filterCategory === 'all') return true
+      // Match by name or id
+      const matchByName = policy.category && policy.category.trim().toLowerCase() === filterCategory.trim().toLowerCase()
+      const matchById = categoryObjects.find(cat => cat.name === filterCategory)?.id && policy.categoryId === categoryObjects.find(cat => cat.name === filterCategory).id
+      return matchByName || matchById
+    })
     .sort((a, b) => {
-      const aVal = sortBy === 'totalScore' ? a.totalScore : a[sortBy].score
-      const bVal = sortBy === 'totalScore' ? b.totalScore : b[sortBy].score
+      const aVal = sortBy === 'totalScore' ? (a.totalScore ?? 0) : (a[sortBy]?.score ?? 0)
+      const bVal = sortBy === 'totalScore' ? (b.totalScore ?? 0) : (b[sortBy]?.score ?? 0)
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
-  const categories = ['all', ...new Set(policyData.map(p => p.category))]
+  // ...existing code...
 
   const ScoreBar = ({ score, maxScore = 10, color = "blue" }) => (
     <div className="flex items-center gap-3">
       <div className="w-32 bg-gray-200 rounded-full h-3 relative overflow-hidden">
         <div 
           className={`h-full bg-gradient-to-r from-${color}-400 to-${color}-600 rounded-full transition-all duration-1000 ease-out`}
-          style={{ width: `${(score / maxScore) * 100}%` }}
+          style={{ width: `${((score ?? 0) / maxScore) * 100}%` }}
         />
       </div>
       <span className="text-sm font-semibold text-gray-700 min-w-[40px]">
-        {score}/{maxScore}
+        {(score ?? 0)}/{maxScore}
       </span>
     </div>
   )
 
   const RadarChart = ({ policy }) => {
     const metrics = [
-      { name: 'Transparency', score: policy.transparency.score, max: 10 },
-      { name: 'Explainability', score: policy.explainability.score, max: 10 },
-      { name: 'Accountability', score: policy.accountability.score, max: 10 }
+      { name: 'Transparency', score: policy.transparency?.score ?? 0, max: 10 },
+      { name: 'Explainability', score: policy.explainability?.score ?? 0, max: 10 },
+      { name: 'Accountability', score: policy.accountability?.score ?? 0, max: 10 }
     ]
     const radius = 80
     const centerX = 100
@@ -245,7 +327,6 @@ function PolicyRanking({ setView }) {
   }
 
   if (loading) {
-
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-2xl font-bold text-blue-600">Loading policy data...</div>
@@ -253,9 +334,49 @@ function PolicyRanking({ setView }) {
     )
   }
 
+  // Debug info: show counts and unmatched policies
+  const unmatchedPolicies = policyData.filter(p => {
+    // Country not matched
+    const matchedCountry = fullCountries.some(countryObj => {
+      const countryName = typeof countryObj === 'string' ? countryObj : countryObj.name
+      const countryCode = typeof countryObj === 'string' ? '' : (countryObj.code || countryObj.countryCode || '')
+      return (
+        (p.country && p.country.trim().toLowerCase() === countryName.trim().toLowerCase()) ||
+        (countryCode && p.countryCode && p.countryCode.trim().toLowerCase() === countryCode.trim().toLowerCase())
+      )
+    })
+    // Category not matched
+    const matchedCategory = fullPolicyAreas.some(area => {
+      return (
+        (p.category && p.category.trim().toLowerCase() === area.name.trim().toLowerCase()) ||
+        (area.id && p.categoryId && p.categoryId === area.id)
+      )
+    })
+    return !matchedCountry || !matchedCategory
+  })
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Debug Info */}
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-6 items-center bg-white rounded-xl shadow p-4">
+            <div className="text-blue-700 font-semibold">Total Policies: {policyData.length}</div>
+            <div className="text-green-700 font-semibold">Total Countries: {fullCountries.length}</div>
+            <div className="text-purple-700 font-semibold">Visible Countries: {countryData.length}</div>
+            <div className="text-red-700 font-semibold">Unmatched Policies: {unmatchedPolicies.length}</div>
+            {unmatchedPolicies.length > 0 && (
+              <details className="text-xs text-red-600">
+                <summary>Show unmatched policies</summary>
+                <ul className="list-disc ml-4">
+                  {unmatchedPolicies.map((p, i) => (
+                    <li key={i}>{p.name || p.policyName} ({p.country}, {p.category})</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        </div>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -349,9 +470,9 @@ function PolicyRanking({ setView }) {
                     onChange={(e) => setFilterCategory(e.target.value)}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   >
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>
-                        {cat === 'all' ? 'All Categories' : cat}
+                    {categoryObjects.map(cat => (
+                      <option key={`cat-${cat.id}-${cat.name}`} value={cat.name}>
+                        {cat.name}
                       </option>
                     ))}
                   </select>
@@ -388,15 +509,15 @@ function PolicyRanking({ setView }) {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div className="space-y-2">
                       <div className="text-sm font-semibold text-gray-700">Transparency</div>
-                      <ScoreBar score={policy.transparency.score} color="blue" />
+                      <ScoreBar score={policy.transparency?.score ?? 0} color="blue" />
                     </div>
                     <div className="space-y-2">
                       <div className="text-sm font-semibold text-gray-700">Explainability</div>
-                      <ScoreBar score={policy.explainability.score} color="green" />
+                      <ScoreBar score={policy.explainability?.score ?? 0} color="green" />
                     </div>
                     <div className="space-y-2">
                       <div className="text-sm font-semibold text-gray-700">Accountability</div>
-                      <ScoreBar score={policy.accountability.score} color="purple" />
+                      <ScoreBar score={policy.accountability?.score ?? 0} color="purple" />
                     </div>
                   </div>
 
@@ -407,19 +528,23 @@ function PolicyRanking({ setView }) {
                           <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
                           <div className="space-y-4">
                             {Object.entries(evaluationCriteria).map(([category, questions]) => (
-                              <div key={category} className="space-y-2">
+                              <div key={`${category}-${policy.id ?? policy.name}`} className="space-y-2">
                                 <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
-                                {questions.map((question, qIndex) => (
-                                  <div key={qIndex} className="flex items-center gap-2 text-sm">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                      policy[category].details[qIndex] === 2 ? 'bg-green-500' :
-                                      policy[category].details[qIndex] === 1 ? 'bg-yellow-500' : 'bg-red-500'
-                                    }`}>
-                                      {policy[category].details[qIndex]}
+                                {questions.map((question, qIndex) => {
+                                  const detailsArr = policy[category]?.details ?? [];
+                                  const scoreVal = detailsArr[qIndex] ?? 0;
+                                  return (
+                                    <div key={`${category}-${policy.id ?? policy.name}-${qIndex}`} className="flex items-center gap-2 text-sm">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                                        scoreVal === 2 ? 'bg-green-500' :
+                                        scoreVal === 1 ? 'bg-yellow-500' : 'bg-red-500'
+                                      }`}>
+                                        {scoreVal}
+                                      </div>
+                                      <span className="text-gray-700">{question}</span>
                                     </div>
-                                    <span className="text-gray-700">{question}</span>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             ))}
                           </div>
@@ -839,7 +964,7 @@ function PolicyRanking({ setView }) {
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {['transparency', 'explainability', 'accountability'].map((metric) => {
-                const scores = samplePolicyData.map(p => p[metric].score)
+                const scores = samplePolicyData.map(p => p[metric]?.score ?? 0)
                 const average = scores.reduce((a, b) => a + b, 0) / scores.length
                 const max = Math.max(...scores)
                 const min = Math.min(...scores)
@@ -950,9 +1075,9 @@ function PolicyRanking({ setView }) {
                       datasets: sortedPolicies.slice(0, 5).map((policy, index) => ({
                         label: policy.name.length > 15 ? policy.name.substring(0, 15) + '...' : policy.name,
                         data: [
-                          policy.transparency.score,
-                          policy.explainability.score,
-                          policy.accountability.score
+                          policy.transparency?.score ?? 0,
+                          policy.explainability?.score ?? 0,
+                          policy.accountability?.score ?? 0
                         ],
                         borderColor: [
                           'rgba(59, 130, 246, 1)',
@@ -1018,19 +1143,21 @@ function PolicyRanking({ setView }) {
                 <div className="h-80">
                   <Doughnut
                     data={{
-                      labels: categories.filter(c => c !== 'all'),
+                      labels: fullPolicyAreas.map(a => a.name),
                       datasets: [
                         {
-                          data: categories.filter(c => c !== 'all').map(cat => 
-                            samplePolicyData.filter(p => p.category === cat).length
-                          ),
+                          data: fullPolicyAreas.map(area => policyData.filter(p => p.category === area.name).length),
                           backgroundColor: [
                             'rgba(59, 130, 246, 0.8)',
                             'rgba(34, 197, 94, 0.8)',
                             'rgba(168, 85, 247, 0.8)',
                             'rgba(245, 158, 11, 0.8)',
                             'rgba(239, 68, 68, 0.8)',
-                            'rgba(20, 184, 166, 0.8)'
+                            'rgba(20, 184, 166, 0.8)',
+                            'rgba(236, 72, 153, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(14, 165, 233, 0.8)',
+                            'rgba(16, 185, 129, 0.8)'
                           ],
                           borderColor: [
                             'rgba(59, 130, 246, 1)',
@@ -1038,7 +1165,11 @@ function PolicyRanking({ setView }) {
                             'rgba(168, 85, 247, 1)',
                             'rgba(245, 158, 11, 1)',
                             'rgba(239, 68, 68, 1)',
-                            'rgba(20, 184, 166, 1)'
+                            'rgba(20, 184, 166, 1)',
+                            'rgba(236, 72, 153, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(14, 165, 233, 1)',
+                            'rgba(16, 185, 129, 1)'
                           ],
                           borderWidth: 2,
                         }
@@ -1077,8 +1208,8 @@ function PolicyRanking({ setView }) {
                         {
                           label: 'Average Score',
                           data: ['transparency', 'explainability', 'accountability'].map(metric => {
-                            const scores = samplePolicyData.map(p => p[metric].score)
-                            return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
+                            const scores = policyData.map(p => p[metric]?.score ?? 0)
+                            return scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0
                           }),
                           backgroundColor: [
                             'rgba(59, 130, 246, 0.8)',

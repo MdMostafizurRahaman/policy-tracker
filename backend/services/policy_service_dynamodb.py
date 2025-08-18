@@ -13,6 +13,17 @@ from utils.helpers import convert_objectid, calculate_policy_score, calculate_co
 logger = logging.getLogger(__name__)
 
 class PolicyService:
+    async def get_all_policies(self) -> List[Dict[str, Any]]:
+        """Get all policies (any status)"""
+        try:
+            db = await self._get_db()
+            all_policies = await db.scan_table('policies')
+            # Sort by created_at desc
+            all_policies.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            return all_policies
+        except Exception as e:
+            logger.error(f"Error getting all policies: {str(e)}")
+            return []
     def __init__(self):
         pass
     

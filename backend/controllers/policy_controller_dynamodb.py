@@ -224,24 +224,21 @@ async def search_policies(
             detail="Failed to search policies"
         )
 
-@router.get("/approved-for-map")
-async def get_approved_policies_for_map(country: str = None):
-    """Get approved policies for map visualization"""
+
+@router.get("/all")
+async def get_all_policies():
+    """Get all policies (any status) for frontend summary cards/charts"""
     try:
-        logger.info(f"Getting approved policies for map visualization, country: {country}")
-        
-        policies = await policy_service.get_approved_policies_for_map(country)
-        
+        logger.info("Getting all policies for frontend summary/charts")
+        policies = await policy_service.get_all_policies()
         return {
             "success": True,
             "data": policies,
-            "count": len(policies),
-            "country": country
+            "count": len(policies)
         }
-        
     except Exception as e:
-        logger.error(f"Error getting approved policies for map: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to get approved policies: {str(e)}")
+        logger.error(f"Error getting all policies: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get all policies: {str(e)}")
 
 @router.get("/map-visualization")
 async def get_map_visualization():
@@ -523,4 +520,27 @@ async def get_policy_file_info(
 
 
 # Export router
+
+# Endpoint to get full country list
+@router.get("/countries")
+async def get_countries():
+    """Return full country list from constants"""
+    try:
+        from config.data_constants import COUNTRIES
+        return {"success": True, "countries": COUNTRIES, "count": len(COUNTRIES)}
+    except Exception as e:
+        logger.error(f"Error getting countries: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get countries: {str(e)}")
+
+# Endpoint to get full policy area list
+@router.get("/policy-areas")
+async def get_policy_areas():
+    """Return full policy area list from constants"""
+    try:
+        from config.data_constants import POLICY_AREAS
+        return {"success": True, "policy_areas": POLICY_AREAS, "count": len(POLICY_AREAS)}
+    except Exception as e:
+        logger.error(f"Error getting policy areas: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get policy areas: {str(e)}")
+
 policy_router = router
