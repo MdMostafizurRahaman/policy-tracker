@@ -31,218 +31,24 @@ ChartJS.register(
 )
 
 // Sample data for demonstration - this would come from your backend
-const samplePolicyData = [
-  {
-    id: 1,
-    name: "European Union AI Act",
-    country: "European Union",
-    countryCode: "EU",
-    year: 2024,
-    transparency: { score: 9, details: [2, 2, 2, 2, 1] },
-    explainability: { score: 8, details: [2, 2, 1, 2, 1] },
-    accountability: { score: 9, details: [2, 2, 2, 2, 1] },
-    totalScore: 26,
-    category: "AI Regulation"
-  },
-  {
-    id: 2,
-    name: "GDPR",
-    country: "European Union", 
-    countryCode: "EU",
-    year: 2018,
-    transparency: { score: 8, details: [2, 1, 2, 2, 1] },
-    explainability: { score: 7, details: [1, 2, 2, 1, 1] },
-    accountability: { score: 9, details: [2, 2, 2, 2, 1] },
-    totalScore: 24,
-    category: "Data Protection"
-  },
-  {
-    id: 3,
-    name: "California Consumer Privacy Act",
-    country: "United States",
-    countryCode: "US",
-    year: 2020,
-    transparency: { score: 7, details: [2, 1, 1, 2, 1] },
-    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
-    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
-    totalScore: 20,
-    category: "Privacy"
-  },
-  {
-    id: 4,
-    name: "Federal Trade Commission AI Guidelines",
-    country: "United States",
-    countryCode: "US",
-    year: 2023,
-    transparency: { score: 6, details: [1, 2, 1, 1, 1] },
-    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
-    accountability: { score: 6, details: [1, 1, 2, 1, 1] },
-    totalScore: 19,
-    category: "AI Guidelines"
-  },
-  {
-    id: 5,
-    name: "Japan AI Safety Guidelines",
-    country: "Japan",
-    countryCode: "JP",
-    year: 2024,
-    transparency: { score: 6, details: [1, 1, 1, 2, 1] },
-    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
-    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
-    totalScore: 20,
-    category: "AI Safety"
-  },
-  {
-    id: 6,
-    name: "Personal Information Protection Act",
-    country: "Japan",
-    countryCode: "JP",
-    year: 2022,
-    transparency: { score: 5, details: [1, 1, 1, 1, 1] },
-    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
-    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
-    totalScore: 18,
-    category: "Data Protection"
-  },
-  {
-    id: 7,
-    name: "UK Data Protection Act",
-    country: "United Kingdom",
-    countryCode: "GB",
-    year: 2018,
-    transparency: { score: 7, details: [2, 1, 1, 2, 1] },
-    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
-    accountability: { score: 8, details: [2, 2, 1, 2, 1] },
-    totalScore: 21,
-    category: "Data Protection"
-  },
-  {
-    id: 8,
-    name: "UK AI White Paper",
-    country: "United Kingdom",
-    countryCode: "GB",
-    year: 2023,
-    transparency: { score: 8, details: [2, 2, 1, 2, 1] },
-    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
-    accountability: { score: 7, details: [1, 2, 1, 2, 1] },
-    totalScore: 22,
-    category: "AI Strategy"
-  },
-  {
-    id: 9,
-    name: "China AI Governance Framework",
-    country: "China",
-    countryCode: "CN",
-    year: 2023,
-    transparency: { score: 4, details: [1, 0, 1, 1, 1] },
-    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
-    accountability: { score: 6, details: [1, 1, 2, 1, 1] },
-    totalScore: 15,
-    category: "AI Governance"
-  },
-  {
-    id: 10,
-    name: "Cybersecurity Law",
-    country: "China",
-    countryCode: "CN",
-    year: 2017,
-    transparency: { score: 3, details: [1, 0, 0, 1, 1] },
-    explainability: { score: 4, details: [1, 0, 1, 1, 1] },
-    accountability: { score: 5, details: [1, 1, 1, 1, 1] },
-    totalScore: 12,
-    category: "Cybersecurity"
-  },
-  {
-    id: 11,
-    name: "Canada PIPEDA",
-    country: "Canada",
-    countryCode: "CA",
-    year: 2019,
-    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
-    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
-    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
-    totalScore: 20,
-    category: "Privacy"
-  },
-  {
-    id: 12,
-    name: "Bill C-27 (Digital Charter)",
-    country: "Canada",
-    countryCode: "CA",
-    year: 2024,
-    transparency: { score: 8, details: [2, 2, 1, 2, 1] },
-    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
-    accountability: { score: 8, details: [2, 2, 1, 2, 1] },
-    totalScore: 23,
-    category: "Digital Rights"
-  },
-  {
-    id: 13,
-    name: "Australia Privacy Act",
-    country: "Australia",
-    countryCode: "AU",
-    year: 2022,
-    transparency: { score: 6, details: [2, 1, 1, 1, 1] },
-    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
-    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
-    totalScore: 18,
-    category: "Privacy"
-  },
-  {
-    id: 14,
-    name: "AI Ethics Framework",
-    country: "Australia",
-    countryCode: "AU",
-    year: 2023,
-    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
-    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
-    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
-    totalScore: 21,
-    category: "AI Ethics"
-  },
-  {
-    id: 15,
-    name: "Singapore Model AI Governance",
-    country: "Singapore",
-    countryCode: "SG",
-    year: 2023,
-    transparency: { score: 8, details: [2, 2, 2, 1, 1] },
-    explainability: { score: 9, details: [2, 2, 2, 2, 1] },
-    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
-    totalScore: 24,
-    category: "AI Governance"
-  },
-  {
-    id: 16,
-    name: "Germany Interstate Treaty",
-    country: "Germany",
-    countryCode: "DE",
-    year: 2016,
-    transparency: { score: 6, details: [2, 1, 1, 1, 1] },
-    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
-    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
-    totalScore: 18,
-    category: "Media Protection"
-  },
-  {
-    id: 17,
-    name: "South Korea AI Ethics Standards",
-    country: "South Korea",
-    countryCode: "KR",
-    year: 2023,
-    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
-    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
-    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
-    totalScore: 21,
-    category: "AI Ethics"
+// Fetch policy data from backend API
+const fetchPolicyData = async () => {
+  try {
+    const res = await fetch('/api/policies')
+    if (!res.ok) throw new Error('Failed to fetch policy data')
+    const data = await res.json()
+    return data
+  } catch (err) {
+    console.error(err)
+    return []
   }
-]
+}
 
 // Country aggregation function
-const getCountryAggregatedData = () => {
+const getCountryAggregatedData = (policyData) => {
   const countryData = {}
-  
-  samplePolicyData.forEach(policy => {
+  if (!policyData || !policyData.length) return []
+  policyData.forEach(policy => {
     if (!countryData[policy.country]) {
       countryData[policy.country] = {
         country: policy.country,
@@ -256,28 +62,21 @@ const getCountryAggregatedData = () => {
         categories: {}
       }
     }
-    
     countryData[policy.country].policies.push(policy)
     countryData[policy.country].totalPolicies++
-    
-    // Track categories
     if (!countryData[policy.country].categories[policy.category]) {
       countryData[policy.country].categories[policy.category] = 0
     }
     countryData[policy.country].categories[policy.category]++
   })
-  
-  // Calculate averages
   Object.keys(countryData).forEach(country => {
     const data = countryData[country]
     const policies = data.policies
-    
     data.avgTransparency = policies.reduce((sum, p) => sum + p.transparency.score, 0) / policies.length
     data.avgExplainability = policies.reduce((sum, p) => sum + p.explainability.score, 0) / policies.length
     data.avgAccountability = policies.reduce((sum, p) => sum + p.accountability.score, 0) / policies.length
     data.avgTotalScore = policies.reduce((sum, p) => sum + p.totalScore, 0) / policies.length
   })
-  
   return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 }
 
@@ -306,6 +105,8 @@ const evaluationCriteria = {
 }
 
 function PolicyRanking({ setView }) {
+  const [policyData, setPolicyData] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selectedView, setSelectedView] = useState('overview')
   const [selectedPolicy, setSelectedPolicy] = useState(null)
   const [sortBy, setSortBy] = useState('totalScore')
@@ -313,9 +114,19 @@ function PolicyRanking({ setView }) {
   const [filterCategory, setFilterCategory] = useState('all')
   const [viewMode, setViewMode] = useState('policies') // 'policies' or 'countries'
 
-  const countryData = getCountryAggregatedData()
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      const data = await fetchPolicyData()
+      setPolicyData(data)
+      setLoading(false)
+    }
+    loadData()
+  }, [])
 
-  const sortedPolicies = [...samplePolicyData]
+  const countryData = getCountryAggregatedData(policyData)
+
+  const sortedPolicies = [...policyData]
     .filter(policy => filterCategory === 'all' || policy.category === filterCategory)
     .sort((a, b) => {
       const aVal = sortBy === 'totalScore' ? a.totalScore : a[sortBy].score
@@ -323,7 +134,7 @@ function PolicyRanking({ setView }) {
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
-  const categories = ['all', ...new Set(samplePolicyData.map(p => p.category))]
+  const categories = ['all', ...new Set(policyData.map(p => p.category))]
 
   const ScoreBar = ({ score, maxScore = 10, color = "blue" }) => (
     <div className="flex items-center gap-3">
@@ -345,11 +156,9 @@ function PolicyRanking({ setView }) {
       { name: 'Explainability', score: policy.explainability.score, max: 10 },
       { name: 'Accountability', score: policy.accountability.score, max: 10 }
     ]
-    
     const radius = 80
     const centerX = 100
     const centerY = 100
-    
     const points = metrics.map((metric, index) => {
       const angle = (index * 120 - 90) * (Math.PI / 180)
       const distance = (metric.score / metric.max) * radius
@@ -358,7 +167,6 @@ function PolicyRanking({ setView }) {
         y: centerY + Math.sin(angle) * distance
       }
     })
-    
     const maxPoints = metrics.map((metric, index) => {
       const angle = (index * 120 - 90) * (Math.PI / 180)
       return {
@@ -366,7 +174,6 @@ function PolicyRanking({ setView }) {
         y: centerY + Math.sin(angle) * radius
       }
     })
-
     return (
       <div className="flex justify-center">
         <svg width="200" height="200" className="overflow-visible">
@@ -382,7 +189,6 @@ function PolicyRanking({ setView }) {
               strokeWidth="1"
             />
           ))}
-          
           {/* Grid lines */}
           {maxPoints.map((point, index) => (
             <line
@@ -395,7 +201,6 @@ function PolicyRanking({ setView }) {
               strokeWidth="1"
             />
           ))}
-          
           {/* Filled area */}
           <polygon
             points={points.map(p => `${p.x},${p.y}`).join(' ')}
@@ -403,7 +208,6 @@ function PolicyRanking({ setView }) {
             stroke="rgb(59, 130, 246)"
             strokeWidth="2"
           />
-          
           {/* Data points */}
           {points.map((point, index) => (
             <circle
@@ -414,7 +218,6 @@ function PolicyRanking({ setView }) {
               fill="rgb(59, 130, 246)"
             />
           ))}
-          
           {/* Labels */}
           {metrics.map((metric, index) => {
             const angle = (index * 120 - 90) * (Math.PI / 180)
@@ -437,6 +240,15 @@ function PolicyRanking({ setView }) {
             )
           })}
         </svg>
+      </div>
+    )
+  }
+
+  if (loading) {
+
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-2xl font-bold text-blue-600">Loading policy data...</div>
       </div>
     )
   }
@@ -478,8 +290,7 @@ function PolicyRanking({ setView }) {
 
         {/* View Selector */}
         <div className="bg-white rounded-2xl shadow-lg p-1 mb-8 inline-flex">
-          {[
-            { key: 'overview', label: 'Overview', icon: '📊' },
+          {[{ key: 'overview', label: 'Overview', icon: '📊' },
             { key: 'countries', label: 'Country Comparison', icon: '🌍' },
             { key: 'detailed', label: 'Detailed Analysis', icon: '🔍' },
             { key: 'methodology', label: 'Methodology', icon: '📋' }
