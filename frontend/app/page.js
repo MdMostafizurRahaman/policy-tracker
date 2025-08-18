@@ -827,7 +827,7 @@ export default function Page() {
         </div>
 
         {/* Main Content */}
-        <main className="relative">
+        <main className={`relative transition-all duration-500 ${sidebarOpen ? 'ml-96' : ''}`}>
           {renderContent()}
         </main>
 
