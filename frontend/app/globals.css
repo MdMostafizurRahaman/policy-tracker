@@ -1021,6 +1021,19 @@ textarea:focus {
   transform: translateY(-3px) scale(1.03);
 }
 
+.cosmic-button-tertiary {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  transition: all 0.5s ease;
+}
+
+.cosmic-button-tertiary:hover {
+  transform: translateY(-4px) scale(1.04);
+}
+
 /* Cosmic Cards */
 .cosmic-stat-card {
   position: relative;

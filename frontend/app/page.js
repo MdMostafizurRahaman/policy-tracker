@@ -9,6 +9,7 @@ import AdminPanel from "../src/components/admin/AdminDashboard.js"
 import AuthSystem from "../src/components/auth/AuthSystem.js"
 import AdminLogin from "../src/components/admin/AdminLogin.js"
 import PolicyChatAssistant from "../src/components/chatbot/PolicyChatAssistant.js"
+import PolicyRanking from "../src/components/ranking/PolicyRanking.js"
 import VisitCounter from "../src/components/common/VisitCounter.js"
 import { useVisitTracker } from "../src/hooks/useVisitTracker.js"
 
@@ -169,6 +170,16 @@ export default function Page() {
       category: "contribute"
     },
     { 
+      key: "ranking", 
+      label: "📊 Policy Rankings", 
+      icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+      gradient: "from-yellow-400 via-orange-500 to-red-600",
+      bgGradient: "from-yellow-50 via-orange-50 to-red-100",
+      description: "Policy transparency & accountability rankings",
+      emoji: "📊",
+      category: "analytics"
+    },
+    { 
       key: "admin", 
       label: "⚙️ Dashboard", 
       icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
@@ -295,6 +306,13 @@ export default function Page() {
           </div>
         )
       
+      case "ranking":
+        return (
+          <div className="min-h-screen bg-gradient-mesh from-yellow-50 via-orange-50 to-red-100">
+            <PolicyRanking setView={setView} />
+          </div>
+        )
+      
       case "chatbot":
         return (
           <div className="min-h-screen bg-gradient-mesh from-purple-50 via-pink-50 to-rose-100 dark:from-purple-900 dark:via-pink-900 dark:to-rose-900">
@@ -378,6 +396,23 @@ export default function Page() {
                       <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                       </svg>
+                    </span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setPageTransition(true)
+                      setTimeout(() => {
+                        setView("ranking")
+                        setPageTransition(false)
+                      }, 300)
+                    }}
+                    className="cosmic-button-tertiary group relative button-magnetic"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-yellow-500 via-orange-600 to-red-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-pulse">📊</span>
+                      <span>Policy Rankings</span>
                     </span>
                   </button>
                   
@@ -852,6 +887,7 @@ export default function Page() {
                 <ul className="space-y-4">
                   {[
                     { label: 'World Map Explorer', action: () => setView('worldmap'), icon: '🌍' },
+                    { label: 'Policy Rankings', action: () => setView('ranking'), icon: '📊' },
                     { label: 'AI Policy Assistant', action: () => setView('chatbot'), icon: '🤖' },
                     { label: 'Submit Policy Data', action: () => setView('submission'), icon: '📝' },
                     { label: 'Admin Dashboard', action: () => setView('admin'), icon: '⚙️' },

@@ -1,0 +1,1395 @@
+'use client'
+import React, { useState, useEffect } from 'react'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  ArcElement,
+} from 'chart.js'
+import { Bar, Radar, Doughnut } from 'react-chartjs-2'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  ArcElement
+)
+
+// Sample data for demonstration - this would come from your backend
+const samplePolicyData = [
+  {
+    id: 1,
+    name: "European Union AI Act",
+    country: "European Union",
+    countryCode: "EU",
+    year: 2024,
+    transparency: { score: 9, details: [2, 2, 2, 2, 1] },
+    explainability: { score: 8, details: [2, 2, 1, 2, 1] },
+    accountability: { score: 9, details: [2, 2, 2, 2, 1] },
+    totalScore: 26,
+    category: "AI Regulation"
+  },
+  {
+    id: 2,
+    name: "GDPR",
+    country: "European Union", 
+    countryCode: "EU",
+    year: 2018,
+    transparency: { score: 8, details: [2, 1, 2, 2, 1] },
+    explainability: { score: 7, details: [1, 2, 2, 1, 1] },
+    accountability: { score: 9, details: [2, 2, 2, 2, 1] },
+    totalScore: 24,
+    category: "Data Protection"
+  },
+  {
+    id: 3,
+    name: "California Consumer Privacy Act",
+    country: "United States",
+    countryCode: "US",
+    year: 2020,
+    transparency: { score: 7, details: [2, 1, 1, 2, 1] },
+    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
+    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
+    totalScore: 20,
+    category: "Privacy"
+  },
+  {
+    id: 4,
+    name: "Federal Trade Commission AI Guidelines",
+    country: "United States",
+    countryCode: "US",
+    year: 2023,
+    transparency: { score: 6, details: [1, 2, 1, 1, 1] },
+    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
+    accountability: { score: 6, details: [1, 1, 2, 1, 1] },
+    totalScore: 19,
+    category: "AI Guidelines"
+  },
+  {
+    id: 5,
+    name: "Japan AI Safety Guidelines",
+    country: "Japan",
+    countryCode: "JP",
+    year: 2024,
+    transparency: { score: 6, details: [1, 1, 1, 2, 1] },
+    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
+    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
+    totalScore: 20,
+    category: "AI Safety"
+  },
+  {
+    id: 6,
+    name: "Personal Information Protection Act",
+    country: "Japan",
+    countryCode: "JP",
+    year: 2022,
+    transparency: { score: 5, details: [1, 1, 1, 1, 1] },
+    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
+    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
+    totalScore: 18,
+    category: "Data Protection"
+  },
+  {
+    id: 7,
+    name: "UK Data Protection Act",
+    country: "United Kingdom",
+    countryCode: "GB",
+    year: 2018,
+    transparency: { score: 7, details: [2, 1, 1, 2, 1] },
+    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
+    accountability: { score: 8, details: [2, 2, 1, 2, 1] },
+    totalScore: 21,
+    category: "Data Protection"
+  },
+  {
+    id: 8,
+    name: "UK AI White Paper",
+    country: "United Kingdom",
+    countryCode: "GB",
+    year: 2023,
+    transparency: { score: 8, details: [2, 2, 1, 2, 1] },
+    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
+    accountability: { score: 7, details: [1, 2, 1, 2, 1] },
+    totalScore: 22,
+    category: "AI Strategy"
+  },
+  {
+    id: 9,
+    name: "China AI Governance Framework",
+    country: "China",
+    countryCode: "CN",
+    year: 2023,
+    transparency: { score: 4, details: [1, 0, 1, 1, 1] },
+    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
+    accountability: { score: 6, details: [1, 1, 2, 1, 1] },
+    totalScore: 15,
+    category: "AI Governance"
+  },
+  {
+    id: 10,
+    name: "Cybersecurity Law",
+    country: "China",
+    countryCode: "CN",
+    year: 2017,
+    transparency: { score: 3, details: [1, 0, 0, 1, 1] },
+    explainability: { score: 4, details: [1, 0, 1, 1, 1] },
+    accountability: { score: 5, details: [1, 1, 1, 1, 1] },
+    totalScore: 12,
+    category: "Cybersecurity"
+  },
+  {
+    id: 11,
+    name: "Canada PIPEDA",
+    country: "Canada",
+    countryCode: "CA",
+    year: 2019,
+    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
+    explainability: { score: 6, details: [1, 1, 2, 1, 1] },
+    accountability: { score: 7, details: [2, 1, 1, 2, 1] },
+    totalScore: 20,
+    category: "Privacy"
+  },
+  {
+    id: 12,
+    name: "Bill C-27 (Digital Charter)",
+    country: "Canada",
+    countryCode: "CA",
+    year: 2024,
+    transparency: { score: 8, details: [2, 2, 1, 2, 1] },
+    explainability: { score: 7, details: [2, 1, 2, 1, 1] },
+    accountability: { score: 8, details: [2, 2, 1, 2, 1] },
+    totalScore: 23,
+    category: "Digital Rights"
+  },
+  {
+    id: 13,
+    name: "Australia Privacy Act",
+    country: "Australia",
+    countryCode: "AU",
+    year: 2022,
+    transparency: { score: 6, details: [2, 1, 1, 1, 1] },
+    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
+    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
+    totalScore: 18,
+    category: "Privacy"
+  },
+  {
+    id: 14,
+    name: "AI Ethics Framework",
+    country: "Australia",
+    countryCode: "AU",
+    year: 2023,
+    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
+    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
+    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
+    totalScore: 21,
+    category: "AI Ethics"
+  },
+  {
+    id: 15,
+    name: "Singapore Model AI Governance",
+    country: "Singapore",
+    countryCode: "SG",
+    year: 2023,
+    transparency: { score: 8, details: [2, 2, 2, 1, 1] },
+    explainability: { score: 9, details: [2, 2, 2, 2, 1] },
+    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
+    totalScore: 24,
+    category: "AI Governance"
+  },
+  {
+    id: 16,
+    name: "Germany Interstate Treaty",
+    country: "Germany",
+    countryCode: "DE",
+    year: 2016,
+    transparency: { score: 6, details: [2, 1, 1, 1, 1] },
+    explainability: { score: 5, details: [1, 1, 1, 1, 1] },
+    accountability: { score: 7, details: [2, 1, 2, 1, 1] },
+    totalScore: 18,
+    category: "Media Protection"
+  },
+  {
+    id: 17,
+    name: "South Korea AI Ethics Standards",
+    country: "South Korea",
+    countryCode: "KR",
+    year: 2023,
+    transparency: { score: 7, details: [2, 1, 2, 1, 1] },
+    explainability: { score: 8, details: [2, 2, 2, 1, 1] },
+    accountability: { score: 6, details: [1, 2, 1, 1, 1] },
+    totalScore: 21,
+    category: "AI Ethics"
+  }
+]
+
+// Country aggregation function
+const getCountryAggregatedData = () => {
+  const countryData = {}
+  
+  samplePolicyData.forEach(policy => {
+    if (!countryData[policy.country]) {
+      countryData[policy.country] = {
+        country: policy.country,
+        countryCode: policy.countryCode,
+        policies: [],
+        totalPolicies: 0,
+        avgTransparency: 0,
+        avgExplainability: 0,
+        avgAccountability: 0,
+        avgTotalScore: 0,
+        categories: {}
+      }
+    }
+    
+    countryData[policy.country].policies.push(policy)
+    countryData[policy.country].totalPolicies++
+    
+    // Track categories
+    if (!countryData[policy.country].categories[policy.category]) {
+      countryData[policy.country].categories[policy.category] = 0
+    }
+    countryData[policy.country].categories[policy.category]++
+  })
+  
+  // Calculate averages
+  Object.keys(countryData).forEach(country => {
+    const data = countryData[country]
+    const policies = data.policies
+    
+    data.avgTransparency = policies.reduce((sum, p) => sum + p.transparency.score, 0) / policies.length
+    data.avgExplainability = policies.reduce((sum, p) => sum + p.explainability.score, 0) / policies.length
+    data.avgAccountability = policies.reduce((sum, p) => sum + p.accountability.score, 0) / policies.length
+    data.avgTotalScore = policies.reduce((sum, p) => sum + p.totalScore, 0) / policies.length
+  })
+  
+  return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
+}
+
+const evaluationCriteria = {
+  transparency: [
+    "Is the full policy document publicly accessible?",
+    "Does the policy clearly list the stakeholders involved in its creation?", 
+    "Was there public consultation or feedback collected?",
+    "Does the policy provide open data or reporting on implementation?",
+    "Are decision-making criteria or algorithms disclosed?"
+  ],
+  explainability: [
+    "Does the policy require systems to provide human-interpretable outputs?",
+    "Are explanations tailored to the audience (technical/non-technical)?",
+    "Are the decision-making processes (e.g., risk assessments) documented?",
+    "Are users informed about how AI decisions are made?",
+    "Does the policy include guidance for explainability in deployment?"
+  ],
+  accountability: [
+    "Does the policy assign responsibility for AI decisions or harm?",
+    "Are there auditing or oversight mechanisms in place?",
+    "Can individuals seek redress or appeal AI decisions?",
+    "Is liability for misuse or errors clearly outlined?",
+    "Is there a governing/regulatory body identified?"
+  ]
+}
+
+function PolicyRanking({ setView }) {
+  const [selectedView, setSelectedView] = useState('overview')
+  const [selectedPolicy, setSelectedPolicy] = useState(null)
+  const [sortBy, setSortBy] = useState('totalScore')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const [viewMode, setViewMode] = useState('policies') // 'policies' or 'countries'
+
+  const countryData = getCountryAggregatedData()
+
+  const sortedPolicies = [...samplePolicyData]
+    .filter(policy => filterCategory === 'all' || policy.category === filterCategory)
+    .sort((a, b) => {
+      const aVal = sortBy === 'totalScore' ? a.totalScore : a[sortBy].score
+      const bVal = sortBy === 'totalScore' ? b.totalScore : b[sortBy].score
+      return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
+    })
+
+  const categories = ['all', ...new Set(samplePolicyData.map(p => p.category))]
+
+  const ScoreBar = ({ score, maxScore = 10, color = "blue" }) => (
+    <div className="flex items-center gap-3">
+      <div className="w-32 bg-gray-200 rounded-full h-3 relative overflow-hidden">
+        <div 
+          className={`h-full bg-gradient-to-r from-${color}-400 to-${color}-600 rounded-full transition-all duration-1000 ease-out`}
+          style={{ width: `${(score / maxScore) * 100}%` }}
+        />
+      </div>
+      <span className="text-sm font-semibold text-gray-700 min-w-[40px]">
+        {score}/{maxScore}
+      </span>
+    </div>
+  )
+
+  const RadarChart = ({ policy }) => {
+    const metrics = [
+      { name: 'Transparency', score: policy.transparency.score, max: 10 },
+      { name: 'Explainability', score: policy.explainability.score, max: 10 },
+      { name: 'Accountability', score: policy.accountability.score, max: 10 }
+    ]
+    
+    const radius = 80
+    const centerX = 100
+    const centerY = 100
+    
+    const points = metrics.map((metric, index) => {
+      const angle = (index * 120 - 90) * (Math.PI / 180)
+      const distance = (metric.score / metric.max) * radius
+      return {
+        x: centerX + Math.cos(angle) * distance,
+        y: centerY + Math.sin(angle) * distance
+      }
+    })
+    
+    const maxPoints = metrics.map((metric, index) => {
+      const angle = (index * 120 - 90) * (Math.PI / 180)
+      return {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius
+      }
+    })
+
+    return (
+      <div className="flex justify-center">
+        <svg width="200" height="200" className="overflow-visible">
+          {/* Grid circles */}
+          {[0.2, 0.4, 0.6, 0.8, 1].map((scale, i) => (
+            <circle
+              key={i}
+              cx={centerX}
+              cy={centerY}
+              r={radius * scale}
+              fill="none"
+              stroke="#e5e7eb"
+              strokeWidth="1"
+            />
+          ))}
+          
+          {/* Grid lines */}
+          {maxPoints.map((point, index) => (
+            <line
+              key={index}
+              x1={centerX}
+              y1={centerY}
+              x2={point.x}
+              y2={point.y}
+              stroke="#e5e7eb"
+              strokeWidth="1"
+            />
+          ))}
+          
+          {/* Filled area */}
+          <polygon
+            points={points.map(p => `${p.x},${p.y}`).join(' ')}
+            fill="rgba(59, 130, 246, 0.2)"
+            stroke="rgb(59, 130, 246)"
+            strokeWidth="2"
+          />
+          
+          {/* Data points */}
+          {points.map((point, index) => (
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              fill="rgb(59, 130, 246)"
+            />
+          ))}
+          
+          {/* Labels */}
+          {metrics.map((metric, index) => {
+            const angle = (index * 120 - 90) * (Math.PI / 180)
+            const labelDistance = radius + 25
+            const x = centerX + Math.cos(angle) * labelDistance
+            const y = centerY + Math.sin(angle) * labelDistance
+            return (
+              <text
+                key={index}
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="12"
+                fill="#374151"
+                fontWeight="600"
+              >
+                {metric.name}
+              </text>
+            )
+          })}
+        </svg>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Policy Ranking System
+                </h1>
+                <p className="text-gray-600">
+                  AI Policy Transparency, Explainability & Accountability Assessment
+                </p>
+              </div>
+            </div>
+            {setView && (
+              <button
+                onClick={() => setView('home')}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 rounded-xl font-semibold text-gray-700 transition-all duration-300 hover:shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m0 0v-6a1 1 0 011-1h2a1 1 0 011 1v6m3 0a1 1 0 001-1V10M9 21h6" />
+                </svg>
+                Back to Home
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* View Selector */}
+        <div className="bg-white rounded-2xl shadow-lg p-1 mb-8 inline-flex">
+          {[
+            { key: 'overview', label: 'Overview', icon: '📊' },
+            { key: 'countries', label: 'Country Comparison', icon: '🌍' },
+            { key: 'detailed', label: 'Detailed Analysis', icon: '🔍' },
+            { key: 'methodology', label: 'Methodology', icon: '📋' }
+          ].map(view => (
+            <button
+              key={view.key}
+              onClick={() => setSelectedView(view.key)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 ${
+                selectedView === view.key
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span>{view.icon}</span>
+              <span className="font-semibold">{view.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Overview View */}
+        {selectedView === 'overview' && (
+          <div className="space-y-6">
+            {/* Filters and Sorting */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">Sort by:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="totalScore">Total Score</option>
+                    <option value="transparency">Transparency</option>
+                    <option value="explainability">Explainability</option>
+                    <option value="accountability">Accountability</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">Order:</label>
+                  <select
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="desc">Highest First</option>
+                    <option value="asc">Lowest First</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">Category:</label>
+                  <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>
+                        {cat === 'all' ? 'All Categories' : cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Rankings List */}
+            <div className="grid gap-6">
+              {sortedPolicies.map((policy, index) => (
+                <div
+                  key={policy.id}
+                  className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                  onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                        #{index + 1}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800">{policy.name}</h3>
+                        <p className="text-gray-600">{policy.country} • {policy.year} • {policy.category}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        {policy.totalScore}/30
+                      </div>
+                      <div className="text-sm text-gray-500">Total Score</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-gray-700">Transparency</div>
+                      <ScoreBar score={policy.transparency.score} color="blue" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-gray-700">Explainability</div>
+                      <ScoreBar score={policy.explainability.score} color="green" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-sm font-semibold text-gray-700">Accountability</div>
+                      <ScoreBar score={policy.accountability.score} color="purple" />
+                    </div>
+                  </div>
+
+                  {selectedPolicy?.id === policy.id && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                          <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
+                          <div className="space-y-4">
+                            {Object.entries(evaluationCriteria).map(([category, questions]) => (
+                              <div key={category} className="space-y-2">
+                                <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
+                                {questions.map((question, qIndex) => (
+                                  <div key={qIndex} className="flex items-center gap-2 text-sm">
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                                      policy[category].details[qIndex] === 2 ? 'bg-green-500' :
+                                      policy[category].details[qIndex] === 1 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }`}>
+                                      {policy[category].details[qIndex]}
+                                    </div>
+                                    <span className="text-gray-700">{question}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-bold mb-4">Visualization</h4>
+                          <RadarChart policy={policy} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Country Comparison View */}
+        {selectedView === 'countries' && (
+          <div className="space-y-6">
+            {/* Country Rankings */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                <span className="text-3xl">🌍</span>
+                Country Rankings by Average Policy Scores
+              </h3>
+              
+              <div className="grid gap-4">
+                {countryData.map((country, index) => (
+                  <div
+                    key={country.country}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
+                        #{index + 1}
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-bold text-gray-800">{country.country}</h4>
+                        <p className="text-sm text-gray-600">{country.totalPolicies} policies evaluated</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-6 text-center">
+                      <div>
+                        <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                          {country.avgTotalScore.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-500">Total</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {country.avgTransparency.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-500">Transparency</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-green-600">
+                          {country.avgExplainability.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-500">Explainability</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-purple-600">
+                          {country.avgAccountability.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-gray-500">Accountability</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Country Comparison Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bar Chart - Country Total Scores */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Average Total Scores by Country</h3>
+                <div className="h-80">
+                  <Bar
+                    data={{
+                      labels: countryData.map(c => c.country.length > 12 ? c.country.substring(0, 12) + '...' : c.country),
+                      datasets: [
+                        {
+                          label: 'Average Total Score',
+                          data: countryData.map(c => c.avgTotalScore.toFixed(1)),
+                          backgroundColor: countryData.map((_, index) => {
+                            const colors = [
+                              'rgba(59, 130, 246, 0.8)',   // Blue
+                              'rgba(34, 197, 94, 0.8)',    // Green
+                              'rgba(168, 85, 247, 0.8)',   // Purple
+                              'rgba(245, 158, 11, 0.8)',   // Orange
+                              'rgba(239, 68, 68, 0.8)',    // Red
+                              'rgba(20, 184, 166, 0.8)',   // Teal
+                              'rgba(236, 72, 153, 0.8)',   // Pink
+                              'rgba(139, 92, 246, 0.8)',   // Violet
+                              'rgba(14, 165, 233, 0.8)',   // Sky
+                              'rgba(16, 185, 129, 0.8)'    // Emerald
+                            ]
+                            return colors[index % colors.length]
+                          }),
+                          borderColor: countryData.map((_, index) => {
+                            const colors = [
+                              'rgba(59, 130, 246, 1)',
+                              'rgba(34, 197, 94, 1)',
+                              'rgba(168, 85, 247, 1)',
+                              'rgba(245, 158, 11, 1)',
+                              'rgba(239, 68, 68, 1)',
+                              'rgba(20, 184, 166, 1)',
+                              'rgba(236, 72, 153, 1)',
+                              'rgba(139, 92, 246, 1)',
+                              'rgba(14, 165, 233, 1)',
+                              'rgba(16, 185, 129, 1)'
+                            ]
+                            return colors[index % colors.length]
+                          }),
+                          borderWidth: 2,
+                          borderRadius: 8,
+                          borderSkipped: false,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              const country = countryData[context.dataIndex]
+                              return [
+                                `Average Score: ${context.parsed.y}/30`,
+                                `Policies: ${country.totalPolicies}`,
+                                `Transparency: ${country.avgTransparency.toFixed(1)}/10`,
+                                `Explainability: ${country.avgExplainability.toFixed(1)}/10`,
+                                `Accountability: ${country.avgAccountability.toFixed(1)}/10`
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 30,
+                          grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                          },
+                          ticks: {
+                            stepSize: 5
+                          }
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Radar Chart - Top 6 Countries Comparison */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Top Countries - Dimension Comparison</h3>
+                <div className="h-80">
+                  <Radar
+                    data={{
+                      labels: ['Transparency', 'Explainability', 'Accountability'],
+                      datasets: countryData.slice(0, 6).map((country, index) => ({
+                        label: country.country.length > 12 ? country.country.substring(0, 12) + '...' : country.country,
+                        data: [
+                          country.avgTransparency,
+                          country.avgExplainability,
+                          country.avgAccountability
+                        ],
+                        borderColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)', 
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)',
+                          'rgba(20, 184, 166, 1)'
+                        ][index],
+                        backgroundColor: [
+                          'rgba(59, 130, 246, 0.2)',
+                          'rgba(34, 197, 94, 0.2)',
+                          'rgba(168, 85, 247, 0.2)',
+                          'rgba(245, 158, 11, 0.2)',
+                          'rgba(239, 68, 68, 0.2)',
+                          'rgba(20, 184, 166, 0.2)'
+                        ][index],
+                        borderWidth: 2,
+                        pointBackgroundColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)',
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)',
+                          'rgba(20, 184, 166, 1)'
+                        ][index],
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)',
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)',
+                          'rgba(20, 184, 166, 1)'
+                        ][index]
+                      }))
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        }
+                      },
+                      scales: {
+                        r: {
+                          angleLines: {
+                            display: true
+                          },
+                          suggestedMin: 0,
+                          suggestedMax: 10,
+                          ticks: {
+                            stepSize: 2
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Global Distribution */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Global Policy Distribution</h3>
+                <div className="h-80">
+                  <Doughnut
+                    data={{
+                      labels: countryData.map(c => c.country),
+                      datasets: [
+                        {
+                          data: countryData.map(c => c.totalPolicies),
+                          backgroundColor: countryData.map((_, index) => {
+                            const colors = [
+                              'rgba(59, 130, 246, 0.8)',
+                              'rgba(34, 197, 94, 0.8)',
+                              'rgba(168, 85, 247, 0.8)',
+                              'rgba(245, 158, 11, 0.8)',
+                              'rgba(239, 68, 68, 0.8)',
+                              'rgba(20, 184, 166, 0.8)',
+                              'rgba(236, 72, 153, 0.8)',
+                              'rgba(139, 92, 246, 0.8)',
+                              'rgba(14, 165, 233, 0.8)',
+                              'rgba(16, 185, 129, 0.8)'
+                            ]
+                            return colors[index % colors.length]
+                          }),
+                          borderColor: countryData.map((_, index) => {
+                            const colors = [
+                              'rgba(59, 130, 246, 1)',
+                              'rgba(34, 197, 94, 1)',
+                              'rgba(168, 85, 247, 1)',
+                              'rgba(245, 158, 11, 1)',
+                              'rgba(239, 68, 68, 1)',
+                              'rgba(20, 184, 166, 1)',
+                              'rgba(236, 72, 153, 1)',
+                              'rgba(139, 92, 246, 1)',
+                              'rgba(14, 165, 233, 1)',
+                              'rgba(16, 185, 129, 1)'
+                            ]
+                            return colors[index % colors.length]
+                          }),
+                          borderWidth: 2,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              const country = countryData[context.dataIndex]
+                              const total = context.dataset.data.reduce((a, b) => a + b, 0)
+                              const percentage = ((context.parsed / total) * 100).toFixed(1)
+                              return [
+                                `${context.label}: ${context.parsed} policies (${percentage}%)`,
+                                `Avg Score: ${country.avgTotalScore.toFixed(1)}/30`
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Dimension Comparison Across All Countries */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Average Scores by Dimension</h3>
+                <div className="h-80">
+                  <Bar
+                    data={{
+                      labels: countryData.map(c => c.country.length > 8 ? c.country.substring(0, 8) + '...' : c.country),
+                      datasets: [
+                        {
+                          label: 'Transparency',
+                          data: countryData.map(c => c.avgTransparency.toFixed(1)),
+                          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                          borderColor: 'rgba(59, 130, 246, 1)',
+                          borderWidth: 2,
+                        },
+                        {
+                          label: 'Explainability',
+                          data: countryData.map(c => c.avgExplainability.toFixed(1)),
+                          backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                          borderColor: 'rgba(34, 197, 94, 1)',
+                          borderWidth: 2,
+                        },
+                        {
+                          label: 'Accountability',
+                          data: countryData.map(c => c.avgAccountability.toFixed(1)),
+                          backgroundColor: 'rgba(168, 85, 247, 0.8)',
+                          borderColor: 'rgba(168, 85, 247, 1)',
+                          borderWidth: 2,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'top',
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 10,
+                          grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                          },
+                          ticks: {
+                            stepSize: 2
+                          }
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Key Insights */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <span>💡</span>
+                Key Insights
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 bg-blue-50 rounded-xl">
+                  <h4 className="font-semibold text-blue-800 mb-2">🏆 Leading Country</h4>
+                  <p className="text-blue-700">
+                    <strong>{countryData[0]?.country}</strong> leads with an average score of <strong>{countryData[0]?.avgTotalScore.toFixed(1)}/30</strong>
+                  </p>
+                </div>
+                <div className="p-4 bg-green-50 rounded-xl">
+                  <h4 className="font-semibold text-green-800 mb-2">👁️ Best Transparency</h4>
+                  <p className="text-green-700">
+                    <strong>{countryData.sort((a, b) => b.avgTransparency - a.avgTransparency)[0]?.country}</strong> scores highest in transparency: <strong>{countryData.sort((a, b) => b.avgTransparency - a.avgTransparency)[0]?.avgTransparency.toFixed(1)}/10</strong>
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 rounded-xl">
+                  <h4 className="font-semibold text-purple-800 mb-2">📊 Total Policies</h4>
+                  <p className="text-purple-700">
+                    <strong>{samplePolicyData.length}</strong> policies evaluated across <strong>{countryData.length}</strong> countries/regions
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Analysis View */}
+        {selectedView === 'detailed' && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {['transparency', 'explainability', 'accountability'].map((metric) => {
+                const scores = samplePolicyData.map(p => p[metric].score)
+                const average = scores.reduce((a, b) => a + b, 0) / scores.length
+                const max = Math.max(...scores)
+                const min = Math.min(...scores)
+                
+                return (
+                  <div key={metric} className="bg-white rounded-2xl shadow-lg p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        metric === 'transparency' ? 'bg-blue-100 text-blue-600' :
+                        metric === 'explainability' ? 'bg-green-100 text-green-600' :
+                        'bg-purple-100 text-purple-600'
+                      }`}>
+                        {metric === 'transparency' ? '👁️' : metric === 'explainability' ? '💡' : '⚖️'}
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-800 capitalize">{metric}</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Average:</span>
+                        <span className="font-semibold">{average.toFixed(1)}/10</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Highest:</span>
+                        <span className="font-semibold">{max}/10</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Lowest:</span>
+                        <span className="font-semibold">{min}/10</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Interactive Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bar Chart - Total Scores */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Total Scores Comparison</h3>
+                <div className="h-80">
+                  <Bar
+                    data={{
+                      labels: sortedPolicies.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name),
+                      datasets: [
+                        {
+                          label: 'Total Score',
+                          data: sortedPolicies.map(p => p.totalScore),
+                          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                          borderColor: 'rgba(59, 130, 246, 1)',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                          borderSkipped: false,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'top',
+                        },
+                        title: {
+                          display: false,
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              return `Total Score: ${context.parsed.y}/30`
+                            }
+                          }
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 30,
+                          grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                          },
+                          ticks: {
+                            stepSize: 5
+                          }
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Radar Chart - Metric Comparison */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Metrics Breakdown</h3>
+                <div className="h-80">
+                  <Radar
+                    data={{
+                      labels: ['Transparency', 'Explainability', 'Accountability'],
+                      datasets: sortedPolicies.slice(0, 5).map((policy, index) => ({
+                        label: policy.name.length > 15 ? policy.name.substring(0, 15) + '...' : policy.name,
+                        data: [
+                          policy.transparency.score,
+                          policy.explainability.score,
+                          policy.accountability.score
+                        ],
+                        borderColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)', 
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)'
+                        ][index],
+                        backgroundColor: [
+                          'rgba(59, 130, 246, 0.2)',
+                          'rgba(34, 197, 94, 0.2)',
+                          'rgba(168, 85, 247, 0.2)',
+                          'rgba(245, 158, 11, 0.2)',
+                          'rgba(239, 68, 68, 0.2)'
+                        ][index],
+                        borderWidth: 2,
+                        pointBackgroundColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)',
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)'
+                        ][index],
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: [
+                          'rgba(59, 130, 246, 1)',
+                          'rgba(34, 197, 94, 1)',
+                          'rgba(168, 85, 247, 1)',
+                          'rgba(245, 158, 11, 1)',
+                          'rgba(239, 68, 68, 1)'
+                        ][index]
+                      }))
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        }
+                      },
+                      scales: {
+                        r: {
+                          angleLines: {
+                            display: true
+                          },
+                          suggestedMin: 0,
+                          suggestedMax: 10,
+                          ticks: {
+                            stepSize: 2
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Category Distribution Chart */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Policy Categories</h3>
+                <div className="h-80">
+                  <Doughnut
+                    data={{
+                      labels: categories.filter(c => c !== 'all'),
+                      datasets: [
+                        {
+                          data: categories.filter(c => c !== 'all').map(cat => 
+                            samplePolicyData.filter(p => p.category === cat).length
+                          ),
+                          backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(168, 85, 247, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(20, 184, 166, 0.8)'
+                          ],
+                          borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(168, 85, 247, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(20, 184, 166, 1)'
+                          ],
+                          borderWidth: 2,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function(context) {
+                              const total = context.dataset.data.reduce((a, b) => a + b, 0)
+                              const percentage = ((context.parsed / total) * 100).toFixed(1)
+                              return `${context.label}: ${context.parsed} policies (${percentage}%)`
+                            }
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Score Distribution */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-xl font-bold mb-4">Score Distribution</h3>
+                <div className="h-80">
+                  <Bar
+                    data={{
+                      labels: ['Transparency', 'Explainability', 'Accountability'],
+                      datasets: [
+                        {
+                          label: 'Average Score',
+                          data: ['transparency', 'explainability', 'accountability'].map(metric => {
+                            const scores = samplePolicyData.map(p => p[metric].score)
+                            return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
+                          }),
+                          backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)', 
+                            'rgba(168, 85, 247, 0.8)'
+                          ],
+                          borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(168, 85, 247, 1)'
+                          ],
+                          borderWidth: 2,
+                          borderRadius: 8,
+                          borderSkipped: false,
+                        }
+                      ]
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        }
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          max: 10,
+                          grid: {
+                            color: 'rgba(0, 0, 0, 0.1)',
+                          },
+                          ticks: {
+                            stepSize: 2
+                          }
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          }
+                        }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Methodology View */}
+        {selectedView === 'methodology' && (
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <h2 className="text-2xl font-bold mb-6">Evaluation Methodology</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {Object.entries(evaluationCriteria).map(([category, questions]) => (
+                <div key={category} className="space-y-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      category === 'transparency' ? 'bg-blue-100 text-blue-600' :
+                      category === 'explainability' ? 'bg-green-100 text-green-600' :
+                      'bg-purple-100 text-purple-600'
+                    }`}>
+                      {category === 'transparency' ? '👁️' : category === 'explainability' ? '💡' : '⚖️'}
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 capitalize">{category} Score (0-10)</h3>
+                  </div>
+                  
+                  <p className="text-gray-600 mb-4">
+                    {category === 'transparency' && "Measures how open the policy is about its processes, decisions, data, and goals."}
+                    {category === 'explainability' && "Measures how understandable the AI systems and decisions are to users and stakeholders."}
+                    {category === 'accountability' && "Evaluates whether clear responsibilities, liabilities, and redress mechanisms are defined."}
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-800">Evaluation Questions:</h4>
+                    {questions.map((question, index) => (
+                      <div key={index} className="flex gap-3">
+                        <div className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 flex-shrink-0 mt-0.5">
+                          {index + 1}
+                        </div>
+                        <p className="text-sm text-gray-700">{question}</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h5 className="font-semibold text-gray-800 mb-2">Scoring Guide:</h5>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                        <span>Yes/Fully = 2 points</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
+                        <span>Partial/Limited = 1 point</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                        <span>No = 0 points</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-8 p-6 bg-blue-50 rounded-xl">
+              <h3 className="text-lg font-bold text-blue-800 mb-3">References</h3>
+              <div className="space-y-2 text-sm text-blue-700">
+                <p>• OECD AI Principles – Transparency & Accountability</p>
+                <p>• OECD "Advancing Accountability in AI" (2023)</p>
+                <p>• OECD AI Principles Implementation</p>
+                <p>• Promoting equality in the use of Artificial Intelligence – an assessment framework for non-discriminatory AI</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default PolicyRanking
