@@ -75,10 +75,10 @@ const getCountryAggregatedData = (policyData) => {
   Object.keys(countryData).forEach(country => {
     const data = countryData[country]
     const policies = data.policies
-    data.avgTransparency = policies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / policies.length
-    data.avgExplainability = policies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / policies.length
-    data.avgAccountability = policies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / policies.length
-    data.avgTotalScore = policies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / policies.length
+    data.avgTransparency = policies.length ? (policies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / policies.length) : 0
+    data.avgExplainability = policies.length ? (policies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / policies.length) : 0
+    data.avgAccountability = policies.length ? (policies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / policies.length) : 0
+    data.avgTotalScore = policies.length ? (policies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / policies.length) : 0
   })
   return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 }
@@ -112,6 +112,7 @@ function PolicyRanking({ setView }) {
   const [loading, setLoading] = useState(true)
   const [selectedView, setSelectedView] = useState('overview')
   const [selectedPolicy, setSelectedPolicy] = useState(null)
+  const [expandedCountry, setExpandedCountry] = useState(null)
   const [sortBy, setSortBy] = useState('totalScore')
   const [sortOrder, setSortOrder] = useState('desc')
   const [filterCategory, setFilterCategory] = useState('all')
@@ -157,49 +158,8 @@ function PolicyRanking({ setView }) {
     loadData()
   }, [])
 
-  // Normalize country and category matching using codes/IDs
-  const countryData = fullCountries
-    .map(countryObj => {
-      // countryObj can be string or object, handle both
-      const countryName = typeof countryObj === 'string' ? countryObj : countryObj.name
-      const countryCode = typeof countryObj === 'string' ? '' : (countryObj.code || countryObj.countryCode || '')
-      // Match by country name or code
-      const countryPolicies = policyData.filter(p => {
-        return (
-          (p.country && p.country.trim().toLowerCase() === countryName.trim().toLowerCase()) ||
-          (countryCode && p.countryCode && p.countryCode.trim().toLowerCase() === countryCode.trim().toLowerCase())
-        )
-      })
-      const totalPolicies = countryPolicies.length
-      if (totalPolicies === 0) return null
-  const avgTransparency = countryPolicies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / totalPolicies
-  const avgExplainability = countryPolicies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / totalPolicies
-  const avgAccountability = countryPolicies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / totalPolicies
-  const avgTotalScore = countryPolicies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / totalPolicies
-      // Count policies per policy area (match by name or id)
-      const areaCounts = {}
-      fullPolicyAreas.forEach(area => {
-        areaCounts[area.name] = countryPolicies.filter(p => {
-          return (
-            (p.category && p.category.trim().toLowerCase() === area.name.trim().toLowerCase()) ||
-            (area.id && p.categoryId && p.categoryId === area.id)
-          )
-        }).length
-      })
-      return {
-        country: countryName,
-        countryCode,
-        policies: countryPolicies,
-        totalPolicies,
-        avgTransparency,
-        avgExplainability,
-        avgAccountability,
-        avgTotalScore,
-        categories: areaCounts
-      }
-    })
-    .filter(c => c !== null)
-    .sort((a, b) => b.avgTotalScore - a.avgTotalScore)
+  // Use robust country aggregation for countries view
+  const countryData = getCountryAggregatedData(policyData)
 
   // Normalize category filtering
   const sortedPolicies = [...policyData]
@@ -215,8 +175,6 @@ function PolicyRanking({ setView }) {
       const bVal = sortBy === 'totalScore' ? (b.totalScore ?? 0) : (b[sortBy]?.score ?? 0)
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
-
-  // ...existing code...
 
   const ScoreBar = ({ score, maxScore = 10, color = "blue" }) => (
     <div className="flex items-center gap-3">
@@ -325,6 +283,12 @@ function PolicyRanking({ setView }) {
       </div>
     )
   }
+
+  const [expandedId, setExpandedId] = useState(null);
+
+  const handleCardClick = (id) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
 
   if (loading) {
     return (
@@ -482,82 +446,90 @@ function PolicyRanking({ setView }) {
 
             {/* Rankings List */}
             <div className="grid gap-6">
-              {sortedPolicies.map((policy, index) => (
-                <div
-                  key={`policy-${policy.id ?? policy.name ?? index}`}
-                  className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 cursor-pointer"
-                  onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                        #{index + 1}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-800">{policy.name}</h3>
-                        <p className="text-gray-600">{policy.country} • {policy.year} • {policy.category}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                        {policy.totalScore}/30
-                      </div>
-                      <div className="text-sm text-gray-500">Total Score</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold text-gray-700">Transparency</div>
-                      <ScoreBar score={policy.transparency?.score ?? 0} color="blue" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold text-gray-700">Explainability</div>
-                      <ScoreBar score={policy.explainability?.score ?? 0} color="green" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-sm font-semibold text-gray-700">Accountability</div>
-                      <ScoreBar score={policy.accountability?.score ?? 0} color="purple" />
-                    </div>
-                  </div>
-
-                  {selectedPolicy?.id === policy.id && (
-                    <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {sortedPolicies.map((policy, index) => {
+                const policyKey = policy.id ?? policy.name ?? index;
+                const isExpanded = (selectedPolicy && ((selectedPolicy.id ?? selectedPolicy.name ?? index) === policyKey));
+                return (
+                  <div
+                    key={`policy-${policyKey}`}
+                    className={`bg-white rounded-2xl shadow-lg transition-all duration-300 cursor-pointer ${isExpanded ? 'border-2 border-blue-400' : 'hover:shadow-xl p-6'}`}
+                    onClick={() => setSelectedPolicy(isExpanded ? null : policy)}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                          #{index + 1}
+                        </div>
                         <div>
-                          <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
-                          <div className="space-y-4">
-                            {Object.entries(evaluationCriteria).map(([category, questions]) => (
-                              <div key={`breakdown-${category}-${policy.id ?? policy.name}`} className="space-y-2">
-                                <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
-                                {questions.map((question, qIndex) => {
-                                  const detailsArr = policy[category]?.details ?? [];
-                                  const scoreVal = detailsArr[qIndex] ?? 0;
-                                  return (
-                                    <div key={`question-${category}-${policy.id ?? policy.name}-${qIndex}`} className="flex items-center gap-2 text-sm">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                        scoreVal === 2 ? 'bg-green-500' :
-                                        scoreVal === 1 ? 'bg-yellow-500' : 'bg-red-500'
-                                      }`}>
-                                        {scoreVal}
+                          <h3 className="text-xl font-bold text-gray-800 flex items-center">
+                            {policy.name}
+                            {isExpanded && <span className="ml-2 text-blue-500">▼</span>}
+                            {!isExpanded && <span className="ml-2 text-gray-400">▶</span>}
+                          </h3>
+                          <p className="text-gray-600">{policy.country} • {policy.year} • {policy.category}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                          {policy.totalScore}/30
+                        </div>
+                        <div className="text-sm text-gray-500">Total Score</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold text-gray-700">Transparency</div>
+                        <ScoreBar score={policy.transparency?.score ?? 0} color="blue" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold text-gray-700">Explainability</div>
+                        <ScoreBar score={policy.explainability?.score ?? 0} color="green" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold text-gray-700">Accountability</div>
+                        <ScoreBar score={policy.accountability?.score ?? 0} color="purple" />
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
+                            <div className="space-y-4">
+                              {Object.entries(evaluationCriteria).map(([category, questions]) => (
+                                <div key={`breakdown-${category}-${policyKey}`} className="space-y-2">
+                                  <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
+                                  {questions.map((question, qIndex) => {
+                                    const detailsArr = policy[category]?.details ?? [];
+                                    const scoreVal = detailsArr[qIndex] ?? 0;
+                                    return (
+                                      <div key={`question-${category}-${policyKey}-${qIndex}`} className="flex items-center gap-2 text-sm">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                                          scoreVal === 2 ? 'bg-green-500' :
+                                          scoreVal === 1 ? 'bg-yellow-500' : 'bg-red-500'
+                                        }`}>
+                                          {scoreVal}
+                                        </div>
+                                        <span className="text-gray-700">{question}</span>
                                       </div>
-                                      <span className="text-gray-700">{question}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ))}
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-lg font-bold mb-4">Visualization</h4>
+                            <RadarChart policy={policy} />
                           </div>
                         </div>
-                        <div>
-                          <h4 className="text-lg font-bold mb-4">Visualization</h4>
-                          <RadarChart policy={policy} />
-                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -571,51 +543,78 @@ function PolicyRanking({ setView }) {
                 <span className="text-3xl">🌍</span>
                 Country Rankings by Average Policy Scores
               </h3>
-              
               <div className="grid gap-4">
-                {countryData.map((country, index) => (
-                  <div
-                    key={country.country}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all duration-300"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
-                        #{index + 1}
+                {countryData.map((country, index) => {
+                  const countryKey = `${country.country}-${country.countryCode || ''}`;
+                  const isExpanded = expandedCountry === countryKey;
+                  return (
+                    <div
+                      key={countryKey}
+                      className={`bg-gray-50 rounded-xl transition-all duration-300 cursor-pointer ${isExpanded ? 'shadow-xl p-6 border-2 border-blue-400' : 'flex items-center justify-between p-4 hover:bg-gray-100'}`}
+                      onClick={() => setExpandedCountry(isExpanded ? null : countryKey)}
+                      tabIndex={0}
+                      role="button"
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
+                          #{index + 1}
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                            {country.country}
+                            {isExpanded && <span className="ml-2 text-blue-500">▼</span>}
+                            {!isExpanded && <span className="ml-2 text-gray-400">▶</span>}
+                          </h4>
+                          <p className="text-sm text-gray-600">{country.totalPolicies} policies evaluated</p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-lg font-bold text-gray-800">{country.country}</h4>
-                        <p className="text-sm text-gray-600">{country.totalPolicies} policies evaluated</p>
+                      <div className="grid grid-cols-4 gap-6 text-center">
+                        <div>
+                          <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            {country.avgTotalScore.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-500">Total</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-blue-600">
+                            {country.avgTransparency.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-500">Transparency</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-green-600">
+                            {country.avgExplainability.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-500">Explainability</div>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-purple-600">
+                            {country.avgAccountability.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-500">Accountability</div>
+                        </div>
                       </div>
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="mt-6 p-4 bg-white rounded-xl shadow">
+                          <h4 className="text-lg font-bold mb-2">Policies in {country.country}</h4>
+                          <div className="text-red-500 font-bold">[DEBUG] Expanded for {country.country} ({country.countryCode})</div>
+                          <ul className="list-disc ml-6">
+                            {country.policies && country.policies.length > 0 ? (
+                              country.policies.map((p, i) => (
+                                <li key={`policy-${p.id ?? p.name ?? i}`}>{p.name || p.policyName} ({p.year})</li>
+                              ))
+                            ) : (
+                              <li className="text-gray-500">No policies found for this country.</li>
+                            )}
+                          </ul>
+                          {/* Add more details here if needed */}
+                        </div>
+                      )}
                     </div>
-                    
-                    <div className="grid grid-cols-4 gap-6 text-center">
-                      <div>
-                        <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                          {country.avgTotalScore.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-500">Total</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-blue-600">
-                          {country.avgTransparency.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-500">Transparency</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-green-600">
-                          {country.avgExplainability.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-500">Explainability</div>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-purple-600">
-                          {country.avgAccountability.toFixed(1)}
-                        </div>
-                        <div className="text-xs text-gray-500">Accountability</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
