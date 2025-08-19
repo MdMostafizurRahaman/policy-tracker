@@ -111,7 +111,8 @@ function PolicyRanking({ setView }) {
   const [policyData, setPolicyData] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedView, setSelectedView] = useState('overview')
-  const [selectedPolicy, setSelectedPolicy] = useState(null)
+  // Track expanded state for each policy card (multiple can be expanded)
+  const [expandedPolicies, setExpandedPolicies] = useState({})
   const [expandedCountry, setExpandedCountry] = useState(null)
   const [sortBy, setSortBy] = useState('totalScore')
   const [sortOrder, setSortOrder] = useState('desc')
@@ -284,11 +285,7 @@ function PolicyRanking({ setView }) {
     )
   }
 
-  const [expandedId, setExpandedId] = useState(null);
 
-  const handleCardClick = (id) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
 
   if (loading) {
     return (
@@ -448,12 +445,12 @@ function PolicyRanking({ setView }) {
             <div className="grid gap-6">
               {sortedPolicies.map((policy, index) => {
                 const policyKey = policy.id ?? policy.name ?? index;
-                const isExpanded = (selectedPolicy && ((selectedPolicy.id ?? selectedPolicy.name ?? index) === policyKey));
+                const isExpanded = !!expandedPolicies[policyKey];
                 return (
                   <div
                     key={`policy-${policyKey}`}
-                    className={`bg-white rounded-2xl shadow-lg transition-all duration-300 cursor-pointer ${isExpanded ? 'border-2 border-blue-400' : 'hover:shadow-xl p-6'}`}
-                    onClick={() => setSelectedPolicy(isExpanded ? null : policy)}
+                    className={`bg-white rounded-2xl shadow-lg transition-all duration-300 cursor-pointer ${isExpanded ? 'border-2 border-blue-400 p-6' : 'hover:shadow-xl p-6'}`}
+                    onClick={() => setExpandedPolicies(prev => ({ ...prev, [policyKey]: !prev[policyKey] }))}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
