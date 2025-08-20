@@ -83,6 +83,86 @@ const getCountryAggregatedData = (policyData) => {
   return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 }
 
+// Scoring calculation functions based on evaluation criteria
+const calculatePolicyScores = (policy) => {
+  let transparencyScore = 0;
+  let explainabilityScore = 0;
+  let accountabilityScore = 0;
+  
+  // Check if policy has policy_areas with evaluation data
+  if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+    policy.policy_areas.forEach(area => {
+      if (area.policies && Array.isArray(area.policies)) {
+        area.policies.forEach(policyDetail => {
+          const evaluation = policyDetail.evaluation || {};
+          
+          // Transparency Score Calculation (0-10)
+          if (evaluation.transparency) {
+            // Question 1: Is the full policy document publicly accessible?
+            transparencyScore += getQuestionScore(evaluation.transparency.q1, 2);
+            // Question 2: Does the policy clearly list stakeholders?
+            transparencyScore += getQuestionScore(evaluation.transparency.q2, 2);
+            // Question 3: Was there public consultation?
+            transparencyScore += getQuestionScore(evaluation.transparency.q3, 2);
+            // Question 4: Open data or reporting?
+            transparencyScore += getQuestionScore(evaluation.transparency.q4, 2);
+            // Question 5: Decision-making criteria disclosed?
+            transparencyScore += getQuestionScore(evaluation.transparency.q5, 2);
+          }
+          
+          // Explainability Score Calculation (0-10)
+          if (evaluation.explainability) {
+            // Question 1: Human-interpretable outputs required?
+            explainabilityScore += getQuestionScore(evaluation.explainability.q1, 2);
+            // Question 2: Explanations tailored to audience?
+            explainabilityScore += getQuestionScore(evaluation.explainability.q2, 2);
+            // Question 3: Decision-making processes documented?
+            explainabilityScore += getQuestionScore(evaluation.explainability.q3, 2);
+            // Question 4: Users informed about AI decisions?
+            explainabilityScore += getQuestionScore(evaluation.explainability.q4, 2);
+            // Question 5: Guidance for explainability in deployment?
+            explainabilityScore += getQuestionScore(evaluation.explainability.q5, 2);
+          }
+          
+          // Accountability Score Calculation (0-10)
+          if (evaluation.accountability) {
+            // Question 1: Responsibility for AI decisions assigned?
+            accountabilityScore += getQuestionScore(evaluation.accountability.q1, 2);
+            // Question 2: Auditing or oversight mechanisms?
+            accountabilityScore += getQuestionScore(evaluation.accountability.q2, 2);
+            // Question 3: Redress or appeal mechanisms?
+            accountabilityScore += getQuestionScore(evaluation.accountability.q3, 2);
+            // Question 4: Liability for misuse clearly outlined?
+            accountabilityScore += getQuestionScore(evaluation.accountability.q4, 2);
+            // Question 5: Governing/regulatory body identified?
+            accountabilityScore += getQuestionScore(evaluation.accountability.q5, 2);
+          }
+        });
+      }
+    });
+  }
+  
+  return {
+    transparency: Math.min(transparencyScore, 10),
+    explainability: Math.min(explainabilityScore, 10),
+    accountability: Math.min(accountabilityScore, 10),
+    total: Math.min(transparencyScore + explainabilityScore + accountabilityScore, 30)
+  };
+};
+
+// Helper function to convert answer to score
+const getQuestionScore = (answer, maxScore) => {
+  if (!answer) return 0;
+  const normalizedAnswer = answer.toLowerCase();
+  
+  // Yes/Fully = full points
+  if (normalizedAnswer.includes('yes') || normalizedAnswer.includes('fully')) return maxScore;
+  // Partial/Limited = half points  
+  if (normalizedAnswer.includes('partial') || normalizedAnswer.includes('limited')) return maxScore / 2;
+  // No = 0 points
+  return 0;
+};
+
 const evaluationCriteria = {
   transparency: [
     "Is the full policy document publicly accessible?",
@@ -118,6 +198,7 @@ function PolicyRanking({ setView }) {
   const [sortOrder, setSortOrder] = useState('desc')
   const [filterCategory, setFilterCategory] = useState('all')
   const [viewMode, setViewMode] = useState('policies') // 'policies' or 'countries'
+  const [selectedPolicyArea, setSelectedPolicyArea] = useState(null) // For country comparison by policy area
 
 
   // State for full country and policy area lists
@@ -534,86 +615,266 @@ function PolicyRanking({ setView }) {
         {/* Country Comparison View */}
         {selectedView === 'countries' && (
           <div className="space-y-6">
-            {/* Country Rankings */}
+            {/* Policy Area Selection */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <span className="text-3xl">🌍</span>
-                Country Rankings by Average Policy Scores
+                <span className="text-3xl">�</span>
+                Select Policy Area for Country Comparison
               </h3>
-              <div className="grid gap-4">
-                {countryData.map((country, index) => {
-                  const countryKey = `${country.country}-${country.countryCode || ''}`;
-                  const isExpanded = expandedCountry === countryKey;
-                  return (
-                    <div
-                      key={countryKey}
-                      className={`bg-gray-50 rounded-xl transition-all duration-300 cursor-pointer ${isExpanded ? 'shadow-xl p-6 border-2 border-blue-400' : 'flex items-center justify-between p-4 hover:bg-gray-100'}`}
-                      onClick={() => setExpandedCountry(isExpanded ? null : countryKey)}
-                      tabIndex={0}
-                      role="button"
-                      aria-expanded={isExpanded}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
-                          #{index + 1}
+              <p className="text-gray-600 mb-6">
+                Click on a policy area to see countries ranked by their scores in that specific area.
+              </p>
+              
+              {/* Policy Areas Selection Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                {(() => {
+                  // Get unique areas from actual data - policy_areas is an array
+                  const allAreas = [];
+                  policyData.forEach(policy => {
+                    if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+                      policy.policy_areas.forEach(area => {
+                        if (area.area_name && !allAreas.includes(area.area_name)) {
+                          allAreas.push(area.area_name);
+                        }
+                      });
+                    }
+                  });
+                  
+                  const categoriesToShow = allAreas.sort();
+                  
+                  if (categoriesToShow.length === 0) {
+                    return <div className="col-span-full text-center text-gray-500">No policy areas found in database</div>;
+                  }
+                  
+                  return categoriesToShow.map((area, index) => {
+                    const areaIcons = ["🛡️", "🔒", "🎓", "🌐", "🎮", "📰", "💼", "🧠", "❤️", "📱", "⚖️", "🏛️", "🔐", "🌟", "💡"];
+                    const areaColors = [
+                      'from-red-500 to-pink-600', 'from-blue-500 to-cyan-600', 'from-green-500 to-emerald-600',
+                      'from-purple-500 to-indigo-600', 'from-yellow-500 to-orange-600', 'from-gray-500 to-slate-600',
+                      'from-teal-500 to-blue-600', 'from-pink-500 to-rose-600', 'from-emerald-500 to-green-600',
+                      'from-indigo-500 to-purple-600', 'from-orange-500 to-red-600', 'from-cyan-500 to-teal-600',
+                      'from-violet-500 to-purple-600', 'from-lime-500 to-green-600', 'from-amber-500 to-yellow-600'
+                    ];
+                    
+                    // Get countries that have policies in this area
+                    const areaCountries = [];
+                    policyData.forEach(policy => {
+                      if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+                        const hasArea = policy.policy_areas.some(pArea => pArea.area_name === area);
+                        if (hasArea && policy.country && !areaCountries.includes(policy.country)) {
+                          areaCountries.push(policy.country);
+                        }
+                      }
+                    });
+                    
+                    return (
+                      <button
+                        key={area}
+                        onClick={() => setSelectedPolicyArea(area)}
+                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                          selectedPolicyArea === area 
+                            ? `bg-gradient-to-r ${areaColors[index % areaColors.length]} border-transparent text-white shadow-lg` 
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="text-2xl mb-2">{areaIcons[index % areaIcons.length]}</div>
+                        <div className="font-semibold text-sm">{area}</div>
+                        <div className="text-xs mt-1">
+                          {areaCountries.length} countries
                         </div>
-                        <div>
-                          <h4 className="text-lg font-bold text-gray-800 flex items-center">
-                            {country.country}
-                            {isExpanded && <span className="ml-2 text-blue-500">▼</span>}
-                            {!isExpanded && <span className="ml-2 text-gray-400">▶</span>}
-                          </h4>
-                          <p className="text-sm text-gray-600">{country.totalPolicies} policies evaluated</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-4 gap-6 text-center">
-                        <div>
-                          <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            {country.avgTotalScore.toFixed(1)}
+                        {selectedPolicyArea === area && (
+                          <div className="mt-2 px-2 py-1 bg-white/20 rounded text-xs">
+                            SELECTED
                           </div>
-                          <div className="text-xs text-gray-500">Total</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-blue-600">
-                            {country.avgTransparency.toFixed(1)}
-                          </div>
-                          <div className="text-xs text-gray-500">Transparency</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-green-600">
-                            {country.avgExplainability.toFixed(1)}
-                          </div>
-                          <div className="text-xs text-gray-500">Explainability</div>
-                        </div>
-                        <div>
-                          <div className="text-lg font-bold text-purple-600">
-                            {country.avgAccountability.toFixed(1)}
-                          </div>
-                          <div className="text-xs text-gray-500">Accountability</div>
-                        </div>
-                      </div>
-                      {/* Expanded details */}
-                      {isExpanded && (
-                        <div className="mt-6 p-4 bg-white rounded-xl shadow">
-                          <h4 className="text-lg font-bold mb-2">Policies in {country.country}</h4>
-                          <div className="text-red-500 font-bold">[DEBUG] Expanded for {country.country} ({country.countryCode})</div>
-                          <ul className="list-disc ml-6">
-                            {country.policies && country.policies.length > 0 ? (
-                              country.policies.map((p, i) => (
-                                <li key={`policy-${p.id ?? p.name ?? i}`}>{p.name || p.policyName} ({p.year})</li>
-                              ))
-                            ) : (
-                              <li className="text-gray-500">No policies found for this country.</li>
-                            )}
-                          </ul>
-                          {/* Add more details here if needed */}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             </div>
+
+            {/* Country Comparison Bar Chart */}
+            {selectedPolicyArea && (
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                  <span className="text-3xl">📊</span>
+                  {selectedPolicyArea} - Country Comparison
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Countries ranked by their average scores in <strong>{selectedPolicyArea}</strong> policies. 
+                  Scores calculated from evaluation criteria: Transparency (0-10) + Explainability (0-10) + Accountability (0-10) = Total (0-30).
+                </p>
+                
+                {(() => {
+                  // Get countries that have policies in the selected area
+                  const areaCountries = {};
+                  
+                  policyData.forEach(policy => {
+                    if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+                      const hasArea = policy.policy_areas.some(pArea => pArea.area_name === selectedPolicyArea);
+                      if (hasArea && policy.country) {
+                        if (!areaCountries[policy.country]) {
+                          areaCountries[policy.country] = {
+                            country: policy.country,
+                            policies: [],
+                            totalScore: 0,
+                            transparencyScore: 0,
+                            explainabilityScore: 0,
+                            accountabilityScore: 0,
+                            policyCount: 0
+                          };
+                        }
+                        
+                        // Calculate scores for this policy
+                        const policyScores = calculatePolicyScores(policy);
+                        
+                        areaCountries[policy.country].policies.push(policy);
+                        areaCountries[policy.country].totalScore += policyScores.total;
+                        areaCountries[policy.country].transparencyScore += policyScores.transparency;
+                        areaCountries[policy.country].explainabilityScore += policyScores.explainability;
+                        areaCountries[policy.country].accountabilityScore += policyScores.accountability;
+                        areaCountries[policy.country].policyCount++;
+                      }
+                    }
+                  });
+                  
+                  // Calculate averages and sort by score
+                  const countryList = Object.values(areaCountries).map(country => ({
+                    ...country,
+                    avgTotalScore: country.policyCount > 0 ? country.totalScore / country.policyCount : 0,
+                    avgTransparencyScore: country.policyCount > 0 ? country.transparencyScore / country.policyCount : 0,
+                    avgExplainabilityScore: country.policyCount > 0 ? country.explainabilityScore / country.policyCount : 0,
+                    avgAccountabilityScore: country.policyCount > 0 ? country.accountabilityScore / country.policyCount : 0,
+                  })).sort((a, b) => b.avgTotalScore - a.avgTotalScore);
+                  
+                  if (countryList.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 text-lg">No countries have policies in "{selectedPolicyArea}" area yet.</p>
+                      </div>
+                    );
+                  }
+                  
+                  // Prepare chart data
+                  const chartData = {
+                    labels: countryList.map(c => c.country),
+                    datasets: [
+                      {
+                        label: 'Average Total Score',
+                        data: countryList.map(c => Math.round(c.avgTotalScore * 100) / 100),
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                      }
+                    ]
+                  };
+                  
+                  const chartOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      },
+                      tooltip: {
+                        callbacks: {
+                          afterLabel: function(context) {
+                            const country = countryList[context.dataIndex];
+                            return [
+                              `Total Policies: ${country.policyCount}`,
+                              `Transparency: ${Math.round(country.avgTransparencyScore * 100) / 100}/10`,
+                              `Explainability: ${Math.round(country.avgExplainabilityScore * 100) / 100}/10`,
+                              `Accountability: ${Math.round(country.avgAccountabilityScore * 100) / 100}/10`
+                            ];
+                          }
+                        }
+                      }
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        max: 30,
+                        title: {
+                          display: true,
+                          text: 'Average Score (out of 30)'
+                        }
+                      },
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Countries'
+                        }
+                      }
+                    }
+                  };
+                  
+                  return (
+                    <div>
+                      <div style={{ height: '400px' }}>
+                        <Bar data={chartData} options={chartOptions} />
+                      </div>
+                      
+                      {/* Country Details Table */}
+                      <div className="mt-8">
+                        <h4 className="text-lg font-semibold mb-4">Detailed Scores</h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50">
+                                <th className="text-left p-3 font-semibold">Rank</th>
+                                <th className="text-left p-3 font-semibold">Country</th>
+                                <th className="text-center p-3 font-semibold">Policies</th>
+                                <th className="text-center p-3 font-semibold">Average Score</th>
+                                <th className="text-center p-3 font-semibold">Transparency</th>
+                                <th className="text-center p-3 font-semibold">Explainability</th>
+                                <th className="text-center p-3 font-semibold">Accountability</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {countryList.map((country, index) => (
+                                <tr key={country.country} className="border-b hover:bg-gray-50">
+                                  <td className="p-3 font-semibold text-blue-600">#{index + 1}</td>
+                                  <td className="p-3 font-medium">{country.country}</td>
+                                  <td className="p-3 text-center">{country.policyCount}</td>
+                                  <td className="p-3 text-center font-semibold">
+                                    {Math.round(country.avgTotalScore * 100) / 100}/30
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {Math.round(country.avgTransparencyScore * 100) / 100}/10
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {Math.round(country.avgExplainabilityScore * 100) / 100}/10
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {Math.round(country.avgAccountabilityScore * 100) / 100}/10
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Instructions when no policy area is selected */}
+            {!selectedPolicyArea && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 text-center">
+                <div className="text-6xl mb-4">🎯</div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Select a Policy Area</h3>
+                <p className="text-gray-600 text-lg">
+                  Choose any of the 10 policy areas above to see how countries compare in that specific area.
+                </p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Countries will be ranked by their average scores in the selected policy area.
+                </p>
+              </div>
+            )}
 
             {/* Country Comparison Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
