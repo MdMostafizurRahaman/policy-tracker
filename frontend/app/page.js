@@ -105,6 +105,11 @@ export default function Page() {
   const [darkMode, setDarkMode] = useState(false)
   const [animate, setAnimate] = useState(false)
   const [user, setUser] = useState(null)
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log('👤 User state changed:', user ? `${user.firstName} ${user.lastName} (${user.email})` : 'No user');
+  }, [user])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
@@ -175,14 +180,38 @@ export default function Page() {
         const parsedUser = JSON.parse(userData)
         if (parsedUser && typeof parsedUser === 'object') {
           setUser(parsedUser)
+          console.log('✅ User loaded on mount:', parsedUser.firstName);
         }
       }
     } catch (error) {
-      console.error('Error parsing user data from localStorage:', error)
+      console.error('❌ Error parsing user data from localStorage:', error)
       localStorage.removeItem('userData')
       localStorage.removeItem('access_token')
     }
   }, [])
+
+  // Listen for storage changes and view changes to sync user state
+  useEffect(() => {
+    const syncUserFromStorage = () => {
+      try {
+        const userData = localStorage.getItem('userData')
+        if (userData && userData !== 'undefined' && userData !== 'null') {
+          const parsedUser = JSON.parse(userData)
+          if (parsedUser && typeof parsedUser === 'object') {
+            if (!user || user.email !== parsedUser.email) {
+              console.log('🔄 Syncing user from storage:', parsedUser.firstName);
+              setUser(parsedUser)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error syncing user from storage:', error)
+      }
+    }
+    
+    // Check storage whenever view changes
+    syncUserFromStorage()
+  }, [view, user])
 
   // Track visit when component mounts and when user changes
   useEffect(() => {

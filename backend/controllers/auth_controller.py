@@ -69,6 +69,20 @@ async def forgot_password(email_data: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/resend-otp")
+async def resend_otp(email_data: dict):
+    """Resend email verification OTP"""
+    try:
+        email = email_data.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Email is required")
+        
+        return await auth_service.resend_otp(email)
+    except Exception as e:
+        logger.error(f"Resend OTP error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/reset-password")
 async def reset_password(reset_data: PasswordReset):
     """Reset user password with OTP"""

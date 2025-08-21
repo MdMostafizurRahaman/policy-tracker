@@ -27,12 +27,10 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
   // Load Google Sign-In script with better error handling
   useEffect(() => {
     // TEMPORARILY DISABLED - Google OAuth configuration issue
-    console.log('Google Sign-In temporarily disabled due to configuration issues');
     return;
     
     // Use the correct Client ID from your Google Console
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
-    console.log('Loading Google Sign-In with Client ID:', clientId);
     
     const loadGoogleScript = () => {
       if (window.google) {
@@ -89,13 +87,18 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     const userData = localStorage.getItem('userData');
     if (token && userData) {
       try {
-        setUserState(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUserState(parsedUser);
+        // Also update parent component state if setUser is provided
+        if (setUser) {
+          setUser(parsedUser);
+        }
       } catch (error) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('userData');
       }
     }
-  }, []);
+  }, [setUser]);
 
   // OTP Timer effect
   useEffect(() => {
@@ -146,12 +149,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
   };
 
   const handleInputChange = (field, value) => {
-    // Debug logging for OTP field changes
-    if (field === 'otp' && value) {
-      console.log('🔍 OTP field changed to:', value, 'at:', new Date().toISOString());
-      console.trace('OTP change trace');
-    }
-    
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
   };
@@ -247,7 +244,7 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     if (!countries.includes(formData.country)) {
       setError('Please select a valid country from the list');
       return;
-    }
+   }
 
     setLoading(true);
     try {
@@ -259,18 +256,20 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
         confirmPassword: formData.confirmPassword,
         country: formData.country
       });
-      
+
       // Show different messages based on email status
       if (data.email_sent) {
         setSuccess('Account created successfully! 🎉 Please check your email for verification code.');
+      } else if (data.otp_for_dev) {
+        setSuccess(`Account created! 🎉 Email failed to send. Your verification code is: ${data.otp_for_dev}`);
       } else {
-        setSuccess(`Account created! 🎉 Email failed to send. Your verification code is: ${data.otp_for_dev || 'Check server logs'}`);
+        setSuccess('Account created! 🎉 Email failed to send. Your verification code is unavailable. Please contact support.');
       }
-      
+
       setCurrentView('otp');
       setOtpTimer(120); // 2 minutes
       setCanResendOtp(false);
-      
+
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.');
     } finally {
@@ -284,8 +283,6 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       return;
     }
 
-    console.log('🔐 Login attempt with:', { email: formData.email, password: formData.password });
-
     setLoading(true);
     try {
       const data = await apiService.auth.login({ 
@@ -293,15 +290,25 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
         password: formData.password 
       });
 
+      // Store auth data
       localStorage.setItem('access_token', data.access_token);
       localStorage.setItem('userData', JSON.stringify(data.user));
-      setUser(data.user);
+      
+      // Update local state
+      setUserState(data.user);
+      
+      // Update parent component state
+      if (setUser) {
+        setUser(data.user);
+      }
+      
       setSuccess('Login successful! 🎉 Welcome back!');
+      
+      // Navigate to home after showing success message
       if (setView) {
         setTimeout(() => setView("home"), 1500);
       }
     } catch (err) {
-      console.error('❌ Login failed:', err);
       if (err.message.includes('verify')) {
         setError('Please verify your email first. Check your inbox for verification code.');
         setCurrentView('otp');
@@ -328,7 +335,15 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     try {
       const data = await apiService.auth.forgotPassword({ email: formData.email });
       
-      setSuccess('Password reset code sent to your email! 📧');
+      // Show success message with OTP if email failed
+      if (data.email_sent) {
+        setSuccess('Password reset code sent to your email! 📧');
+      } else if (data.otp_for_dev) {
+        setSuccess(`Password reset code sent! 📧 Your code is: ${data.otp_for_dev}`);
+      } else {
+        setSuccess('Password reset code sent to your email! 📧');
+      }
+      
       resetFormData(); // Clear form data to prevent auto-fill
       setCurrentView('reset');
       setOtpTimer(600); // 10 minutes for password reset
@@ -368,13 +383,22 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
     
     setLoading(true);
     try {
+      let data;
       if (currentView === 'reset') {
-        await apiService.auth.forgotPassword({ email: formData.email });
+        data = await apiService.auth.forgotPassword({ email: formData.email });
       } else {
-        await apiService.auth.resendOtp({ email: formData.email });
+        data = await apiService.auth.resendOtp({ email: formData.email });
       }
       
-      setSuccess('New verification code sent! 📧');
+      // Show success message with OTP if email failed
+      if (data.email_sent) {
+        setSuccess('New verification code sent! 📧');
+      } else if (data.otp_for_dev) {
+        setSuccess(`New verification code sent! 📧 Your code is: ${data.otp_for_dev}`);
+      } else {
+        setSuccess('New verification code sent! 📧');
+      }
+      
       setOtpTimer(120);
       setCanResendOtp(false);
     } catch (err) {
