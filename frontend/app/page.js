@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
-import { MapDataProvider } from "../src/context/MapDataContext.js"
+import { MapDataProvider, useMapData } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
 import IntegratedWorldMap from "../src/components/layout/IntegratedWorldMap.js"
 import PolicySubmissionForm from "../src/components/policy/PolicySubmissionForm.js"
@@ -12,6 +12,91 @@ import PolicyChatAssistant from "../src/components/chatbot/PolicyChatAssistant.j
 import PolicyRanking from "../src/components/ranking/PolicyRanking.js"
 import VisitCounter from "../src/components/common/VisitCounter.js"
 import { useVisitTracker } from "../src/hooks/useVisitTracker.js"
+
+// Statistics component that can access MapData context
+function DynamicStats({ visitStats }) {
+  const { mapStats, isLoading: mapLoading, isLoaded: mapLoaded, fetchMapData } = useMapData()
+  
+  // Fetch map data when component mounts if not already loaded
+  useEffect(() => {
+    if (!mapLoaded && !mapLoading) {
+      console.log('🏠 Home page requesting map data for statistics')
+      fetchMapData()
+    }
+  }, [mapLoaded, mapLoading, fetchMapData])
+  
+  const stats = [
+    { 
+      number: visitStats.loading ? "..." : `${visitStats.today_visits || 0}`, 
+      label: "Today's Visits", 
+      icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", 
+      gradient: "from-blue-500 to-cyan-600",
+      dynamic: true
+    },
+    { 
+      number: visitStats.loading ? "..." : `${visitStats.total_visits.toLocaleString()}+`, 
+      label: "Total Visits", 
+      icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z", 
+      gradient: "from-emerald-500 to-teal-600",
+      dynamic: true 
+    },
+    { 
+      number: mapLoading ? "..." : `${mapStats.countriesWithPolicies || 0}`, 
+      label: "Countries Analyzed", 
+      icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", 
+      gradient: "from-purple-500 to-pink-600",
+      dynamic: true
+    },
+    { 
+      number: mapLoading ? "..." : `${mapStats.totalPolicies || 0}`, 
+      label: "Policy Documents", 
+      icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", 
+      gradient: "from-cyan-500 to-blue-600",
+      dynamic: true
+    },
+    { 
+      number: "24/7", 
+      label: "Real-time Updates", 
+      icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", 
+      gradient: "from-orange-500 to-red-600" 
+    }
+  ]
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-6 max-w-6xl mx-auto transition-all duration-1200 ease-out translate-y-0 opacity-100" style={{ transitionDelay: '800ms' }}>
+      {stats.map((stat, index) => (
+        <div key={index} className="cosmic-stat-card group" style={{ animationDelay: `${1000 + index * 200}ms` }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20"></div>
+          <div className="relative z-10 p-6">
+            <div className={`w-14 h-14 bg-gradient-to-br ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-2xl group-hover:scale-110 transition-all duration-500`}>
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+              </svg>
+            </div>
+            <div className="text-3xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2 animate-number-glow">
+              {stat.number}
+            </div>
+            <div className="text-white/80 font-semibold text-sm">{stat.label}</div>
+            {stat.dynamic && (
+              <div className="text-xs text-cyan-300 mt-1">
+                {stat.label === "Today's Visits" 
+                  ? "Live count • Updates in real-time"
+                  : stat.label === "Total Visits" && visitStats.unique_visitors > 0 
+                    ? `${visitStats.unique_visitors} unique visitors`
+                    : stat.label === "Countries Analyzed"
+                      ? "Countries with approved policies"
+                      : stat.label === "Policy Documents"
+                        ? "Total approved policy documents"
+                        : ""
+                }
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"), { ssr: false })
 
@@ -435,50 +520,7 @@ export default function Page() {
                 </div>
 
                 {/* Enhanced Stats */}
-                <div className={`grid grid-cols-1 md:grid-cols-5 gap-6 max-w-6xl mx-auto transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '800ms' }}>
-                  {[
-                    { 
-                      number: visitStats.loading ? "..." : `${visitStats.today_visits || 0}`, 
-                      label: "Today's Visits", 
-                      icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", 
-                      gradient: "from-blue-500 to-cyan-600",
-                      dynamic: true
-                    },
-                    { 
-                      number: visitStats.loading ? "..." : `${visitStats.total_visits.toLocaleString()}+`, 
-                      label: "Total Visits", 
-                      icon: "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z", 
-                      gradient: "from-emerald-500 to-teal-600",
-                      dynamic: true 
-                    },
-                    { number: "195+", label: "Countries Analyzed", icon: "M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-purple-500 to-pink-600" },
-                    { number: "50K+", label: "Policy Documents", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z", gradient: "from-cyan-500 to-blue-600" },
-                    { number: "24/7", label: "Real-time Updates", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z", gradient: "from-orange-500 to-red-600" }
-                  ].map((stat, index) => (
-                    <div key={index} className="cosmic-stat-card group" style={{ animationDelay: `${1000 + index * 200}ms` }}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-3xl border border-white/20"></div>
-                      <div className="relative z-10 p-6">
-                        <div className={`w-14 h-14 bg-gradient-to-br ${stat.gradient} rounded-2xl flex items-center justify-center mb-4 mx-auto shadow-2xl group-hover:scale-110 transition-all duration-500`}>
-                          <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
-                          </svg>
-                        </div>
-                        <div className="text-3xl font-black bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-2 animate-number-glow">
-                          {stat.number}
-                        </div>
-                        <div className="text-white/80 font-semibold text-sm">{stat.label}</div>
-                        {stat.dynamic && (
-                          <div className="text-xs text-cyan-300 mt-1">
-                            {stat.label === "Today's Visits" 
-                              ? "Live count • Updates in real-time"
-                              : visitStats.unique_visitors > 0 && `${visitStats.unique_visitors} unique visitors`
-                            }
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <DynamicStats visitStats={visitStats} />
               </div>
             </section>
 
