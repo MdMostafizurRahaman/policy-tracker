@@ -129,8 +129,7 @@ async def analyze_uploaded_file(
         
         # Extract text from file
         try:
-            from services.ai_analysis_service import ai_analysis_service as ai_service
-            text_content = ai_service.extract_text_from_file(file_content, filename)
+            text_content = ai_analysis_service.extract_text_from_file(file_content, filename)
         except Exception as e:
             logger.error(f"Text extraction failed: {str(e)}")
             raise HTTPException(status_code=400, detail=f"Failed to extract text from document: {str(e)}")
@@ -140,12 +139,16 @@ async def analyze_uploaded_file(
         
         # Analyze with AI
         try:
-            extracted_data = ai_service.analyze_policy_document(text_content)
+            extracted_data = ai_analysis_service.analyze_policy_document(text_content)
         except Exception as e:
             logger.error(f"AI analysis failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
         
         logger.info(f"Successfully analyzed uploaded file: {filename}")
+        
+        # Include TEA scores in the response if available
+        tea_scores = extracted_data.get("tea_scores", {})
+        tea_analysis = extracted_data.get("tea_analysis", {})
         
         return JSONResponse(
             status_code=200,
@@ -153,11 +156,14 @@ async def analyze_uploaded_file(
                 "success": True,
                 "message": "File analyzed successfully",
                 "data": extracted_data,
+                "tea_scores": tea_scores,
+                "tea_analysis": tea_analysis,
                 "metadata": {
                     "filename": filename,
                     "file_id": file_id,
                     "text_length": len(text_content),
-                    "storage_type": "s3"
+                    "storage_type": "s3",
+                    "includes_tea_scores": bool(tea_scores)
                 }
             }
         )
@@ -210,8 +216,7 @@ async def analyze_policy_document(
         
         # Extract text from file - we need to import the service
         try:
-            from services.ai_analysis_service import ai_analysis_service as ai_service
-            text_content = ai_service.extract_text_from_file(file_content, file.filename)
+            text_content = ai_analysis_service.extract_text_from_file(file_content, file.filename)
         except Exception as e:
             logger.error(f"Text extraction failed: {str(e)}")
             raise HTTPException(status_code=400, detail=f"Failed to extract text from document: {str(e)}")
@@ -221,12 +226,16 @@ async def analyze_policy_document(
         
         # Analyze with AI
         try:
-            extracted_data = ai_service.analyze_policy_document(text_content)
+            extracted_data = ai_analysis_service.analyze_policy_document(text_content)
         except Exception as e:
             logger.error(f"AI analysis failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
         
         logger.info(f"Successfully analyzed document: {file.filename}")
+        
+        # Include TEA scores in the response if available
+        tea_scores = extracted_data.get("tea_scores", {})
+        tea_analysis = extracted_data.get("tea_analysis", {})
         
         return JSONResponse(
             status_code=200,
@@ -234,11 +243,14 @@ async def analyze_policy_document(
                 "success": True,
                 "message": "Document analyzed successfully",
                 "data": extracted_data,
+                "tea_scores": tea_scores,
+                "tea_analysis": tea_analysis,
                 "metadata": {
                     "filename": file.filename,
                     "file_size": len(file_content),
                     "text_length": len(text_content),
-                    "processed_by": "anonymous"
+                    "processed_by": "anonymous",
+                    "includes_tea_scores": bool(tea_scores)
                 }
             }
         )
@@ -248,6 +260,200 @@ async def analyze_policy_document(
     except Exception as e:
         logger.error(f"Unexpected error in document analysis: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error during document analysis")
+
+@router.post("/calculate-tea-scores")
+async def calculate_tea_scores(
+    file: UploadFile = File(...)
+    # current_user: Dict[str, Any] = Depends(get_current_user)  # Temporarily disabled for testing
+):
+    """
+    Calculate Transparency, Explainability, and Accountability (TEA) scores from policy document using AWS Bedrock.
+    Returns structured scores that can be used to auto-fill submission forms.
+    """
+    try:
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No file uploaded")
+        
+        # Check file size
+        file_content = await file.read()
+        if len(file_content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+        
+        # Check file type
+        allowed_extensions = ['.pdf', '.doc', '.docx', '.txt']
+        file_extension = '.' + file.filename.lower().split('.')[-1]
+        if file_extension not in allowed_extensions:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported file type. Allowed types: {', '.join(allowed_extensions)}"
+            )
+        
+        logger.info(f"Calculating TEA scores for document: {file.filename}")
+        
+        # Extract text from file
+        try:
+            text_content = ai_analysis_service.extract_text_from_file(file_content, file.filename)
+        except Exception as e:
+            logger.error(f"Text extraction failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Failed to extract text from document: {str(e)}")
+        
+        if not text_content.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in the document")
+        
+        # Calculate TEA scores using Bedrock
+        try:
+            tea_results = ai_analysis_service.calculate_tea_scores(text_content)
+        except Exception as e:
+            logger.error(f"TEA scores calculation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"TEA scores calculation failed: {str(e)}")
+        
+        # Extract scores for easy access
+        scores = tea_results.get("scores", {
+            "transparency_score": 0,
+            "explainability_score": 0,
+            "accountability_score": 0
+        })
+        
+        logger.info(f"Successfully calculated TEA scores for {file.filename}: "
+                   f"T={scores.get('transparency_score', 0)}, "
+                   f"E={scores.get('explainability_score', 0)}, "
+                   f"A={scores.get('accountability_score', 0)}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "TEA scores calculated successfully",
+                "scores": scores,
+                "detailed_analysis": {
+                    "transparency_analysis": tea_results.get("transparency_analysis", []),
+                    "explainability_analysis": tea_results.get("explainability_analysis", []),
+                    "accountability_analysis": tea_results.get("accountability_analysis", [])
+                },
+                "metadata": {
+                    "filename": file.filename,
+                    "file_size": len(file_content),
+                    "text_length": len(text_content),
+                    "analysis_method": "aws_bedrock_claude"
+                },
+                "form_data": {
+                    "transparency_score": scores.get('transparency_score', 0),
+                    "explainability_score": scores.get('explainability_score', 0),
+                    "accountability_score": scores.get('accountability_score', 0)
+                }
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in TEA scores calculation: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during TEA scores calculation")
+
+@router.post("/calculate-tea-scores-by-file-id")
+async def calculate_tea_scores_by_file_id(
+    file_id: str = Form(...)
+    # current_user: Dict[str, Any] = Depends(get_current_user)  # Temporarily disabled for testing
+):
+    """
+    Calculate TEA scores for an already uploaded file by file_id using AWS Bedrock.
+    """
+    try:
+        # Validate file_id format
+        if not file_id or len(file_id.strip()) == 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file ID format. Please upload the file first."
+            )
+
+        # Get file metadata from DynamoDB
+        from models.file_metadata_dynamodb import FileMetadata
+        
+        file_metadata = await FileMetadata.find_by_id(file_id)
+        if not file_metadata:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Read file content from S3
+        file_content = None
+        filename = file_metadata.filename or 'unknown'
+        
+        try:
+            from services.aws_service import aws_service
+            s3_result = await aws_service.get_file(file_metadata.s3_key)
+            file_content = s3_result['content']
+            
+            if not file_content:
+                raise HTTPException(status_code=404, detail="File content is empty")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"S3 retrieval failed for file_id {file_id}, s3_key {file_metadata.s3_key}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve file from S3: {str(e)}")
+
+        logger.info(f"Calculating TEA scores for uploaded file: {filename} (file_id: {file_id})")
+        
+        # Extract text from file
+        try:
+            text_content = ai_analysis_service.extract_text_from_file(file_content, filename)
+        except Exception as e:
+            logger.error(f"Text extraction failed: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Failed to extract text from document: {str(e)}")
+        
+        if not text_content.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in the document")
+        
+        # Calculate TEA scores using Bedrock
+        try:
+            tea_results = ai_analysis_service.calculate_tea_scores(text_content)
+        except Exception as e:
+            logger.error(f"TEA scores calculation failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"TEA scores calculation failed: {str(e)}")
+        
+        # Extract scores for easy access
+        scores = tea_results.get("scores", {
+            "transparency_score": 0,
+            "explainability_score": 0,
+            "accountability_score": 0
+        })
+        
+        logger.info(f"Successfully calculated TEA scores for {filename}: "
+                   f"T={scores.get('transparency_score', 0)}, "
+                   f"E={scores.get('explainability_score', 0)}, "
+                   f"A={scores.get('accountability_score', 0)}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "TEA scores calculated successfully",
+                "scores": scores,
+                "detailed_analysis": {
+                    "transparency_analysis": tea_results.get("transparency_analysis", []),
+                    "explainability_analysis": tea_results.get("explainability_analysis", []),
+                    "accountability_analysis": tea_results.get("accountability_analysis", [])
+                },
+                "metadata": {
+                    "filename": filename,
+                    "file_id": file_id,
+                    "text_length": len(text_content),
+                    "storage_type": "s3",
+                    "analysis_method": "aws_bedrock_claude"
+                },
+                "form_data": {
+                    "transparency_score": scores.get('transparency_score', 0),
+                    "explainability_score": scores.get('explainability_score', 0),
+                    "accountability_score": scores.get('accountability_score', 0)
+                }
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error calculating TEA scores for file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/status")
 async def get_ai_analysis_status():

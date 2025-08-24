@@ -14,6 +14,7 @@ import os
 from config.dynamodb import get_dynamodb
 from config.data_constants import POLICY_AREAS
 from utils.helpers import calculate_policy_score, calculate_completeness_score
+from services.bedrock_service import bedrock_service
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,46 @@ class AIAnalysisService:
         except Exception as e:
             logger.error(f"Text extraction failed for {filename}: {str(e)}")
             return ""
+    
+    def calculate_tea_scores(self, text_content: str) -> Dict[str, Any]:
+        """
+        Calculate Transparency, Explainability, Accountability (TEA) scores using Bedrock
+        
+        Args:
+            text_content: The extracted text from the policy document
+            
+        Returns:
+            Dictionary containing the three scores and detailed analysis
+        """
+        try:
+            logger.info("Starting TEA scores calculation using Bedrock")
+            
+            if not text_content.strip():
+                logger.warning("No text content provided for TEA analysis")
+                return {
+                    "transparency_score": 0,
+                    "explainability_score": 0,
+                    "accountability_score": 0,
+                    "error": "No text content to analyze"
+                }
+            
+            # Use Bedrock service to calculate scores
+            scores_result = bedrock_service.calculate_transparency_explainability_accountability_scores(text_content)
+            
+            logger.info(f"TEA scores calculated: T={scores_result.get('scores', {}).get('transparency_score', 0)}, "
+                       f"E={scores_result.get('scores', {}).get('explainability_score', 0)}, "
+                       f"A={scores_result.get('scores', {}).get('accountability_score', 0)}")
+            
+            return scores_result
+            
+        except Exception as e:
+            logger.error(f"TEA scores calculation failed: {str(e)}")
+            return {
+                "transparency_score": 0,
+                "explainability_score": 0,
+                "accountability_score": 0,
+                "error": f"TEA analysis failed: {str(e)}"
+            }
     
     def analyze_policy_document(self, text_content: str) -> Dict[str, Any]:
         """Analyze policy document content using GROQ API"""
@@ -274,6 +315,42 @@ Important: Return ONLY the JSON object, no additional text or explanations.
                             }
                             analysis_data["country"] = country_map.get(match.group(), match.group())
                             break
+                
+                # Calculate TEA scores using Bedrock
+                logger.info("Calculating TEA scores for the document")
+                tea_scores = self.calculate_tea_scores(text_content)
+                
+                # Add TEA scores to analysis data
+                analysis_data["tea_scores"] = tea_scores.get("scores", {
+                    "transparency_score": 0,
+                    "explainability_score": 0,
+                    "accountability_score": 0
+                })
+                analysis_data["tea_analysis"] = {
+                    "transparency_analysis": tea_scores.get("transparency_analysis", []),
+                    "explainability_analysis": tea_scores.get("explainability_analysis", []),
+                    "accountability_analysis": tea_scores.get("accountability_analysis", [])
+                }
+                
+                # Add metadata about the analysis method
+                analysis_data["tea_metadata"] = {
+                    "analysis_method": "aws_bedrock" if not tea_scores.get("fallback_used") else "keyword_fallback",
+                    "fallback_used": tea_scores.get("fallback_used", False),
+                    "has_error": "error" in tea_scores
+                }
+                
+                # Log the calculated scores
+                scores = analysis_data["tea_scores"]
+                logger.info(f"TEA Scores - Transparency: {scores.get('transparency_score', 0)}, "
+                           f"Explainability: {scores.get('explainability_score', 0)}, "
+                           f"Accountability: {scores.get('accountability_score', 0)}")
+                
+                if tea_scores.get("fallback_used"):
+                    logger.info("TEA scores calculated using keyword-based fallback (Bedrock not available)")
+                elif "error" in tea_scores:
+                    logger.warning(f"TEA scores calculation had errors: {tea_scores.get('error')}")
+                else:
+                    logger.info("TEA scores calculated successfully using AWS Bedrock")
                 
                 return analysis_data
                 

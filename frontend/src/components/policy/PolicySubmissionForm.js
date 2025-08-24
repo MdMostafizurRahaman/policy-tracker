@@ -53,6 +53,42 @@ const analyzeUploadedFileWithAI = async (fileId) => {
   }
 };
 
+// TEA Scores Calculation Service
+const calculateTeaScoresFromFile = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await apiService.post('/ai-analysis/calculate-tea-scores', formData);
+    
+    return response;
+  } catch (error) {
+    console.error('TEA scores calculation failed:', error);
+    if (error.message.includes('Expecting value') || error.message.includes('Invalid JSON')) {
+      throw new Error('TEA scores calculation returned invalid data format. Please try again.');
+    }
+    throw error;
+  }
+};
+
+// TEA Scores Calculation for uploaded files (by file_id)
+const calculateTeaScoresFromFileId = async (fileId) => {
+  try {
+    const formData = new FormData();
+    formData.append('file_id', fileId);
+    
+    const response = await apiService.post('/ai-analysis/calculate-tea-scores-by-file-id', formData);
+    
+    return response;
+  } catch (error) {
+    console.error('TEA scores calculation failed:', error);
+    if (error.message.includes('Expecting value') || error.message.includes('Invalid JSON')) {
+      throw new Error('TEA scores calculation returned invalid data format. Please try again.');
+    }
+    throw error;
+  }
+};
+
 // Create empty policy template
 const createEmptyPolicy = () => ({
   policyName: "",
@@ -291,6 +327,34 @@ const PolicySubmissionForm = () => {
           setSuccess("File uploaded successfully to local storage (cloud storage temporarily unavailable).");
         } else {
           setSuccess("File uploaded successfully to cloud storage.");
+        }
+
+        // Calculate TEA scores automatically after successful upload
+        try {
+          setSuccess("File uploaded successfully. Calculating TEA scores...");
+          
+          const teaResponse = await calculateTeaScoresFromFileId(fileData.file_id);
+          
+          if (teaResponse.success && teaResponse.scores) {
+            // Update the evaluation scores
+            updatePolicySection(areaId, policyIndex, "evaluation", "transparencyScore", teaResponse.scores.transparency_score || 0);
+            updatePolicySection(areaId, policyIndex, "evaluation", "explainabilityScore", teaResponse.scores.explainability_score || 0);
+            updatePolicySection(areaId, policyIndex, "evaluation", "accountabilityScore", teaResponse.scores.accountability_score || 0);
+            
+            // Automatically mark as evaluated if scores are calculated
+            updatePolicySection(areaId, policyIndex, "evaluation", "isEvaluated", true);
+            
+            setSuccess(`File uploaded and analyzed successfully! TEA Scores: T=${teaResponse.scores.transparency_score}, E=${teaResponse.scores.explainability_score}, A=${teaResponse.scores.accountability_score}`);
+            
+            console.log('TEA Scores calculated:', teaResponse.scores);
+            console.log('Analysis method:', teaResponse.metadata?.analysis_method || 'unknown');
+          } else {
+            console.warn('TEA scores calculation returned no scores');
+            setSuccess("File uploaded successfully. TEA scores could not be calculated - you can set them manually.");
+          }
+        } catch (teaError) {
+          console.error('TEA scores calculation failed:', teaError);
+          setSuccess("File uploaded successfully. TEA scores calculation failed - you can set them manually.");
         }
       } else {
         throw new Error(response.message || 'Upload failed');
@@ -1140,8 +1204,51 @@ const PolicySubmissionForm = () => {
               </label>
             </div>
 
+            {/* TEA Scores Information */}
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-600 text-lg">🤖</div>
+                <div>
+                  <h6 className="font-medium text-blue-800 mb-1">AI-Powered TEA Scores</h6>
+                  <p className="text-sm text-blue-700">
+                    Upload a policy document to automatically calculate Transparency, Explainability, and Accountability scores using AI analysis.
+                    {!getCurrentPolicy().policyFile && " Upload a document first to enable automatic scoring."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-6">
-              <h5 className="text-lg font-semibold text-gray-800">Evaluation Scores</h5>
+              <div className="flex justify-between items-center">
+                <h5 className="text-lg font-semibold text-gray-800">Evaluation Scores</h5>
+                {getCurrentPolicy().policyFile && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setSuccess("Calculating TEA scores from uploaded document...");
+                        const teaResponse = await calculateTeaScoresFromFileId(getCurrentPolicy().policyFile.file_id);
+                        
+                        if (teaResponse.success && teaResponse.scores) {
+                          updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "evaluation", "transparencyScore", teaResponse.scores.transparency_score || 0);
+                          updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "evaluation", "explainabilityScore", teaResponse.scores.explainability_score || 0);
+                          updatePolicySection(selectedPolicyArea, selectedPolicyIndex, "evaluation", "accountabilityScore", teaResponse.scores.accountability_score || 0);
+                          
+                          setSuccess(`TEA Scores updated! T=${teaResponse.scores.transparency_score}, E=${teaResponse.scores.explainability_score}, A=${teaResponse.scores.accountability_score}`);
+                        } else {
+                          setError("TEA scores calculation failed. Please try again or set manually.");
+                        }
+                      } catch (error) {
+                        console.error('Manual TEA calculation failed:', error);
+                        setError("TEA scores calculation failed. Please try again or set manually.");
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    🤖 Calculate TEA Scores
+                  </button>
+                )}
+              </div>
               
               {[
                 { key: 'transparencyScore', label: 'Transparency Score', color: 'blue' },

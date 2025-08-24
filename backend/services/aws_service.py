@@ -470,16 +470,8 @@ class AWSService:
     async def get_file(self, s3_key: str) -> Dict[str, Any]:
         """Get file from S3 with caching"""
         try:
-            # Check cache first
-            cache_key = f"file_get:{s3_key}"
-            if self.cache_enabled and self.redis_client:
-                try:
-                    cached_result = self.redis_client.get(cache_key)
-                    if cached_result:
-                        return json.loads(cached_result)
-                except Exception as e:
-                    logger.warning(f"Cache read failed: {e}")
-                    # Continue without cache
+            # Note: We don't cache full file content, only fetch fresh from S3
+            # Cache is only used for metadata optimization elsewhere
             
             def get_object():
                 return self.s3_client.get_object(Bucket=self.bucket_name, Key=s3_key)
@@ -496,15 +488,6 @@ class AWSService:
                 'metadata': response.get('Metadata', {}),
                 'etag': response.get('ETag', '').strip('"')
             }
-            
-            # Cache metadata (not content for large files)
-            if self.cache_enabled and self.redis_client and result['size'] < 1024 * 1024:  # Only cache files < 1MB
-                try:
-                    cache_data = {k: v for k, v in result.items() if k != 'content'}
-                    self.redis_client.setex(cache_key, 1800, json.dumps(cache_data, default=str))
-                except Exception as e:
-                    logger.warning(f"Cache write failed: {e}")
-                    # Continue without cache
             
             return result
             

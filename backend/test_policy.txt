@@ -1,0 +1,21 @@
+Test AI Policy Document
+
+This is a sample AI transparency policy for testing purposes.
+
+Transparency Requirements:
+- All AI systems must provide clear explanations to users
+- Decision-making processes must be documented and accessible
+- Public consultations were conducted during policy development
+
+Explainability Standards:
+- AI outputs must include reasoning behind decisions
+- Users have the right to understand how AI affects them
+- Technical documentation must be available for review
+
+Accountability Framework:
+- Clear oversight mechanisms are established
+- Responsible parties are identified for each AI system
+- Regular audits and assessments are conducted
+- Appeal processes are available for affected individuals
+
+This policy ensures responsible AI development and deployment.
