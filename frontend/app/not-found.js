@@ -1,6 +1,19 @@
+'use client'
 import Link from 'next/link'
+import { useEffect } from 'react'
 
 export default function NotFound() {
+  // Redirect to home with current path as view parameter for SPA routing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname.replace(/^\/|\/$/g, '')
+      if (currentPath && currentPath !== '404') {
+        // Redirect to home with view parameter for SPA routing
+        window.location.href = `/?view=${currentPath}`
+      }
+    }
+  }, [])
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full text-center">
@@ -8,7 +21,7 @@ export default function NotFound() {
           <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
           <h2 className="text-2xl font-semibold text-gray-700 mb-2">Page Not Found</h2>
           <p className="text-gray-600">
-            Sorry, the page you are looking for could not be found.
+            Redirecting to home page...
           </p>
         </div>
         

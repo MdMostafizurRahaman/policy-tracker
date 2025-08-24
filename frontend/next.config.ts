@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export', // Enabled for production build
-  trailingSlash: false,
+  output: 'export',
+  trailingSlash: true, // Important for static hosting
   poweredByHeader: false,
   reactStrictMode: false,
   images: {

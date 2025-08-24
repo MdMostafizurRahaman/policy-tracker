@@ -111,9 +111,16 @@ export default function Page() {
   // Custom setView that also updates URL
   const handleSetView = useCallback((newView) => {
     setView(newView)
-    const path = newView === 'home' ? '/' : `/${newView}`
-    if (typeof window !== 'undefined' && window.location.pathname !== path) {
-      window.history.pushState({}, '', path)
+    
+    // For static hosting compatibility, use both path and query param
+    if (typeof window !== 'undefined') {
+      const newPath = newView === 'home' ? '/' : `/${newView}/`
+      const newUrl = `${newPath}?view=${newView}`
+      
+      // Update URL without page reload
+      if (window.location.pathname !== newPath) {
+        window.history.pushState({}, '', newUrl)
+      }
     }
   }, [])
   
@@ -121,15 +128,24 @@ export default function Page() {
   useEffect(() => {
     const getInitialView = () => {
       const path = window.location.pathname
-      if (path === '/worldmap') return 'worldmap'
-      if (path === '/chatbot') return 'chatbot'
-      if (path === '/ranking') return 'ranking'
-      if (path === '/admin') return 'admin'
-      if (path === '/login') return 'login'
-      if (path === '/signup') return 'signup'
-      if (path === '/submission') return 'submission'
-      if (path === '/admin-login') return 'admin-login'
-      if (path === '/forget') return 'forget'
+      // Handle both /page and /page/ formats for static hosting
+      const cleanPath = path.replace(/\/$/, '') || '/'
+      
+      if (cleanPath === '/worldmap' || path === '/worldmap/') return 'worldmap'
+      if (cleanPath === '/chatbot' || path === '/chatbot/') return 'chatbot'
+      if (cleanPath === '/ranking' || path === '/ranking/') return 'ranking'
+      if (cleanPath === '/admin' || path === '/admin/') return 'admin'
+      if (cleanPath === '/login' || path === '/login/') return 'login'
+      if (cleanPath === '/signup' || path === '/signup/') return 'signup'
+      if (cleanPath === '/submission' || path === '/submission/') return 'submission'
+      if (cleanPath === '/admin-login' || path === '/admin-login/') return 'admin-login'
+      if (cleanPath === '/forget' || path === '/forget/') return 'forget'
+      
+      // Check for URL parameters as fallback for static hosting
+      const params = new URLSearchParams(window.location.search)
+      const viewParam = params.get('view')
+      if (viewParam) return viewParam
+      
       return 'home'
     }
     
@@ -143,16 +159,24 @@ export default function Page() {
     
     const handlePopState = () => {
       const path = window.location.pathname
-      if (path === '/worldmap') setView('worldmap')
-      else if (path === '/chatbot') setView('chatbot')
-      else if (path === '/ranking') setView('ranking')
-      else if (path === '/admin') setView('admin')
-      else if (path === '/login') setView('login')
-      else if (path === '/signup') setView('signup')
-      else if (path === '/submission') setView('submission')
-      else if (path === '/admin-login') setView('admin-login')
-      else if (path === '/forget') setView('forget')
-      else setView('home')
+      const cleanPath = path.replace(/\/$/, '') || '/'
+      
+      // Check path first, then fallback to query param
+      if (cleanPath === '/worldmap' || path === '/worldmap/') setView('worldmap')
+      else if (cleanPath === '/chatbot' || path === '/chatbot/') setView('chatbot')
+      else if (cleanPath === '/ranking' || path === '/ranking/') setView('ranking')
+      else if (cleanPath === '/admin' || path === '/admin/') setView('admin')
+      else if (cleanPath === '/login' || path === '/login/') setView('login')
+      else if (cleanPath === '/signup' || path === '/signup/') setView('signup')
+      else if (cleanPath === '/submission' || path === '/submission/') setView('submission')
+      else if (cleanPath === '/admin-login' || path === '/admin-login/') setView('admin-login')
+      else if (cleanPath === '/forget' || path === '/forget/') setView('forget')
+      else {
+        // Fallback: check query parameter for static hosting
+        const params = new URLSearchParams(window.location.search)
+        const viewParam = params.get('view')
+        setView(viewParam || 'home')
+      }
     }
     
     window.addEventListener('popstate', handlePopState)
