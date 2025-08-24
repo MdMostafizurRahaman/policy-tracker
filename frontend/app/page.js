@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { MapDataProvider, useMapData } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
 import IntegratedWorldMap from "../src/components/layout/IntegratedWorldMap.js"
@@ -103,7 +103,6 @@ const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"),
 
 export default function Page() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   
   // Initialize view to default "home" - will be updated in useEffect
   const [view, setView] = useState('home')
