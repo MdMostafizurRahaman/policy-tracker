@@ -113,8 +113,11 @@ export const useVisitTracker = () => {
       
       return result;
     } catch (error) {
-      console.error('❌ Error tracking visit:', error);
-      return { success: false, error: error.message };
+      // Silently handle backend connection errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Backend API not available - visit tracking disabled');
+      }
+      return { success: false, error: 'Backend not available' };
     } finally {
       // Reset tracking flag after a delay to allow for legitimate subsequent calls
       setTimeout(() => {
@@ -147,11 +150,14 @@ export const useVisitTracker = () => {
         }));
       }
     } catch (error) {
-      console.error('❌ Error fetching visit summary:', error);
+      // Silently handle backend connection errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Backend API not available - visit summary disabled');
+      }
       setVisitStats(prev => ({
         ...prev,
         loading: false,
-        error: error.message
+        error: null // Don't show error to user for backend connection issues
       }));
     }
   }, []);
@@ -179,18 +185,24 @@ export const useVisitTracker = () => {
         }));
       }
     } catch (error) {
-      console.error('❌ Error fetching detailed statistics:', error);
+      // Silently handle backend connection errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Backend API not available - visit tracking disabled');
+      }
       setVisitStats(prev => ({
         ...prev,
         loading: false,
-        error: error.message
+        error: null // Don't show error to user for backend connection issues
       }));
     }
   }, []);
 
   // Initial load of visit summary - using detailed stats to get today_visits
   useEffect(() => {
-    fetchDetailedStats();
+    // Only try to fetch if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      fetchDetailedStats();
+    }
   }, [fetchDetailedStats]);
 
   // Track new user registration

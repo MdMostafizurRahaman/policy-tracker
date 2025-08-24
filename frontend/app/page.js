@@ -1,6 +1,7 @@
 'use client'
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
+import { useRouter, useSearchParams } from "next/navigation"
 import { MapDataProvider, useMapData } from "../src/context/MapDataContext.js"
 import WorldMap from "../src/components/layout/Worldmap.js"
 import IntegratedWorldMap from "../src/components/layout/IntegratedWorldMap.js"
@@ -101,7 +102,63 @@ function DynamicStats({ visitStats }) {
 const GlobeView = dynamic(() => import("../src/components/layout/GlobeView.js"), { ssr: false })
 
 export default function Page() {
-  const [view, setView] = useState("home")
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Initialize view to default "home" - will be updated in useEffect
+  const [view, setView] = useState('home')
+  const [mounted, setMounted] = useState(false)
+  
+  // Custom setView that also updates URL
+  const handleSetView = useCallback((newView) => {
+    setView(newView)
+    const path = newView === 'home' ? '/' : `/${newView}`
+    if (typeof window !== 'undefined' && window.location.pathname !== path) {
+      window.history.pushState({}, '', path)
+    }
+  }, [])
+  
+  // Initialize view from URL after component mounts (client-side only)
+  useEffect(() => {
+    const getInitialView = () => {
+      const path = window.location.pathname
+      if (path === '/worldmap') return 'worldmap'
+      if (path === '/chatbot') return 'chatbot'
+      if (path === '/ranking') return 'ranking'
+      if (path === '/admin') return 'admin'
+      if (path === '/login') return 'login'
+      if (path === '/signup') return 'signup'
+      if (path === '/submission') return 'submission'
+      if (path === '/admin-login') return 'admin-login'
+      if (path === '/forget') return 'forget'
+      return 'home'
+    }
+    
+    setView(getInitialView())
+    setMounted(true)
+  }, [])
+  
+  // Update view when URL changes (browser back/forward)
+  useEffect(() => {
+    if (!mounted) return
+    
+    const handlePopState = () => {
+      const path = window.location.pathname
+      if (path === '/worldmap') setView('worldmap')
+      else if (path === '/chatbot') setView('chatbot')
+      else if (path === '/ranking') setView('ranking')
+      else if (path === '/admin') setView('admin')
+      else if (path === '/login') setView('login')
+      else if (path === '/signup') setView('signup')
+      else if (path === '/submission') setView('submission')
+      else if (path === '/admin-login') setView('admin-login')
+      else if (path === '/forget') setView('forget')
+      else setView('home')
+    }
+    
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [mounted])
   const [darkMode, setDarkMode] = useState(false)
   const [animate, setAnimate] = useState(false)
   const [user, setUser] = useState(null)
@@ -124,56 +181,19 @@ export default function Page() {
   // Ref to track if visit has been recorded to prevent duplicates
   const visitTracked = useRef(false)
 
-  // Initialize dark mode from localStorage or system preference
+  // Initialize client-side states after mounting
   useEffect(() => {
     setIsClient(true)
+    
+    // Initialize dark mode from localStorage or system preference
     const savedDarkMode = localStorage.getItem('darkMode')
     if (savedDarkMode !== null) {
       setDarkMode(JSON.parse(savedDarkMode))
     } else {
       setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches)
     }
-    // Set loaded state after a brief delay for smooth entrance
-    setTimeout(() => setIsLoaded(true), 300)
-  }, [])
-
-  // Mouse tracking for interactive backgrounds
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      setMousePosition({ x: e.clientX, y: e.clientY })
-    }
-    const handleScroll = () => setScrollY(window.scrollY)
     
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('scroll', handleScroll)
-    
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('scroll', handleScroll)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-    // Save preference to localStorage
-    localStorage.setItem('darkMode', JSON.stringify(darkMode))
-  }, [darkMode])
-  
-  useEffect(() => {
-    setAnimate(true)
-    setPageTransition(true)
-    const timeoutId = setTimeout(() => {
-      setAnimate(false)
-      setPageTransition(false)
-    }, 1200)
-    return () => clearTimeout(timeoutId)
-  }, [view])
-
-  useEffect(() => {
+    // Initialize user from localStorage
     try {
       const userData = localStorage.getItem('userData')
       if (userData && userData !== 'undefined' && userData !== 'null') {
@@ -188,10 +208,55 @@ export default function Page() {
       localStorage.removeItem('userData')
       localStorage.removeItem('access_token')
     }
+    
+    // Set loaded state after a brief delay for smooth entrance
+    setTimeout(() => setIsLoaded(true), 300)
   }, [])
 
-  // Listen for storage changes and view changes to sync user state
+  // Mouse tracking for interactive backgrounds (client-side only)
   useEffect(() => {
+    if (!isClient) return
+    
+    const handleMouseMove = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY })
+    }
+    const handleScroll = () => setScrollY(window.scrollY)
+    
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('scroll', handleScroll)
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [isClient])
+
+  useEffect(() => {
+    if (!isClient) return
+    
+    if (darkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    // Save preference to localStorage
+    localStorage.setItem('darkMode', JSON.stringify(darkMode))
+  }, [darkMode, isClient])
+  
+  useEffect(() => {
+    setAnimate(true)
+    setPageTransition(true)
+    const timeoutId = setTimeout(() => {
+      setAnimate(false)
+      setPageTransition(false)
+    }, 1200)
+    return () => clearTimeout(timeoutId)
+  }, [view])
+
+  // Listen for storage changes to sync user state (client-side only)
+  useEffect(() => {
+    if (!isClient) return
+    
     const syncUserFromStorage = () => {
       try {
         const userData = localStorage.getItem('userData')
@@ -211,25 +276,27 @@ export default function Page() {
     
     // Check storage whenever view changes
     syncUserFromStorage()
-  }, [view, user])
+  }, [view, user, isClient])
 
-  // Track visit when component mounts and when user changes
+  // Track visit when component mounts and when user changes (client-side only)
   useEffect(() => {
-    // Only track visit once per session to prevent duplicates
-    if (!visitTracked.current) {
+    if (!isClient) return
+    
+    // Track visit only once per session (client-side only)
+    if (!sessionStorage.getItem('visit_tracked')) {
       trackVisit(user)
-      visitTracked.current = true
+      sessionStorage.setItem('visit_tracked', 'true')
     }
-  }, [user, trackVisit])
+  }, [user, trackVisit, isClient])
 
   const navigateBack = useCallback(() => {
     setPageTransition(true)
     setTimeout(() => {
-      setView("home")
+      handleSetView("home")
       setMobileMenuOpen(false)
       setPageTransition(false)
     }, 300)
-  }, [])
+  }, [handleSetView])
   
   const handleLogout = useCallback(() => {
     setPageTransition(true)
@@ -237,10 +304,10 @@ export default function Page() {
       setUser(null)
       localStorage.removeItem('userData')
       localStorage.removeItem('access_token')
-      setView('home')
+      handleSetView('home')
       setPageTransition(false)
     }, 300)
-  }, [])
+  }, [handleSetView])
 
   const navigationItems = [
     {
@@ -308,11 +375,11 @@ export default function Page() {
   const renderContent = () => {
     switch (view) {
       case "admin-login":
-        return <AdminLogin setUser={setUser} setView={setView} />
+        return <AdminLogin setUser={setUser} setView={handleSetView} />
       
       case "admin":
         if (!user) {
-          return <AdminLogin setUser={setUser} setView={setView} />
+          return <AdminLogin setUser={setUser} setView={handleSetView} />
         }
         if (!user.is_admin && !user.is_super_admin && user.role !== 'super_admin' && user.role !== 'admin') {
           return (
@@ -336,7 +403,7 @@ export default function Page() {
                   Administrator privileges required to access this section.
                 </p>
                 <button 
-                  onClick={() => setView("admin-login")} 
+                  onClick={() => handleSetView("admin-login")} 
                   className="premium-button bg-gradient-to-r from-red-500 via-rose-500 to-pink-600 text-white"
                 >
                   <span>Admin Login</span>
@@ -362,11 +429,12 @@ export default function Page() {
       case "login":
       case "signup":
       case "forgot":
+      case "forget":
         return (
           <div className="min-h-screen bg-gradient-mesh from-indigo-50 via-purple-50 to-pink-100">
             <AuthSystem 
               key={view} 
-              setView={setView} 
+              setView={handleSetView} 
               setUser={setUser} 
               initialView={view} 
             />
@@ -398,14 +466,14 @@ export default function Page() {
                 <div className="space-y-4">
                   <button
                     className="premium-button bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 text-white w-full"
-                    onClick={() => setView("login")}
+                    onClick={() => handleSetView("login")}
                   >
                     <span>Sign In</span>
                     <div className="button-shine"></div>
                   </button>
                   <button
                     className="premium-button-outline w-full"
-                    onClick={() => setView("signup")}
+                    onClick={() => handleSetView("signup")}
                   >
                     <span>Create Account</span>
                   </button>
@@ -423,7 +491,7 @@ export default function Page() {
       case "ranking":
         return (
           <div className="min-h-screen bg-gradient-mesh from-yellow-50 via-orange-50 to-red-100">
-            <PolicyRanking setView={setView} />
+            <PolicyRanking setView={handleSetView} />
           </div>
         )
       
@@ -491,62 +559,7 @@ export default function Page() {
                   <b>with real-time visualization technology.</b>
                 </p>
 
-                {/* Enhanced CTA Buttons */}
-                <div className={`flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '600ms' }}>
-                  <button
-                    onClick={() => {
-                      setPageTransition(true)
-                      setTimeout(() => {
-                        setView("worldmap")
-                        setPageTransition(false)
-                      }, 300)
-                    }}
-                    className="cosmic-button-primary group relative button-magnetic"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
-                      <span className="text-xl animate-spin-slow">🌍</span>
-                      <span>Explore World Map</span>
-                      <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </span>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setPageTransition(true)
-                      setTimeout(() => {
-                        setView("ranking")
-                        setPageTransition(false)
-                      }, 300)
-                    }}
-                    className="cosmic-button-tertiary group relative button-magnetic"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-yellow-500 via-orange-600 to-red-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
-                      <span className="text-xl animate-pulse">📊</span>
-                      <span>Policy Rankings</span>
-                    </span>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setPageTransition(true)
-                      setTimeout(() => {
-                        setView("chatbot")
-                        setPageTransition(false)
-                      }, 300)
-                    }}
-                    className="cosmic-button-secondary group relative button-magnetic"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
-                      <span className="text-xl animate-bounce-gentle">🤖</span>
-                      <span>Policy Bot</span>
-                    </span>
-                  </button>
-                </div>
+                {/* CTA Buttons removed - Use sidebar navigation instead */}
 
                 {/* Enhanced Stats */}
                 <DynamicStats visitStats={visitStats} />
@@ -610,62 +623,30 @@ export default function Page() {
                 </div>
               </div>
             </section>
-
-            {/* Enhanced Navigation Cards */}
-            <section className="py-32 px-4 relative">
-              <div className="absolute inset-0 bg-gradient-radial from-purple-900/40 via-transparent to-cyan-900/40"></div>
-              <div className="relative max-w-7xl mx-auto">
-                <div className={`text-center mb-20 transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '2000ms' }}>
-                  <h2 className="text-5xl md:text-7xl font-black bg-gradient-to-r from-orange-300 via-yellow-300 to-cyan-300 bg-clip-text text-transparent mb-8">
-                    Choose Your Journey
-                  </h2>
-                  <p className="text-2xl text-white/70 max-w-4xl mx-auto font-light">
-                    Multiple pathways to explore the world of global policy tracker
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-                  {navigationItems.map((item, index) => (
-                    <div
-                      key={item.key}
-                      onClick={() => {
-                        setPageTransition(true)
-                        setTimeout(() => {
-                          setView(item.key)
-                          setPageTransition(false)
-                        }, 300)
-                      }}
-                      className={`cosmic-portal-card group cursor-pointer transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}
-                      style={{ transitionDelay: `${2200 + index * 150}ms` }}
-                    >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${item.bgGradient || 'from-white/10 to-white/5'} backdrop-blur-xl rounded-3xl border border-white/20 group-hover:border-white/40 transition-all duration-700`}></div>
-                      <div className="relative z-10 p-6">
-                        <div className="flex items-start gap-4">
-                          <div className={`w-14 h-14 bg-gradient-to-br ${item.gradient} rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 flex-shrink-0 animate-float-gentle`}>
-                            <span className="text-2xl">{item.emoji}</span>
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="text-xl font-bold text-black mb-2">{item.label.replace(item.emoji + ' ', '')}</h3>
-                            <p className="text-black leading-snug text-base mb-3 ">{item.description}</p>
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-flex items-center gap-1 text-base font-bold bg-gradient-to-r ${item.gradient} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
-                                Launch Platform
-                                <svg className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                </svg>
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
           </div>
         )
     }
+  }
+  
+  // Prevent hydration mismatch by showing loading state until client-side hydration is complete
+  if (!mounted) {
+    return (
+      <MapDataProvider>
+        <div className="min-h-screen bg-gradient-mesh from-blue-50 via-indigo-50 to-purple-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Policy Tracker
+            </div>
+            <div className="text-gray-500 mt-2">Loading...</div>
+          </div>
+        </div>
+      </MapDataProvider>
+    )
   }
   
   return (
@@ -709,7 +690,7 @@ export default function Page() {
                     onClick={() => {
                       setPageTransition(true)
                       setTimeout(() => {
-                        setView(item.key)
+                        handleSetView(item.key)
                         setSidebarOpen(false)
                         setPageTransition(false)
                       }, 200)
@@ -778,7 +759,7 @@ export default function Page() {
                     onClick={() => {
                       setPageTransition(true)
                       setTimeout(() => {
-                        setView("login")
+                        handleSetView("login")
                         setSidebarOpen(false)
                         setPageTransition(false)
                       }, 200)
@@ -794,7 +775,7 @@ export default function Page() {
                     onClick={() => {
                       setPageTransition(true)
                       setTimeout(() => {
-                        setView("signup")
+                        handleSetView("signup")
                         setSidebarOpen(false)
                         setPageTransition(false)
                       }, 200)
