@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // output: 'export', // Comment out for development, uncomment for production build
   trailingSlash: false,
   poweredByHeader: false,
   reactStrictMode: false,
