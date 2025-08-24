@@ -575,14 +575,51 @@ export default function Page() {
                     Global Policy Tracker
                   </span>
                 </h1>
-                
+
                 <p className={`text-lg md:text-xl text-white/90 max-w-4xl mx-auto leading-relaxed mb-8 font-light transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '400ms' }}>
                   <b>Discover, analyze, and understand global policy frameworks through our </b>
                   <span className="font-semibold bg-gradient-to-r from-yellow-300 to-yellow-600 bg-clip-text text-transparent"> AI-powered platform </span>
                   <b>with real-time visualization technology.</b>
                 </p>
 
-                {/* CTA Buttons removed - Use sidebar navigation instead */}
+                {/* Enhanced CTA Buttons */}
+                <div className={`flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 transition-all duration-1200 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '600ms' }}>
+                  <button
+                    onClick={() => handleSetView("worldmap")}
+                    className="cosmic-button-primary group relative button-magnetic"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-spin-slow">🌍</span>
+                      <span>Explore World Map</span>
+                      <svg className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleSetView("ranking")}
+                    className="cosmic-button-tertiary group relative button-magnetic"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-yellow-500 via-orange-600 to-red-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-pulse">📊</span>
+                      <span>Policy Rankings</span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleSetView("chatbot")}
+                    className="cosmic-button-secondary group relative button-magnetic"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 rounded-2xl blur-xl opacity-75 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <span className="relative z-10 flex items-center gap-4 px-6 py-3 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-700 rounded-2xl font-bold text-lg text-white shadow-2xl">
+                      <span className="text-xl animate-bounce-gentle">🤖</span>
+                      <span>Policy Bot</span>
+                    </span>
+                  </button>
+                </div>
+
+
 
                 {/* Enhanced Stats */}
                 <DynamicStats visitStats={visitStats} />
@@ -904,6 +941,78 @@ export default function Page() {
         {/* Main Content */}
         <main className={`relative transition-all duration-500 ${sidebarOpen ? 'ml-96' : ''}`}>
           {renderContent()}
+
+          {/* Navigation Cards & Stats above Footer */}
+            {view === 'home' && (
+              <section className="relative py-20 px-4 bg-gradient-to-b from-white/0 via-blue-50 to-purple-50">
+                <div className="max-w-7xl mx-auto text-center mb-12">
+                  <h2 className="text-4xl md:text-6xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">
+                    Explore Platform Features
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto mb-12">
+                  {navigationItems.map((item, index) => {
+                    // Dynamic gradient color combinations for each card
+                    const gradients = [
+                      {
+                        gradient: 'from-gray-400 via-blue-400 to-indigo-500',
+                        bgGradient: 'from-gray-50 via-blue-100 to-indigo-200',
+                      },
+                      {
+                        gradient: 'from-cyan-400 via-blue-500 to-indigo-600',
+                        bgGradient: 'from-cyan-50 via-blue-100 to-indigo-200',
+                      },
+                      {
+                        gradient: 'from-purple-400 via-pink-500 to-red-500',
+                        bgGradient: 'from-purple-50 via-pink-100 to-red-200',
+                      },
+                      {
+                        gradient: 'from-emerald-400 via-teal-500 to-green-600',
+                        bgGradient: 'from-emerald-50 via-teal-100 to-green-200',
+                      },
+                      {
+                        gradient: 'from-yellow-400 via-orange-500 to-red-600',
+                        bgGradient: 'from-yellow-50 via-orange-100 to-red-200',
+                      },
+                      {
+                        gradient: 'from-orange-400 via-red-500 to-pink-600',
+                        bgGradient: 'from-orange-50 via-red-100 to-pink-200',
+                      },
+                    ];
+                    const cardGradient = gradients[index % gradients.length];
+                    return (
+                      <div
+                        key={item.key}
+                        onClick={() => handleSetView(item.key)}
+                        className={`cosmic-portal-card group cursor-pointer transition-all duration-1000 ease-out ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'}`}
+                        style={{ transitionDelay: `${2200 + index * 150}ms` }}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${cardGradient.bgGradient} backdrop-blur-xl rounded-3xl border border-white/20 group-hover:border-white/40 transition-all duration-700`}></div>
+                        <div className="relative z-10 p-6">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-14 h-14 bg-gradient-to-br ${cardGradient.gradient} rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-12 transition-all duration-700 flex-shrink-0 animate-float-gentle`}>
+                              <span className="text-2xl">{item.emoji}</span>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-xl font-bold text-black mb-2">{item.label.replace(item.emoji + ' ', '')}</h3>
+                              <p className="text-black leading-snug text-base mb-3 ">{item.description}</p>
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-1 text-base font-bold bg-gradient-to-r ${cardGradient.gradient} bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300`}>
+                                  Launch Platform
+                                  <svg className="w-4 h-4 group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                  </svg>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
         </main>
 
         {/* Enhanced Footer */}
