@@ -391,6 +391,15 @@ class AdminService extends ApiService {
   async getAllFiles() {
     return this.get('/admin/all-files');
   }
+
+  async calculateTEAScores(submissionId, areaId, policyIndex) {
+    // Use the correct endpoint for TEA score calculation
+    return this.post('/ai-analysis/calculate-tea-scores', {
+      submission_id: submissionId,
+      area_id: areaId,
+      policy_index: policyIndex
+    });
+  }
 }
 
 // Create service instances

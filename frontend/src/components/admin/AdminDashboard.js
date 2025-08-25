@@ -1249,7 +1249,6 @@ export default function AdminDashboard() {
                                   <p className="text-sm font-medium text-black">{selectedPolicy.evaluation.riskAssessment ? 'Yes' : 'No'}</p>
                                 </div>
                               </div>
-                              
                               <div className="mt-4">
                                 <h5 className="text-sm font-medium text-gray-700 mb-2">Scores</h5>
                                 <div className="grid grid-cols-3 gap-4">
@@ -1266,6 +1265,77 @@ export default function AdminDashboard() {
                                     <p className="text-lg font-semibold text-purple-600">{selectedPolicy.evaluation.accountabilityScore || 0}/10</p>
                                   </div>
                                 </div>
+                                {/* Calculate TEA Button Logic */}
+                                {((!selectedPolicy.evaluation.transparencyScore || selectedPolicy.evaluation.transparencyScore === 0) ||
+                                  (!selectedPolicy.evaluation.explainabilityScore || selectedPolicy.evaluation.explainabilityScore === 0) ||
+                                  (!selectedPolicy.evaluation.accountabilityScore || selectedPolicy.evaluation.accountabilityScore === 0)) &&
+                                  selectedPolicy.policyFile && (
+                                  <div className="mt-4 text-center">
+                                    <button
+                                      className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                                      onClick={async () => {
+                                        setLoading(true);
+                                        setError("");
+                                        setSuccess("");
+                                        try {
+                                          // Check what type of file data we have
+                                          console.log("Policy file data:", selectedPolicy.policyFile);
+                                          let response;
+                                          let fileToSend;
+
+                                          if (selectedPolicy.policyFile instanceof File) {
+                                            fileToSend = selectedPolicy.policyFile;
+                                          } else if (selectedPolicy.policyFile.file_url || selectedPolicy.policyFile.cdn_url) {
+                                            // Try both file_url and cdn_url
+                                            const fileUrl = selectedPolicy.policyFile.file_url || selectedPolicy.policyFile.cdn_url;
+                                            console.log("Fetching file from S3:", fileUrl);
+                                            const fileResponse = await fetch(fileUrl);
+                                            if (!fileResponse.ok) {
+                                              setError("Could not download the policy file.");
+                                              return;
+                                            }
+                                            const fileBlob = await fileResponse.blob();
+                                            const fileName = selectedPolicy.policyFile.name || selectedPolicy.policyFile.filename || 'policy_document.pdf';
+                                            fileToSend = new File([fileBlob], fileName, { type: fileBlob.type || selectedPolicy.policyFile.type || 'application/pdf' });
+                                          } else {
+                                            setError("Unsupported file format for TEA analysis.");
+                                            return;
+                                          }
+
+                                          // Send to backend
+                                          const formData = new FormData();
+                                          formData.append('file', fileToSend);
+                                          response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/ai-analysis/calculate-tea-scores`, {
+                                            method: 'POST',
+                                            body: formData,
+                                          });
+                                          const result = await response.json();
+                                          console.log("TEA API response:", result);
+                                          if (response.ok && result.scores) {
+                                            selectedPolicy.evaluation.transparencyScore = result.scores.transparency_score;
+                                            selectedPolicy.evaluation.explainabilityScore = result.scores.explainability_score;
+                                            selectedPolicy.evaluation.accountabilityScore = result.scores.accountability_score;
+                                            setSuccess("TEA scores calculated and updated successfully.");
+                                            await fetchSubmissions();
+                                          } else {
+                                            const errorDetail = result.detail;
+                                            const errorMessage = typeof errorDetail === 'string' ? errorDetail : 
+                                              (errorDetail && errorDetail.msg ? errorDetail.msg : JSON.stringify(errorDetail || result));
+                                            setError("Failed to calculate TEA scores: " + errorMessage);
+                                          }
+                                        } catch (err) {
+                                          const errorMessage = err.message || (typeof err === 'string' ? err : JSON.stringify(err));
+                                          setError("Error calculating TEA scores: " + errorMessage);
+                                        } finally {
+                                          setLoading(false);
+                                        }
+                                      }}
+                                    >
+                                      Calculate TEA Scores
+                                    </button>
+                                    <p className="text-xs text-gray-500 mt-2">Upload a policy document to enable AI-powered scoring.</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1407,12 +1477,6 @@ export default function AdminDashboard() {
                         Edit Policy
                       </button>
                       <button
-                        onClick={() => updatePolicyStatus(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, 'needs_revision', adminNotes)}
-                        className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
-                      >
-                        Needs Revision
-                      </button>
-                      <button
                         onClick={() => rejectPolicy(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex, adminNotes)}
                         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
                       >
@@ -1425,23 +1489,10 @@ export default function AdminDashboard() {
                         Approve & Show on Map
                       </button>
                       <button
-                        onClick={() => commitPolicy(selectedSubmission.policy_id || selectedSubmission._id, selectedPolicyArea, selectedPolicyIndex)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        disabled={selectedPolicy?.status !== 'approved'}
-                      >
-                        Commit to Master
-                      </button>
-                      <button
                         onClick={() => deletePolicyCompletely(selectedSubmission.policy_id || selectedSubmission._id)}
                         className="px-4 py-2 bg-red-800 text-white rounded hover:bg-red-900"
                       >
                         Delete Permanently
-                      </button>
-                      <button
-                        onClick={() => viewPolicyFiles(selectedSubmission.policy_id || selectedSubmission._id)}
-                        className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                      >
-                        View Files
                       </button>
                     </>
                   )}
@@ -1456,7 +1507,7 @@ export default function AdminDashboard() {
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
             <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-white/20 my-8">
               <div className="p-8">
-                <div className="flex justify-between items-center pb-6 border-b border-slate-200">
+                               <div className="flex justify-between items-center pb-6 border-b border-slate-200">
                   <div>
                     <h3 className="text-2xl font-bold text-slate-900">Policy Files</h3>
                     <p className="text-slate-600 mt-1">All files associated with this policy</p>
