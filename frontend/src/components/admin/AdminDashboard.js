@@ -362,22 +362,23 @@ export default function AdminDashboard() {
 
   const handleOpenFile = async (fileInfo) => {
     try {
-      if (fileInfo.file_path) {
-        // For server-stored files
-        const blob = await apiService.get(`/files/${fileInfo.file_path}`, {
-          responseType: 'blob'
-        });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+      if (fileInfo.s3_key || fileInfo.file_path) {
+        // Use the public file serving endpoint
+        const fileIdentifier = fileInfo.s3_key || fileInfo.file_path;
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'https://policy-tracker-platform-backend.onrender.com/api'}/public/files/${encodeURIComponent(fileIdentifier)}`;
+        window.open(fileUrl, '_blank');
+      } else if (fileInfo.s3_url) {
+        // Fallback to direct S3 URL if available
+        window.open(fileInfo.s3_url, '_blank');
       } else if (fileInfo.data) {
-        // For base64 stored files  
+        // For base64 stored files
         const byteCharacters = atob(fileInfo.data);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: fileInfo.type });
+        const blob = new Blob([byteArray], { type: fileInfo.type || 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
       } else {
