@@ -595,26 +595,38 @@ const PolicySubmissionForm = () => {
   };
 
   const determinePolicyArea = (extractedData) => {
-    // Simple logic to determine policy area based on content
-    // You can enhance this with more sophisticated classification
-    const description = extractedData.policyDescription?.toLowerCase() || "";
-    const name = extractedData.policyName?.toLowerCase() || "";
-    const content = `${name} ${description}`;
+  // Improved logic to determine policy area based on content and AI analysis field
+  const description = extractedData.policyDescription?.toLowerCase() || "";
+  const name = extractedData.policyName?.toLowerCase() || "";
+  const content = `${name} ${description}`;
+  const aiArea = extractedData.policy_area?.toLowerCase() || "";
 
-    // Check for keywords to classify into policy areas (using actual IDs from constants)
-    if (content.includes("healthcare") || content.includes("medical") || content.includes("health")) return "physical-health";
-    if (content.includes("education") || content.includes("learning")) return "digital-education";
-    if (content.includes("work") || content.includes("employment") || content.includes("job")) return "digital-work";
-    if (content.includes("mental") || content.includes("wellness")) return "mental-health";
-    if (content.includes("cyber") || content.includes("security")) return "cyber-safety";
-    if (content.includes("inclusion") || content.includes("accessibility") || content.includes("digital divide")) return "digital-inclusion";
-    if (content.includes("leisure") || content.includes("gaming") || content.includes("entertainment")) return "digital-leisure";
-    if (content.includes("social media") || content.includes("gaming")) return "social-media-gaming";
-    if (content.includes("disinformation") || content.includes("misinformation") || content.includes("fake news")) return "disinformation";
-    if (content.includes("ai") || content.includes("artificial intelligence") || content.includes("machine learning")) return "ai-safety";
-    
-    // Default to ai-safety if no specific area is detected (since most policies will be AI-related)
-    return "ai-safety";
+  // Direct mapping from AI analysis field
+  if (["healthcare", "health", "physical health", "medical"].includes(aiArea)) return "physical-health";
+  if (["mental health", "wellbeing", "psychology"].includes(aiArea)) return "mental-health";
+  if (["education", "digital education", "learning"].includes(aiArea)) return "digital-education";
+  if (["inclusion", "digital inclusion", "accessibility"].includes(aiArea)) return "digital-inclusion";
+  if (["work", "digital work", "employment"].includes(aiArea)) return "digital-work";
+  if (["leisure", "digital leisure", "entertainment", "gaming"].includes(aiArea)) return "digital-leisure";
+  if (["social media", "gaming regulation"].includes(aiArea)) return "social-media-gaming";
+  if (["disinformation", "misinformation"].includes(aiArea)) return "disinformation";
+  if (["cyber", "cyber-safety", "cybersecurity"].includes(aiArea)) return "cyber-safety";
+  if (["ai safety", "ai", "artificial intelligence", "machine learning"].includes(aiArea)) return "ai-safety";
+
+  // Fallback to keyword matching
+  if (content.match(/healthcare|medical|physical health|wellness|hospital|doctor|nurse|fitness|nutrition|physical/)) return "physical-health";
+  if (content.match(/mental health|psychology|wellbeing|stress|depression|therapy|counseling|mental/)) return "mental-health";
+  if (content.match(/education|learning|school|university|digital literacy|training|curriculum|teacher|student/)) return "digital-education";
+  if (content.match(/inclusion|accessibility|digital divide|equal access|marginalized|disability|barrier/)) return "digital-inclusion";
+  if (content.match(/work|employment|job|remote work|freelance|digital work|career|office/)) return "digital-work";
+  if (content.match(/leisure|gaming|entertainment|recreation|game|play|fun|digital leisure/)) return "digital-leisure";
+  if (content.match(/social media|platform|facebook|twitter|instagram|tiktok|gaming regulation|online community/)) return "social-media-gaming";
+  if (content.match(/disinformation|misinformation|fake news|propaganda|truth|fact-check|rumor/)) return "disinformation";
+  if (content.match(/cyber|security|cybersecurity|online safety|hacking|phishing|data breach|cyber-safety/)) return "cyber-safety";
+  if (content.match(/ai |artificial intelligence|machine learning|automation|ai safety|algorithm/)) return "ai-safety";
+
+  // If no match, return null to prompt user to select area manually
+  return null;
   };
 
   const validateForm = () => {
