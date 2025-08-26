@@ -545,7 +545,7 @@ function PolicyRanking({ setView }) {
             {/* Rankings List */}
             <div className="grid gap-6">
               {sortedPolicies.map((policy, index) => {
-                const policyKey = policy.id ?? policy.name ?? index;
+                const policyKey = policy.id ?? policy.title ?? policy.name ?? index;
                 const isExpanded = !!expandedPolicies[policyKey];
                 return (
                   <div
@@ -560,11 +560,11 @@ function PolicyRanking({ setView }) {
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                            {policy.name}
+                            {policy.title || policy.name || 'Unnamed Policy'}
                             {isExpanded && <span className="ml-2 text-blue-500">▼</span>}
                             {!isExpanded && <span className="ml-2 text-gray-400">▶</span>}
                           </h3>
-                          <p className="text-gray-600">{policy.country} • {policy.year} • {policy.category}</p>
+                          <p className="text-gray-600">{policy.country} • {policy.year || 'Unknown Year'} • {policy.category}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -596,22 +596,26 @@ function PolicyRanking({ setView }) {
                           <div>
                             <h4 className="text-lg font-bold mb-4">Detailed Breakdown</h4>
                             <div className="space-y-4">
-                              {Object.entries(evaluationCriteria).map(([category, questions]) => (
-                                <div key={`breakdown-${category}-${policyKey}`} className="space-y-2">
-                                  <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
-                                  {questions.map((question, qIndex) => {
-                                    // Safely access details array with fallback to empty array
-                                    const categoryData = policy[category] || {};
-                                    const detailsArr = categoryData.details || [];
-                                    const scoreVal = detailsArr[qIndex] ?? 0;
-                                    return (
-                                      <div key={`question-${category}-${policyKey}-${qIndex}`} className="flex items-center gap-2 text-sm">
-                                          <li className="list-disc ml-6 text-gray-700">{question}</li>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ))}
+                              {Object.entries(evaluationCriteria || {}).map(([category, questions]) => {
+                                // Ensure questions is an array to prevent .map() errors
+                                const questionArray = Array.isArray(questions) ? questions : [];
+                                return (
+                                  <div key={`breakdown-${category}-${policyKey}`} className="space-y-2">
+                                    <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
+                                    {questionArray.map((question, qIndex) => {
+                                      // Safely access details array with fallback to empty array
+                                      const categoryData = policy[category] || {};
+                                      const detailsArr = categoryData.details || [];
+                                      const scoreVal = detailsArr[qIndex] ?? 0;
+                                      return (
+                                        <div key={`question-${category}-${policyKey}-${qIndex}`} className="flex items-center gap-2 text-sm">
+                                            <li className="list-disc ml-6 text-gray-700">{question}</li>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                           <div>
@@ -1262,10 +1266,10 @@ function PolicyRanking({ setView }) {
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               {['transparency', 'explainability', 'accountability'].map((metric) => {
-                const scores = policyData.map(p => p[metric]?.score ?? 0)
-                const average = scores.reduce((a, b) => a + b, 0) / scores.length
-                const max = Math.max(...scores)
-                const min = Math.min(...scores)
+                const scores = (policyData || []).map(p => p[metric]?.score ?? 0)
+                const average = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+                const max = scores.length > 0 ? Math.max(...scores) : 0
+                const min = scores.length > 0 ? Math.min(...scores) : 0
                 
                 return (
                   <div key={metric} className="bg-white rounded-2xl shadow-lg p-6">
@@ -1306,11 +1310,14 @@ function PolicyRanking({ setView }) {
                 <div className="h-80">
                   <Bar
                     data={{
-                      labels: sortedPolicies.map(p => p.name.length > 20 ? p.name.substring(0, 20) + '...' : p.name),
+                      labels: (sortedPolicies || []).map(p => {
+                        const policyName = p.title || p.name || 'Unnamed Policy';
+                        return policyName.length > 20 ? policyName.substring(0, 20) + '...' : policyName;
+                      }),
                       datasets: [
                         {
                           label: 'Total Score',
-                          data: sortedPolicies.map(p => p.totalScore),
+                          data: (sortedPolicies || []).map(p => p.totalScore || 0),
                           backgroundColor: 'rgba(59, 130, 246, 0.8)',
                           borderColor: 'rgba(59, 130, 246, 1)',
                           borderWidth: 2,
@@ -1370,13 +1377,15 @@ function PolicyRanking({ setView }) {
                   <Radar
                     data={{
                       labels: ['Transparency', 'Explainability', 'Accountability'],
-                      datasets: sortedPolicies.slice(0, 5).map((policy, index) => ({
-                        label: policy.name.length > 15 ? policy.name.substring(0, 15) + '...' : policy.name,
-                        data: [
-                          policy.transparency?.score ?? 0,
-                          policy.explainability?.score ?? 0,
-                          policy.accountability?.score ?? 0
-                        ],
+                      datasets: (sortedPolicies || []).slice(0, 5).map((policy, index) => {
+                        const policyName = policy.title || policy.name || 'Unnamed Policy';
+                        return {
+                          label: policyName.length > 15 ? policyName.substring(0, 15) + '...' : policyName,
+                          data: [
+                            policy.transparency?.score ?? 0,
+                            policy.explainability?.score ?? 0,
+                            policy.accountability?.score ?? 0
+                          ],
                         borderColor: [
                           'rgba(59, 130, 246, 1)',
                           'rgba(34, 197, 94, 1)', 
@@ -1408,7 +1417,8 @@ function PolicyRanking({ setView }) {
                           'rgba(245, 158, 11, 1)',
                           'rgba(239, 68, 68, 1)'
                         ][index]
-                      }))
+                      };
+                      })
                     }}
                     options={{
                       responsive: true,
@@ -1506,7 +1516,7 @@ function PolicyRanking({ setView }) {
                         {
                           label: 'Average Score',
                           data: ['transparency', 'explainability', 'accountability'].map(metric => {
-                            const scores = policyData.map(p => p[metric]?.score ?? 0)
+                            const scores = (policyData || []).map(p => p[metric]?.score ?? 0)
                             return scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0
                           }),
                           backgroundColor: [
