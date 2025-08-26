@@ -107,10 +107,15 @@ const getCountryAggregatedData = (policyData) => {
 // Helper function to merge TEA scores with policy data
 const mergePolicyWithTeaScores = (submissions, teaScores) => {
   // Use TEA scores as the primary source since they contain evaluated policies with real scores
-  console.log(`Processing ${teaScores.length} TEA scores from database`)
+  console.log(`Processing ${(teaScores || []).length} TEA scores from database`)
+  
+  if (!teaScores || !Array.isArray(teaScores)) {
+    console.warn('TEA scores is not a valid array, returning empty array')
+    return []
+  }
   
   const evaluatedPolicies = teaScores
-    .filter(score => score.isEvaluated)
+    .filter(score => score && score.isEvaluated)
     .map(score => ({
       id: score.policyId,
       policyId: score.policyId,
@@ -126,10 +131,21 @@ const mergePolicyWithTeaScores = (submissions, teaScores) => {
       isEvaluated: true,
       evaluationType: score.evaluationType,
       riskAssessment: score.riskAssessment,
-      // For backward compatibility with existing UI components
-      transparency: { score: parseInt(score.transparencyScore) || 0 },
-      explainability: { score: parseInt(score.explainabilityScore) || 0 },
-      accountability: { score: parseInt(score.accountabilityScore) || 0 }
+      // Add policy_areas array for policy area view compatibility
+      policy_areas: score.policyArea ? [{ area_name: score.policyArea }] : [],
+      // For backward compatibility with existing UI components - add details arrays
+      transparency: { 
+        score: parseInt(score.transparencyScore) || 0,
+        details: Array(5).fill(0) // Default empty details for detailed breakdown
+      },
+      explainability: { 
+        score: parseInt(score.explainabilityScore) || 0,
+        details: Array(5).fill(0) // Default empty details for detailed breakdown
+      },
+      accountability: { 
+        score: parseInt(score.accountabilityScore) || 0,
+        details: Array(4).fill(0) // Default empty details for detailed breakdown
+      }
     }))
   
   console.log(`Extracted ${evaluatedPolicies.length} evaluated policies with real TEA scores from database`)
@@ -228,10 +244,10 @@ function PolicyRanking({ setView }) {
   }, [])
 
   // Use robust country aggregation for countries view
-  const countryData = getCountryAggregatedData(policyData)
+  const countryData = getCountryAggregatedData(policyData || [])
 
   // Normalize category filtering
-  const sortedPolicies = [...policyData]
+  const sortedPolicies = [...(policyData || [])]
     .filter(policy => {
       if (filterCategory === 'all') return true
       // Match by name or id
@@ -584,7 +600,9 @@ function PolicyRanking({ setView }) {
                                 <div key={`breakdown-${category}-${policyKey}`} className="space-y-2">
                                   <h5 className="font-semibold text-gray-800 capitalize">{category}</h5>
                                   {questions.map((question, qIndex) => {
-                                    const detailsArr = policy[category]?.details ?? [];
+                                    // Safely access details array with fallback to empty array
+                                    const categoryData = policy[category] || {};
+                                    const detailsArr = categoryData.details || [];
                                     const scoreVal = detailsArr[qIndex] ?? 0;
                                     return (
                                       <div key={`question-${category}-${policyKey}-${qIndex}`} className="flex items-center gap-2 text-sm">
@@ -625,19 +643,29 @@ function PolicyRanking({ setView }) {
               {/* Policy Areas Selection Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
                 {(() => {
-                  // Get unique areas from actual data - policy_areas is an array
+                  // Get unique areas from actual data - handle both policy_areas array and category string
                   const allAreas = [];
-                  policyData.forEach(policy => {
-                    if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
-                      policy.policy_areas.forEach(area => {
-                        if (area.area_name && !allAreas.includes(area.area_name)) {
-                          allAreas.push(area.area_name);
-                        }
-                      });
-                    }
-                  });
+                  if (Array.isArray(policyData)) {
+                    policyData.forEach(policy => {
+                      if (!policy) return; // Skip null/undefined policies
+                      
+                      // Handle policy_areas array structure
+                      if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+                        policy.policy_areas.forEach(area => {
+                          if (area && area.area_name && !allAreas.includes(area.area_name)) {
+                            allAreas.push(area.area_name);
+                          }
+                        });
+                      }
+                      // Handle category string structure (fallback)
+                      if (policy.category && typeof policy.category === 'string' && !allAreas.includes(policy.category)) {
+                        allAreas.push(policy.category);
+                      }
+                    });
+                  }
                   
                   const categoriesToShow = allAreas.sort();
+                  console.log(`Found ${categoriesToShow.length} policy areas:`, categoriesToShow);
                   
                   if (categoriesToShow.length === 0) {
                     return <div className="col-span-full text-center text-gray-500">No policy areas found in database</div>;
@@ -655,14 +683,27 @@ function PolicyRanking({ setView }) {
                     
                     // Get countries that have policies in this area
                     const areaCountries = [];
-                    policyData.forEach(policy => {
-                      if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
-                        const hasArea = policy.policy_areas.some(pArea => pArea.area_name === area);
+                    if (Array.isArray(policyData)) {
+                      policyData.forEach(policy => {
+                        if (!policy) return; // Skip null/undefined policies
+                        
+                        let hasArea = false;
+                        
+                        // Check policy_areas array structure
+                        if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
+                          hasArea = policy.policy_areas.some(pArea => pArea && pArea.area_name === area);
+                        }
+                        
+                        // Check category string structure (fallback)
+                        if (!hasArea && policy.category === area) {
+                          hasArea = true;
+                        }
+                        
                         if (hasArea && policy.country && !areaCountries.includes(policy.country)) {
                           areaCountries.push(policy.country);
                         }
-                      }
-                    });
+                      });
+                    }
                     
                     return (
                       <button
