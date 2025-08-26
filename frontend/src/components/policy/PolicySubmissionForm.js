@@ -1644,8 +1644,7 @@ const PolicySubmissionForm = () => {
           {/* Enhanced AI Auto-Fill and Submit Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* AI Auto-Fill Card - Enhanced */}
-            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-emerald-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:-rotate-1">
-              {/* Enhanced animated background orbs */}
+            {/* <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-emerald-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:-rotate-1">
               <div className="absolute -top-6 -right-6 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse group-hover:animate-bounce"></div>
               <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-emerald-400/20 rounded-full blur-3xl animate-bounce group-hover:animate-pulse"></div>
               <div className="absolute top-1/2 left-1/2 w-20 h-20 bg-cyan-400/10 rounded-full blur-xl animate-ping"></div>
@@ -1682,63 +1681,15 @@ const PolicySubmissionForm = () => {
                   <span className="text-lg">Launch AI Analysis</span>
                 </button>
               </div>
-            </div>
+            </div> */}
 
             {/* Submit Policies Card - Enhanced */}
-            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-violet-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:rotate-1">
-              {/* Enhanced animated background orbs */}
-              <div className="absolute -top-6 -left-6 w-36 h-36 bg-violet-400/20 rounded-full blur-3xl animate-pulse group-hover:animate-bounce"></div>
-              <div className="absolute -bottom-6 -right-6 w-28 h-28 bg-white/10 rounded-full blur-2xl animate-bounce group-hover:animate-pulse"></div>
-              <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-pink-400/10 rounded-full blur-xl animate-ping"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-center gap-5 mb-6">
-                  <div className="relative">
-                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:-rotate-6 transition-all duration-300">
-                      <svg className="w-8 h-8 text-violet-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                    </div>
-                    <div className="absolute -inset-1 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl blur-md opacity-15"></div>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-black bg-gradient-to-r from-violet-200 via-purple-200 to-white bg-clip-text text-transparent mb-2">Submit Policies</h3>
-                    <p className="text-sm text-white/90 font-semibold">📋 Ready for comprehensive review</p>
-                  </div>
-                </div>
-                
-                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
-                  <p className="text-sm text-white/95 leading-relaxed font-medium">
-                    Submit <span className="font-black text-violet-200 text-base">{getTotalPolicies()}</span> policies across <span className="font-black text-purple-200 text-base">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</span> areas for expert admin review and secure database storage.
-                  </p>
-                </div>
-                
-                <button 
-                  onClick={handleSubmit}
-                  disabled={loading || getTotalPolicies() === 0}
-                  className="w-full px-8 py-4 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl hover:from-violet-400 hover:via-purple-400 hover:to-indigo-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-none flex items-center justify-center gap-4 border border-violet-400/30"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full"></div>
-                      <span className="text-lg">Submitting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-6 h-6 group-hover:-rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                      <span className="text-lg">Submit for Review</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Total Policies Card */}
-            {/* <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            <div className="group relative bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -right-2 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1753,10 +1704,10 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div> */}
+            </div>
 
             {/* Areas Covered Card */}
-            {/* <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            <div className="group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -bottom-2 -left-2 w-20 h-20 bg-violet-400/20 rounded-full blur-2xl animate-bounce"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1771,10 +1722,10 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div> */}
+            </div>
 
             {/* Max per Area Card */}
-            {/* <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
+            <div className="group relative bg-gradient-to-br from-orange-600 via-red-600 to-pink-700 rounded-2xl shadow-2xl border border-white/20 p-6 text-white overflow-hidden hover:shadow-3xl transition-all duration-500 transform hover:scale-105">
               <div className="absolute -top-2 -left-2 w-12 h-12 bg-white/15 rounded-full blur-lg animate-pulse"></div>
               <div className="relative z-10">
                 <div className="flex items-center gap-4">
@@ -1789,7 +1740,7 @@ const PolicySubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div> */}
+            </div>
           </div>
 
           {/* Messages */}
@@ -1861,6 +1812,55 @@ const PolicySubmissionForm = () => {
             </div>
           </div>
         )}
+
+        <div className="mt-8 group relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-3xl shadow-2xl border border-white/20 p-8 text-white overflow-hidden hover:shadow-violet-500/25 transition-all duration-700 transform hover:scale-[1.03] hover:rotate-1">
+              <div className="absolute -top-6 -left-6 w-36 h-36 bg-violet-400/20 rounded-full blur-3xl animate-pulse group-hover:animate-bounce"></div>
+              <div className="absolute -bottom-6 -right-6 w-28 h-28 bg-white/10 rounded-full blur-2xl animate-bounce group-hover:animate-pulse"></div>
+              <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-pink-400/10 rounded-full blur-xl animate-ping"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-gradient-to-br from-white/25 to-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/30 shadow-lg group-hover:-rotate-6 transition-all duration-300">
+                      <svg className="w-8 h-8 text-violet-100 group-hover:scale-105 transition-transform duration-300 drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-violet-400 to-purple-400 rounded-2xl blur-md opacity-15"></div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-black bg-gradient-to-r from-violet-200 via-purple-200 to-white bg-clip-text text-transparent mb-2">Submit Policies</h3>
+                    <p className="text-sm text-white/90 font-semibold">📋 Ready for comprehensive review</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6 p-4 bg-white/15 rounded-2xl backdrop-blur-sm border border-white/20 transform transition-all duration-300 hover:bg-white/20">
+                  <p className="text-sm text-white/95 leading-relaxed font-medium">
+                    Submit <span className="font-black text-violet-200 text-base">{getTotalPolicies()}</span> policies across <span className="font-black text-purple-200 text-base">{Object.values(policyAreasState).filter(policies => policies.length > 0).length}</span> areas for expert admin review and secure database storage.
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={handleSubmit}
+                  disabled={loading || getTotalPolicies() === 0}
+                  className="w-full px-8 py-4 bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 text-white font-bold rounded-2xl hover:from-violet-400 hover:via-purple-400 hover:to-indigo-400 transition-all duration-300 transform hover:scale-102 hover:-translate-y-0.5 shadow-lg hover:shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-none flex items-center justify-center gap-4 border border-violet-400/30"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin w-6 h-6 border-3 border-white border-t-transparent rounded-full"></div>
+                      <span className="text-lg">Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 group-hover:-rotate-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      <span className="text-lg">Submit for Review</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
 
         {/* Auto-Fill Modal */}
         {showAutoFillModal && (
