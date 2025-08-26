@@ -578,6 +578,76 @@ async def get_policy_trends(
             detail="Failed to get policy trends"
         )
 
+@router.get("/tea-scores")
+async def get_tea_scores():
+    """
+    Get all stored TEA scores from the database for ranking purposes.
+    Returns only policies that have been evaluated (isEvaluated = true).
+    """
+    try:
+        logger.info("Fetching TEA scores for ranking")
+        
+        # Get TEA scores from DynamoDB table
+        from config.dynamodb import dynamodb_client
+        
+        # Use the existing client
+        client = dynamodb_client.client
+        table_name = "ai_policy_database_map_policies"
+        
+        try:
+            # Scan the table to get all policies with evaluation data
+            response = client.scan(TableName=table_name)
+            
+            tea_scores = []
+            for item in response.get('Items', []):
+                # Extract evaluation data if it exists
+                evaluation = item.get('evaluation', {}).get('M', {})
+                is_evaluated = evaluation.get('isEvaluated', {}).get('BOOL', False)
+                
+                if is_evaluated:
+                    # Convert DynamoDB format to regular format
+                    tea_score = {
+                        'policyId': item.get('map_policy_id', {}).get('S', ''),
+                        'policyName': item.get('policy_name', {}).get('S', ''),
+                        'country': item.get('country', {}).get('S', ''),
+                        'policyArea': item.get('policy_area', {}).get('S', ''),
+                        'transparencyScore': int(evaluation.get('transparencyScore', {}).get('N', '0')),
+                        'explainabilityScore': int(evaluation.get('explainabilityScore', {}).get('N', '0')),
+                        'accountabilityScore': int(evaluation.get('accountabilityScore', {}).get('N', '0')),
+                        'isEvaluated': is_evaluated,
+                        'evaluationType': evaluation.get('evaluationType', {}).get('S', ''),
+                        'riskAssessment': evaluation.get('riskAssessment', {}).get('BOOL', False)
+                    }
+                    tea_scores.append(tea_score)
+            
+            logger.info(f"Retrieved {len(tea_scores)} TEA scores from database")
+            
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "success": True,
+                    "data": tea_scores,
+                    "count": len(tea_scores),
+                    "message": f"Retrieved {len(tea_scores)} evaluated policies with TEA scores"
+                }
+            )
+            
+        except Exception as db_error:
+            logger.error(f"Database error retrieving TEA scores: {str(db_error)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Database error: {str(db_error)}"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving TEA scores: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Internal server error: {str(e)}"
+        )
+
 @router.get("/health")
 async def ai_analysis_health():
     """Health check for AI analysis service"""
@@ -589,7 +659,8 @@ async def ai_analysis_health():
             "policy_analysis",
             "country_analysis", 
             "country_comparison",
-            "scoring_algorithms"
+            "scoring_algorithms",
+            "tea_scores_retrieval"
         ]
     }
 

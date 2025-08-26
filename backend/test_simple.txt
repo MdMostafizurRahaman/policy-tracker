@@ -1,1 +1,0 @@
-AI Safety Guidelines: All systems must provide transparency, explainability, and accountability.

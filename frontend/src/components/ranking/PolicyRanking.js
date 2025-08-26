@@ -47,10 +47,30 @@ const fetchPolicyData = async () => {
   }
 }
 
+// Fetch TEA scores from ai_policy_database_map_policies table
+const fetchTeaScores = async () => {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || ''
+    const apiUrl = `${baseUrl}/ai-analysis/tea-scores`
+    const res = await fetch(apiUrl)
+    if (!res.ok) {
+      console.warn('TEA scores endpoint not available, falling back to calculated scores')
+      return []
+    }
+    const result = await res.json()
+    return result.data || []
+  } catch (err) {
+    console.error('Error fetching TEA scores:', err)
+    return []
+  }
+}
+
 // Country aggregation function
 const getCountryAggregatedData = (policyData) => {
   const countryData = {}
   if (!policyData || !policyData.length) return []
+  
+  // Include all policies regardless of evaluation status for fallback
   policyData.forEach(policy => {
     if (!countryData[policy.country]) {
       countryData[policy.country] = {
@@ -72,96 +92,51 @@ const getCountryAggregatedData = (policyData) => {
     }
     countryData[policy.country].categories[policy.category]++
   })
+  
   Object.keys(countryData).forEach(country => {
     const data = countryData[country]
     const policies = data.policies
-    data.avgTransparency = policies.length ? (policies.reduce((sum, p) => sum + (p.transparency?.score ?? 0), 0) / policies.length) : 0
-    data.avgExplainability = policies.length ? (policies.reduce((sum, p) => sum + (p.explainability?.score ?? 0), 0) / policies.length) : 0
-    data.avgAccountability = policies.length ? (policies.reduce((sum, p) => sum + (p.accountability?.score ?? 0), 0) / policies.length) : 0
-    data.avgTotalScore = policies.length ? (policies.reduce((sum, p) => sum + (p.totalScore ?? 0), 0) / policies.length) : 0
+    data.avgTransparency = policies.length ? (policies.reduce((sum, p) => sum + (p.transparencyScore ?? 0), 0) / policies.length) : 0
+    data.avgExplainability = policies.length ? (policies.reduce((sum, p) => sum + (p.explainabilityScore ?? 0), 0) / policies.length) : 0
+    data.avgAccountability = policies.length ? (policies.reduce((sum, p) => sum + (p.accountabilityScore ?? 0), 0) / policies.length) : 0
+    data.avgTotalScore = policies.length ? (policies.reduce((sum, p) => sum + ((p.transparencyScore ?? 0) + (p.explainabilityScore ?? 0) + (p.accountabilityScore ?? 0)), 0) / policies.length) : 0
   })
   return Object.values(countryData).sort((a, b) => b.avgTotalScore - a.avgTotalScore)
 }
 
-// Scoring calculation functions based on evaluation criteria
-const calculatePolicyScores = (policy) => {
-  let transparencyScore = 0;
-  let explainabilityScore = 0;
-  let accountabilityScore = 0;
+// Helper function to merge TEA scores with policy data
+const mergePolicyWithTeaScores = (submissions, teaScores) => {
+  // Use TEA scores as the primary source since they contain evaluated policies with real scores
+  console.log(`Processing ${teaScores.length} TEA scores from database`)
   
-  // Check if policy has policy_areas with evaluation data
-  if (policy.policy_areas && Array.isArray(policy.policy_areas)) {
-    policy.policy_areas.forEach(area => {
-      if (area.policies && Array.isArray(area.policies)) {
-        area.policies.forEach(policyDetail => {
-          const evaluation = policyDetail.evaluation || {};
-          
-          // Transparency Score Calculation (0-10)
-          if (evaluation.transparency) {
-            // Question 1: Is the full policy document publicly accessible?
-            transparencyScore += getQuestionScore(evaluation.transparency.q1, 2);
-            // Question 2: Does the policy clearly list stakeholders?
-            transparencyScore += getQuestionScore(evaluation.transparency.q2, 2);
-            // Question 3: Was there public consultation?
-            transparencyScore += getQuestionScore(evaluation.transparency.q3, 2);
-            // Question 4: Open data or reporting?
-            transparencyScore += getQuestionScore(evaluation.transparency.q4, 2);
-            // Question 5: Decision-making criteria disclosed?
-            transparencyScore += getQuestionScore(evaluation.transparency.q5, 2);
-          }
-          
-          // Explainability Score Calculation (0-10)
-          if (evaluation.explainability) {
-            // Question 1: Human-interpretable outputs required?
-            explainabilityScore += getQuestionScore(evaluation.explainability.q1, 2);
-            // Question 2: Explanations tailored to audience?
-            explainabilityScore += getQuestionScore(evaluation.explainability.q2, 2);
-            // Question 3: Decision-making processes documented?
-            explainabilityScore += getQuestionScore(evaluation.explainability.q3, 2);
-            // Question 4: Users informed about AI decisions?
-            explainabilityScore += getQuestionScore(evaluation.explainability.q4, 2);
-            // Question 5: Guidance for explainability in deployment?
-            explainabilityScore += getQuestionScore(evaluation.explainability.q5, 2);
-          }
-          
-          // Accountability Score Calculation (0-10)
-          if (evaluation.accountability) {
-            // Question 1: Responsibility for AI decisions assigned?
-            accountabilityScore += getQuestionScore(evaluation.accountability.q1, 2);
-            // Question 2: Auditing or oversight mechanisms?
-            accountabilityScore += getQuestionScore(evaluation.accountability.q2, 2);
-            // Question 3: Redress or appeal mechanisms?
-            accountabilityScore += getQuestionScore(evaluation.accountability.q3, 2);
-            // Question 4: Liability for misuse clearly outlined?
-            accountabilityScore += getQuestionScore(evaluation.accountability.q4, 2);
-            // Question 5: Governing/regulatory body identified?
-            accountabilityScore += getQuestionScore(evaluation.accountability.q5, 2);
-          }
-        });
-      }
-    });
-  }
+  const evaluatedPolicies = teaScores
+    .filter(score => score.isEvaluated)
+    .map(score => ({
+      id: score.policyId,
+      policyId: score.policyId,
+      title: score.policyName || 'Unnamed Policy',
+      country: score.country,
+      category: score.policyArea,
+      transparencyScore: parseInt(score.transparencyScore) || 0,
+      explainabilityScore: parseInt(score.explainabilityScore) || 0,
+      accountabilityScore: parseInt(score.accountabilityScore) || 0,
+      totalScore: (parseInt(score.transparencyScore) || 0) + 
+                 (parseInt(score.explainabilityScore) || 0) + 
+                 (parseInt(score.accountabilityScore) || 0),
+      isEvaluated: true,
+      evaluationType: score.evaluationType,
+      riskAssessment: score.riskAssessment,
+      // For backward compatibility with existing UI components
+      transparency: { score: parseInt(score.transparencyScore) || 0 },
+      explainability: { score: parseInt(score.explainabilityScore) || 0 },
+      accountability: { score: parseInt(score.accountabilityScore) || 0 }
+    }))
   
-  return {
-    transparency: Math.min(transparencyScore, 10),
-    explainability: Math.min(explainabilityScore, 10),
-    accountability: Math.min(accountabilityScore, 10),
-    total: Math.min(transparencyScore + explainabilityScore + accountabilityScore, 30)
-  };
-};
-
-// Helper function to convert answer to score
-const getQuestionScore = (answer, maxScore) => {
-  if (!answer) return 0;
-  const normalizedAnswer = answer.toLowerCase();
+  console.log(`Extracted ${evaluatedPolicies.length} evaluated policies with real TEA scores from database`)
+  console.log('Sample policy:', evaluatedPolicies[0])
   
-  // Yes/Fully = full points
-  if (normalizedAnswer.includes('yes') || normalizedAnswer.includes('fully')) return maxScore;
-  // Partial/Limited = half points  
-  if (normalizedAnswer.includes('partial') || normalizedAnswer.includes('limited')) return maxScore / 2;
-  // No = 0 points
-  return 0;
-};
+  return evaluatedPolicies
+}
 
 const evaluationCriteria = {
   transparency: [
@@ -233,8 +208,20 @@ function PolicyRanking({ setView }) {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
-      const data = await fetchPolicyData()
-      setPolicyData(data)
+      try {
+        // Fetch both policy data and TEA scores
+        const [policiesData, teaScoresData] = await Promise.all([
+          fetchPolicyData(),
+          fetchTeaScores()
+        ])
+        
+        // Merge policies with TEA scores, filtering only evaluated policies
+        const mergedData = mergePolicyWithTeaScores(policiesData, teaScoresData)
+        setPolicyData(mergedData)
+      } catch (error) {
+        console.error('Error loading data:', error)
+        setPolicyData([])
+      }
       setLoading(false)
     }
     loadData()
@@ -253,8 +240,25 @@ function PolicyRanking({ setView }) {
       return matchByName || matchById
     })
     .sort((a, b) => {
-      const aVal = sortBy === 'totalScore' ? (a.totalScore ?? 0) : (a[sortBy]?.score ?? 0)
-      const bVal = sortBy === 'totalScore' ? (b.totalScore ?? 0) : (b[sortBy]?.score ?? 0)
+      let aVal, bVal
+      
+      if (sortBy === 'totalScore') {
+        aVal = a.totalScore ?? 0
+        bVal = b.totalScore ?? 0
+      } else if (sortBy === 'transparency') {
+        aVal = a.transparencyScore ?? 0
+        bVal = b.transparencyScore ?? 0
+      } else if (sortBy === 'explainability') {
+        aVal = a.explainabilityScore ?? 0
+        bVal = b.explainabilityScore ?? 0
+      } else if (sortBy === 'accountability') {
+        aVal = a.accountabilityScore ?? 0
+        bVal = b.accountabilityScore ?? 0
+      } else {
+        aVal = a[sortBy] ?? 0
+        bVal = b[sortBy] ?? 0
+      }
+      
       return sortOrder === 'desc' ? bVal - aVal : aVal - bVal
     })
 
@@ -584,13 +588,7 @@ function PolicyRanking({ setView }) {
                                     const scoreVal = detailsArr[qIndex] ?? 0;
                                     return (
                                       <div key={`question-${category}-${policyKey}-${qIndex}`} className="flex items-center gap-2 text-sm">
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                          scoreVal === 2 ? 'bg-green-500' :
-                                          scoreVal === 1 ? 'bg-yellow-500' : 'bg-red-500'
-                                        }`}>
-                                          {scoreVal}
-                                        </div>
-                                        <span className="text-gray-700">{question}</span>
+                                          <li className="list-disc ml-6 text-gray-700">{question}</li>
                                       </div>
                                     );
                                   })}
@@ -618,7 +616,6 @@ function PolicyRanking({ setView }) {
             {/* Policy Area Selection */}
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                <span className="text-3xl">�</span>
                 Select Policy Area for Country Comparison
               </h3>
               <p className="text-gray-600 mb-6">
@@ -726,14 +723,17 @@ function PolicyRanking({ setView }) {
                           };
                         }
                         
-                        // Calculate scores for this policy
-                        const policyScores = calculatePolicyScores(policy);
+                        // Use TEA scores directly from the policy
+                        const policyTotalScore = policy.totalScore ?? 0;
+                        const policyTransparencyScore = policy.transparencyScore ?? 0;
+                        const policyExplainabilityScore = policy.explainabilityScore ?? 0;
+                        const policyAccountabilityScore = policy.accountabilityScore ?? 0;
                         
                         areaCountries[policy.country].policies.push(policy);
-                        areaCountries[policy.country].totalScore += policyScores.total;
-                        areaCountries[policy.country].transparencyScore += policyScores.transparency;
-                        areaCountries[policy.country].explainabilityScore += policyScores.explainability;
-                        areaCountries[policy.country].accountabilityScore += policyScores.accountability;
+                        areaCountries[policy.country].totalScore += policyTotalScore;
+                        areaCountries[policy.country].transparencyScore += policyTransparencyScore;
+                        areaCountries[policy.country].explainabilityScore += policyExplainabilityScore;
+                        areaCountries[policy.country].accountabilityScore += policyAccountabilityScore;
                         areaCountries[policy.country].policyCount++;
                       }
                     }
