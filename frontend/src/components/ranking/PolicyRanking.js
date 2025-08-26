@@ -564,7 +564,7 @@ function PolicyRanking({ setView }) {
                             {isExpanded && <span className="ml-2 text-blue-500">▼</span>}
                             {!isExpanded && <span className="ml-2 text-gray-400">▶</span>}
                           </h3>
-                          <p className="text-gray-600">{policy.country} • {policy.year || 'Unknown Year'} • {policy.category}</p>
+                          <p className="text-gray-600">{policy.country} • {policy.category}</p>
                         </div>
                       </div>
                       <div className="text-right">
