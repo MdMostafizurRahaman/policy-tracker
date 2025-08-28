@@ -551,7 +551,7 @@ export default function AdminDashboard() {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+          {/* <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -605,10 +605,10 @@ export default function AdminDashboard() {
                 <p className="text-2xl font-bold text-slate-900">{statistics.policies?.master || 0}</p>
               </div>
             </div>
-          </div>
+          </div> */}
           
           {/* Visit Statistics Card */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
+          {/* <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center">
               <div className="p-3 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-xl shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -626,11 +626,11 @@ export default function AdminDashboard() {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Detailed Visit Analytics */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-slate-900">Website Analytics</h3>
@@ -673,8 +673,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </div> 
+        </div>*/}
 
         {/* Filters and Search */}
         <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-white/20 mb-6 p-6">
