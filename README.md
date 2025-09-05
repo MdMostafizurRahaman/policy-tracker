@@ -31,10 +31,6 @@ Live Demo: [https://policy-tracker-f.onrender.com/](https://policy-tracker-f.onr
 
 ```sh
 cd backend
-<<<<<<< HEAD
-poetry install         # or pip install -r requirements.txt
-poetry run uvicorn main:app --reload
-=======
 ```
 
 2. Create virtual environment:
@@ -94,5 +90,4 @@ npm run build
 2. Start production server:
 ```bash
 npm start
->>>>>>> 6e97e192b086c174d8e38447457a9a201c718aa2
 ```
