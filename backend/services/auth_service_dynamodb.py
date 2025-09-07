@@ -60,7 +60,7 @@ class AuthService:
             # Check if user already exists
             existing_user = await User.find_by_email(registration_data.email)
             if existing_user:
-                return {"status": "error", "message": "User with this email already exists"}
+                raise Exception("User with this email already exists")
             
             # Combine firstName and lastName to create full_name
             full_name = f"{registration_data.firstName} {registration_data.lastName}".strip()
@@ -76,7 +76,7 @@ class AuthService:
             )
             
             if not user:
-                return {"status": "error", "message": "Failed to create user"}
+                raise Exception("Failed to create user")
             
             # Generate OTP for email verification
             otp = generate_otp()
@@ -103,18 +103,20 @@ class AuthService:
             )
             
             response = {
-                "status": "success",
-                "message": "User registered successfully. Please verify your email.",
                 "user": {
                     "user_id": user.user_id,
                     "email": user.email,
                     "firstName": registration_data.firstName,
                     "lastName": registration_data.lastName,
                     "country": registration_data.country,
-                    "is_email_verified": user.is_email_verified
+                    "is_email_verified": user.is_email_verified,
+                    "role": user.role,
+                    "is_admin": user.role in ['admin', 'super_admin'],
+                    "is_super_admin": user.role == 'super_admin'
                 },
                 "access_token": access_token,
                 "token_type": "bearer",
+                "message": "User registered successfully. Please verify your email.",
                 "email_sent": email_sent
             }
             
@@ -133,7 +135,7 @@ class AuthService:
             
         except Exception as e:
             logger.error(f"Registration error: {str(e)}")
-            return {"status": "error", "message": "Registration failed"}
+            raise Exception(f"Registration failed: {str(e)}")
     
     async def login_user(self, login_data: UserLogin) -> Dict[str, Any]:
         """Authenticate user login"""
@@ -141,15 +143,19 @@ class AuthService:
             # Find user by email
             user = await User.find_by_email(login_data.email)
             if not user:
-                return {"status": "error", "message": "Invalid email or password"}
+                raise Exception("Invalid email or password")
             
             # Verify password
             if not user.verify_password(login_data.password):
-                return {"status": "error", "message": "Invalid email or password"}
+                raise Exception("Invalid email or password")
             
             # Check if user is active
             if not user.is_active:
-                return {"status": "error", "message": "Account is disabled"}
+                raise Exception("Account is disabled")
+            
+            # Check if email is verified (only for newer users who have this field)
+            if hasattr(user, 'is_email_verified') and user.is_email_verified is False:
+                raise Exception("Please verify your email address before logging in")
             
             # Update last login
             await user.update({
@@ -163,8 +169,6 @@ class AuthService:
             )
             
             return {
-                "status": "success",
-                "message": "Login successful",
                 "user": {
                     "user_id": user.user_id,
                     "email": user.email,
@@ -173,15 +177,18 @@ class AuthService:
                     "lastName": user.lastName,
                     "country": user.country,
                     "is_email_verified": user.is_email_verified,
-                    "role": user.role
+                    "role": user.role,
+                    "is_admin": user.role in ['admin', 'super_admin'],
+                    "is_super_admin": user.role == 'super_admin'
                 },
                 "access_token": access_token,
-                "token_type": "bearer"
+                "token_type": "bearer",
+                "message": "Login successful"
             }
             
         except Exception as e:
             logger.error(f"Login error: {str(e)}")
-            return {"status": "error", "message": "Login failed"}
+            raise Exception(f"Login failed: {str(e)}")
     
     async def google_auth(self, google_data: GoogleAuthRequest) -> Dict[str, Any]:
         """Authenticate user with Google OAuth"""
@@ -450,25 +457,28 @@ class AuthService:
                 )
                 
                 return {
-                    "status": "success",
-                    "message": "Admin login successful",
                     "user": {
                         "user_id": admin_user.user_id,
                         "email": admin_user.email,
                         "name": admin_user.name,
-                        "role": admin_user.role
+                        "firstName": "Super",
+                        "lastName": "Admin",
+                        "role": admin_user.role,
+                        "is_admin": True,
+                        "is_super_admin": True
                     },
                     "access_token": access_token,
-                    "token_type": "bearer"
+                    "token_type": "bearer",
+                    "message": "Admin login successful"
                 }
             
             # Regular admin login
             user = await User.find_by_email(login_data.email)
             if not user or user.role not in ['admin', 'super_admin']:
-                return {"status": "error", "message": "Invalid admin credentials"}
+                raise Exception("Invalid admin credentials")
             
             if not user.verify_password(login_data.password):
-                return {"status": "error", "message": "Invalid admin credentials"}
+                raise Exception("Invalid admin credentials")
             
             # Update last login
             await user.update({
@@ -482,21 +492,24 @@ class AuthService:
             )
             
             return {
-                "status": "success",
-                "message": "Admin login successful",
                 "user": {
                     "user_id": user.user_id,
                     "email": user.email,
-                    "full_name": user.full_name,
-                    "role": user.role
+                    "name": user.name,
+                    "firstName": user.firstName,
+                    "lastName": user.lastName,
+                    "role": user.role,
+                    "is_admin": user.role in ['admin', 'super_admin'],
+                    "is_super_admin": user.role == 'super_admin'
                 },
                 "access_token": access_token,
-                "token_type": "bearer"
+                "token_type": "bearer",
+                "message": "Admin login successful"
             }
             
         except Exception as e:
             logger.error(f"Admin login error: {str(e)}")
-            return {"status": "error", "message": "Admin login failed"}
+            raise Exception(f"Admin login failed: {str(e)}")
     
     async def get_current_user(self, token: str) -> Optional[Dict[str, Any]]:
         """Get current user from token"""
