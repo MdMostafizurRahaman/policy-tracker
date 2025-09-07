@@ -70,7 +70,11 @@ class ApiService {
       if (response.status === 401) {
         localStorage.removeItem('access_token');
         localStorage.removeItem('userData');
-        throw new Error('Invalid token - please login again');
+          // If this is a login request, show a user-friendly error
+          if (endpoint.includes('/auth/login')) {
+            throw new Error('Invalid email or password. Please try again.');
+          }
+          throw new Error('Session expired or unauthorized. Please login again.');
       }
       
       // Handle non-JSON responses
