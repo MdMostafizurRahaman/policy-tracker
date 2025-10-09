@@ -229,7 +229,7 @@ Important: Return ONLY the JSON object, no additional text or explanations.
             }
             
             payload = {
-                "model": "llama3-8b-8192",  # GROQ's model
+                "model": "llama3-70b-8192",
                 "messages": [
                     {"role": "system", "content": "You are a policy analysis expert. Extract key information from policy documents and return only valid JSON responses with no additional text."},
                     {"role": "user", "content": prompt}
