@@ -24,15 +24,15 @@ class AIAnalysisService:
         pass
     
     def extract_text_from_file(self, file_content: bytes, filename: str) -> str:
-        """Extract text content from uploaded file"""
+        """Extract text content from uploaded file with improved error handling"""
         try:
             text_content = ""
             file_extension = filename.lower().split('.')[-1]
             
-            logger.info(f"Extracting text from {filename} (type: {file_extension})")
+            logger.info(f"Extracting text from {filename} (type: {file_extension}, size: {len(file_content)} bytes)")
             
             if file_extension == 'pdf':
-                # Extract text from PDF
+                # Extract text from PDF with improved error handling
                 try:
                     pdf_file = io.BytesIO(file_content)
                     pdf_reader = PyPDF2.PdfReader(pdf_file)
@@ -40,56 +40,75 @@ class AIAnalysisService:
                     logger.info(f"PDF has {len(pdf_reader.pages)} pages")
                     
                     for page_num, page in enumerate(pdf_reader.pages):
-                        page_text = page.extract_text()
-                        if page_text.strip():
-                            text_content += page_text + "\n"
-                            logger.info(f"Extracted {len(page_text)} characters from page {page_num + 1}")
-                        else:
-                            logger.warning(f"Page {page_num + 1} appears to be empty or image-based")
+                        try:
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                text_content += page_text + "\n"
+                                logger.info(f"Extracted {len(page_text)} characters from page {page_num + 1}")
+                            else:
+                                logger.warning(f"Page {page_num + 1} appears to be empty or image-based")
+                        except Exception as page_error:
+                            logger.warning(f"Error extracting text from page {page_num + 1}: {page_error}")
+                            continue
                     
                     if not text_content.strip():
                         logger.warning("PDF text extraction yielded no content - may be image-based PDF")
+                        return ""
                         
                 except Exception as pdf_error:
                     logger.error(f"PDF extraction error: {pdf_error}")
                     return ""
                     
             elif file_extension in ['doc', 'docx']:
-                # Extract text from Word document
+                # Extract text from Word document with improved error handling
                 try:
                     doc_file = io.BytesIO(file_content)
                     document = Document(doc_file)
                     
                     logger.info(f"Word document has {len(document.paragraphs)} paragraphs")
                     
+                    # Extract text from paragraphs
+                    paragraph_count = 0
                     for paragraph in document.paragraphs:
-                        if paragraph.text.strip():
+                        if paragraph.text and paragraph.text.strip():
                             text_content += paragraph.text + "\n"
+                            paragraph_count += 1
+                    
+                    logger.info(f"Extracted text from {paragraph_count} paragraphs")
                     
                     # Also extract text from tables if any
+                    table_count = 0
                     for table in document.tables:
                         for row in table.rows:
                             for cell in row.cells:
-                                if cell.text.strip():
+                                if cell.text and cell.text.strip():
                                     text_content += cell.text + " "
                         text_content += "\n"
+                        table_count += 1
+                    
+                    if table_count > 0:
+                        logger.info(f"Extracted text from {table_count} tables")
                         
                 except Exception as doc_error:
                     logger.error(f"Word document extraction error: {doc_error}")
                     return ""
                     
             elif file_extension == 'txt':
-                # Extract text from plain text file
+                # Extract text from plain text file with multiple encoding support
                 try:
-                    # Try different encodings
-                    encodings = ['utf-8', 'utf-16', 'latin-1', 'cp1252']
+                    # Try different encodings in order of likelihood
+                    encodings = ['utf-8', 'utf-16', 'utf-16-le', 'utf-16-be', 'latin-1', 'cp1252', 'ascii']
                     
                     for encoding in encodings:
                         try:
                             text_content = file_content.decode(encoding)
-                            logger.info(f"Successfully decoded text file using {encoding}")
+                            logger.info(f"Successfully decoded text file using {encoding} encoding")
                             break
-                        except UnicodeDecodeError:
+                        except UnicodeDecodeError as decode_error:
+                            logger.debug(f"Failed to decode with {encoding}: {decode_error}")
+                            continue
+                        except Exception as encoding_error:
+                            logger.debug(f"Error with {encoding} encoding: {encoding_error}")
                             continue
                     
                     if not text_content:
@@ -105,17 +124,25 @@ class AIAnalysisService:
                 return ""
             
             # Clean and validate extracted text
-            text_content = text_content.strip()
-            
             if text_content:
-                logger.info(f"Successfully extracted {len(text_content)} characters from {filename}")
-                # Log first 200 characters for debugging
-                logger.info(f"Text preview: {text_content[:200]}...")
+                # Remove excessive whitespace and normalize line endings
+                text_content = '\n'.join(line.strip() for line in text_content.split('\n') if line.strip())
+                
+                # Remove control characters except newlines and tabs
+                import re
+                text_content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text_content)
+                
+                logger.info(f"Successfully extracted and cleaned {len(text_content)} characters from {filename}")
+                
+                # Log first 300 characters for debugging (increased from 200)
+                preview = text_content[:300].replace('\n', ' ')
+                logger.info(f"Text preview: {preview}...")
+                
+                return text_content
             else:
                 logger.warning(f"No text content extracted from {filename}")
+                return ""
                 
-            return text_content
-            
         except Exception as e:
             logger.error(f"Text extraction failed for {filename}: {str(e)}")
             return ""
@@ -229,7 +256,7 @@ Important: Return ONLY the JSON object, no additional text or explanations.
             }
             
             payload = {
-                "model": "llama3-70b-8192",
+                "model": "llama-3.1-8b-instant",
                 "messages": [
                     {"role": "system", "content": "You are a policy analysis expert. Extract key information from policy documents and return only valid JSON responses with no additional text."},
                     {"role": "user", "content": prompt}

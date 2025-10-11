@@ -408,7 +408,8 @@ const PolicySubmissionForm = () => {
       uploadFormData.append('file', file);
       uploadFormData.append('policy_area', suggestedArea);
       uploadFormData.append('country', formData.country || 'Unknown');
-      uploadFormData.append('description', `Policy document uploaded for analysis`);
+      uploadFormData.append('description', `Policy document uploaded for auto-fill analysis`);
+      uploadFormData.append('auto_fill_mode', 'true'); // Flag to indicate this is for auto-fill
 
       // Upload and analyze in one call (no double upload!)
       const response = await apiService.post('/policy/upload-policy-file', uploadFormData, {
@@ -424,12 +425,17 @@ const PolicySubmissionForm = () => {
       
       // Debug: Log the response to see what we're getting
       console.log("AI Analysis Response:", { success: true, data: extractedData });
-      console.log("extractedData.data:", extractedData);
+      console.log("extractedData:", extractedData);
       
       // Check if we have useful extracted data
       let finalSuggestedArea = suggestedArea;
       if (extractedData && Object.keys(extractedData).length > 0) {
         finalSuggestedArea = determinePolicyArea(extractedData);
+      }
+
+      // If auto-categorization failed, use default or first available area
+      if (!finalSuggestedArea || finalSuggestedArea === null) {
+        finalSuggestedArea = POLICY_AREAS[0]?.id || "AI and Technology";
       }
 
       // Create new policy with extracted data and file info
@@ -453,24 +459,24 @@ const PolicySubmissionForm = () => {
         }
       };
 
-      // Add to the appropriate policy area
+      // Add to the appropriate policy area and update selection
       setPolicyAreasState(prev => {
         // Ensure the policy area exists and is an array
         const currentAreaPolicies = prev[finalSuggestedArea] || [];
+        const newPolicies = [...currentAreaPolicies, newPolicy];
+        
+        // Update selection state after adding the policy
+        setTimeout(() => {
+          setSelectedPolicyArea(finalSuggestedArea);
+          setSelectedPolicyIndex(newPolicies.length - 1); // Index of newly added policy
+          setActiveTab("basic");
+        }, 0);
+        
         return {
           ...prev,
-          [finalSuggestedArea]: [...currentAreaPolicies, newPolicy]
+          [finalSuggestedArea]: newPolicies
         };
       });
-
-      // Select the newly created policy for editing
-      setSelectedPolicyArea(finalSuggestedArea);
-      const currentAreaLength = (policyAreasState[finalSuggestedArea] || []).length;
-      setSelectedPolicyIndex(currentAreaLength);
-      setActiveTab("basic");
-      
-      setShowAutoFillModal(false);
-      setAutoFillFile(null);
       
       // Update country if extracted from AI analysis
       if (extractedData?.country && extractedData.country !== 'Unknown') {
@@ -482,6 +488,12 @@ const PolicySubmissionForm = () => {
       } else {
         setSuccess("File uploaded successfully! AI analysis was not available, please fill in the details manually.");
       }
+
+      // Close modal after a brief delay to ensure state updates complete
+      setTimeout(() => {
+        setShowAutoFillModal(false);
+        setAutoFillFile(null);
+      }, 100);
 
     } catch (error) {
       console.error("Auto-fill error:", error);
@@ -595,38 +607,86 @@ const PolicySubmissionForm = () => {
   };
 
   const determinePolicyArea = (extractedData) => {
-  // Improved logic to determine policy area based on content and AI analysis field
-  const description = extractedData.policyDescription?.toLowerCase() || "";
-  const name = extractedData.policyName?.toLowerCase() || "";
-  const content = `${name} ${description}`;
-  const aiArea = extractedData.policy_area?.toLowerCase() || "";
+    // Improved logic to determine policy area based on content and AI analysis field
+    const description = extractedData.policyDescription?.toLowerCase() || "";
+    const name = extractedData.policyName?.toLowerCase() || "";
+    const title = extractedData.title?.toLowerCase() || "";
+    const summary = extractedData.summary?.toLowerCase() || "";
+    const aiArea = extractedData.policy_area?.toLowerCase() || "";
+    const content = `${name} ${description} ${title} ${summary}`;
 
-  // Direct mapping from AI analysis field
-  if (["healthcare", "health", "physical health", "medical"].includes(aiArea)) return "physical-health";
-  if (["mental health", "wellbeing", "psychology"].includes(aiArea)) return "mental-health";
-  if (["education", "digital education", "learning"].includes(aiArea)) return "digital-education";
-  if (["inclusion", "digital inclusion", "accessibility"].includes(aiArea)) return "digital-inclusion";
-  if (["work", "digital work", "employment"].includes(aiArea)) return "digital-work";
-  if (["leisure", "digital leisure", "entertainment", "gaming"].includes(aiArea)) return "digital-leisure";
-  if (["social media", "gaming regulation"].includes(aiArea)) return "social-media-gaming";
-  if (["disinformation", "misinformation"].includes(aiArea)) return "disinformation";
-  if (["cyber", "cyber-safety", "cybersecurity"].includes(aiArea)) return "cyber-safety";
-  if (["ai safety", "ai", "artificial intelligence", "machine learning"].includes(aiArea)) return "ai-safety";
+    // Enhanced mapping from AI analysis field with more variations
+    const areaMapping = {
+      "physical-health": ["healthcare", "health", "physical health", "medical", "fitness", "wellness", "nutrition", "hospital", "doctor", "medicine"],
+      "mental-health": ["mental health", "wellbeing", "psychology", "mental wellness", "therapy", "counseling", "stress", "depression", "anxiety"],
+      "digital-education": ["education", "digital education", "learning", "school", "university", "training", "curriculum", "e-learning", "online learning"],
+      "digital-inclusion": ["inclusion", "digital inclusion", "accessibility", "digital divide", "equal access", "marginalized", "disability", "barrier"],
+      "digital-work": ["work", "digital work", "employment", "job", "remote work", "freelance", "career", "office", "workplace"],
+      "digital-leisure": ["leisure", "digital leisure", "entertainment", "recreation", "hobby", "fun", "play", "sports"],
+      "social-media-gaming": ["social media", "gaming regulation", "platform", "facebook", "twitter", "instagram", "tiktok", "gaming", "video games"],
+      "disinformation": ["disinformation", "misinformation", "fake news", "propaganda", "truth", "fact-check", "rumor", "false information"],
+      "cyber-safety": ["cyber", "cyber-safety", "cybersecurity", "online safety", "hacking", "phishing", "data breach", "internet security"],
+      "ai-safety": ["ai safety", "ai", "artificial intelligence", "machine learning", "automation", "algorithm", "deep learning", "neural network"]
+    };
 
-  // Fallback to keyword matching
-  if (content.match(/healthcare|medical|physical health|wellness|hospital|doctor|nurse|fitness|nutrition|physical/)) return "physical-health";
-  if (content.match(/mental health|psychology|wellbeing|stress|depression|therapy|counseling|mental/)) return "mental-health";
-  if (content.match(/education|learning|school|university|digital literacy|training|curriculum|teacher|student/)) return "digital-education";
-  if (content.match(/inclusion|accessibility|digital divide|equal access|marginalized|disability|barrier/)) return "digital-inclusion";
-  if (content.match(/work|employment|job|remote work|freelance|digital work|career|office/)) return "digital-work";
-  if (content.match(/leisure|gaming|entertainment|recreation|game|play|fun|digital leisure/)) return "digital-leisure";
-  if (content.match(/social media|platform|facebook|twitter|instagram|tiktok|gaming regulation|online community/)) return "social-media-gaming";
-  if (content.match(/disinformation|misinformation|fake news|propaganda|truth|fact-check|rumor/)) return "disinformation";
-  if (content.match(/cyber|security|cybersecurity|online safety|hacking|phishing|data breach|cyber-safety/)) return "cyber-safety";
-  if (content.match(/ai |artificial intelligence|machine learning|automation|ai safety|algorithm/)) return "ai-safety";
+    // Direct mapping from AI analysis field with comprehensive matching
+    for (const [area, keywords] of Object.entries(areaMapping)) {
+      if (keywords.some(keyword => aiArea.includes(keyword))) {
+        return area;
+      }
+    }
 
-  // If no match, return null to prompt user to select area manually
-  return null;
+    // Enhanced keyword matching with scoring system
+    const areaScores = {};
+    
+    for (const [area, keywords] of Object.entries(areaMapping)) {
+      let score = 0;
+      keywords.forEach(keyword => {
+        // Count occurrences of each keyword
+        const regex = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        const matches = content.match(regex);
+        if (matches) {
+          score += matches.length;
+        }
+      });
+      
+      if (score > 0) {
+        areaScores[area] = score;
+      }
+    }
+
+    // Return the area with the highest score
+    if (Object.keys(areaScores).length > 0) {
+      const bestMatch = Object.keys(areaScores).reduce((a, b) => 
+        areaScores[a] > areaScores[b] ? a : b
+      );
+      console.log(`Auto-categorization: "${bestMatch}" with score ${areaScores[bestMatch]}`);
+      return bestMatch;
+    }
+
+    // Fallback mapping for common government/policy terms
+    const generalTerms = {
+      "AI and Technology": ["technology", "digital", "innovation", "internet", "computer", "software", "data", "tech"],
+      "Healthcare": ["patient", "treatment", "clinic", "pharmacy", "drug", "medical device"],
+      "Education": ["student", "teacher", "academic", "research", "knowledge", "skill"],
+      "Environment": ["climate", "environment", "green", "sustainability", "carbon", "pollution", "renewable"],
+      "Economy": ["economic", "financial", "money", "business", "trade", "investment", "market"],
+      "Social Policy": ["social", "community", "public", "citizen", "people", "society"]
+    };
+
+    for (const [area, keywords] of Object.entries(generalTerms)) {
+      if (keywords.some(keyword => content.includes(keyword))) {
+        // Try to map general terms to specific policy areas
+        if (area === "AI and Technology") return "ai-safety";
+        if (area === "Healthcare") return "physical-health";
+        if (area === "Education") return "digital-education";
+        // For others, return null to let user choose
+      }
+    }
+
+    // If no match found, return null to prompt user to select area manually
+    console.log("Auto-categorization failed - no suitable area found");
+    return null;
   };
 
   const validateForm = () => {

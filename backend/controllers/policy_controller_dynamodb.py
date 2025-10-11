@@ -348,6 +348,7 @@ async def upload_policy_file(
     policy_area: str = Form(...),
     country: str = Form(...),
     description: Optional[str] = Form(None),
+    auto_fill_mode: Optional[str] = Form(None),  # Flag to indicate auto-fill mode
     current_user: dict = Depends(get_current_user)
 ):
     """Upload policy file to AWS S3 and perform AI analysis"""
@@ -380,7 +381,8 @@ async def upload_policy_file(
             "description": description,
             "uploaded_by": current_user.get("email"),
             "user_id": str(current_user.get("user_id", current_user.get("_id"))),
-            "upload_type": "policy_document"
+            "upload_type": "policy_document",
+            "auto_fill_mode": auto_fill_mode == "true"  # Convert to boolean
         }
         
         # Upload to S3
@@ -398,7 +400,7 @@ async def upload_policy_file(
                 await file.seek(0)  # Reset file pointer
                 
                 # Import AI service and analyze
-                from services.ai_analysis_service import ai_analysis_service
+                from services.ai_analysis_service_dynamodb import ai_analysis_service
                 text_content = ai_analysis_service.extract_text_from_file(file_content, file.filename)
                 
                 if text_content.strip():
@@ -410,6 +412,7 @@ async def upload_policy_file(
                 # Continue with upload even if AI analysis fails
         
         # Save file metadata to DynamoDB with AI analysis
+        # Only save to file metadata table, not create a policy submission unless explicitly requested
         file_metadata = FileMetadata(
             file_id=result.get('file_id'),
             user_id=current_user.get('user_id', current_user.get('_id')),

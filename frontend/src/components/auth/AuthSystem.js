@@ -283,12 +283,21 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       return;
     }
 
+    if (!validateEmail(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await apiService.auth.login({ 
         email: formData.email, 
         password: formData.password 
       });
+
+      if (!data.user || !data.access_token) {
+        throw new Error('Invalid response from server');
+      }
 
       // Store auth data
       localStorage.setItem('access_token', data.access_token);
@@ -309,11 +318,16 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
         setTimeout(() => setView("home"), 1500);
       }
     } catch (err) {
-      if (err.message.includes('verify')) {
+      console.error('Login error:', err);
+      if (err.message.includes('verify') || err.message.includes('email') && err.message.includes('not verified')) {
         setError('Please verify your email first. Check your inbox for verification code.');
         setCurrentView('otp');
+      } else if (err.message.includes('credentials') || err.message.includes('password') || err.message.includes('invalid')) {
+        setError('Invalid email or password. Please try again.');
+      } else if (err.message.includes('404') || err.message.includes('not found')) {
+        setError('Account not found. Please register first.');
       } else {
-        setError('Invalid credentials. Please try again.');
+        setError(err.message || 'Login failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -361,6 +375,11 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
       return;
     }
 
+    if (!formData.email) {
+      setError('Email is required for verification');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = await apiService.auth.verifyEmail({
@@ -368,11 +387,23 @@ const AuthSystem = ({ setView, setUser, initialView = 'login' }) => {
         otp: formData.otp
       });
       
-      setSuccess('Email verified successfully! 🎉 You can now log in.');
-      setCurrentView('login');
-      setOtpTimer(0);
+      if (data.status === 'success') {
+        setSuccess('Email verified successfully! 🎉 You can now log in.');
+        setCurrentView('login');
+        setOtpTimer(0);
+        resetFormData();
+      } else {
+        throw new Error(data.message || 'Verification failed');
+      }
     } catch (err) {
-      setError(err.message || 'Invalid verification code. Please try again.');
+      console.error('OTP verification error:', err);
+      if (err.message.includes('expired')) {
+        setError('Verification code has expired. Please request a new one.');
+      } else if (err.message.includes('invalid') || err.message.includes('Invalid')) {
+        setError('Invalid verification code. Please check and try again.');
+      } else {
+        setError(err.message || 'Invalid verification code. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
